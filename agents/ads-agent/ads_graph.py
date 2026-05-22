@@ -24,21 +24,153 @@ class AdsAgentState(TypedDict):
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Unavailable metrics declaration
 # ---------------------------------------------------------------------------
 
-def safe_float(value, default=0.0):
+UNAVAILABLE_METRICS = [
+    "revenue",
+    "roas",
+    "impression_share",
+    "quality_score",
+    "search_term_data",
+    "creative_split",
+    "device_split",
+    "geo_split",
+    "ga4_revenue",
+]
+
+
+# ---------------------------------------------------------------------------
+# Helpers — type coercion
+# ---------------------------------------------------------------------------
+
+def safe_float(value, default=None):
+    if value is None or value == "":
+        return default
     try:
         return float(value)
     except (TypeError, ValueError):
-        return float(default)
+        return default
 
 
-def safe_int(value, default=0):
+def safe_int(value, default=None):
+    if value is None or value == "":
+        return default
     try:
         return int(float(value))
     except (TypeError, ValueError):
-        return int(default)
+        return default
+
+
+# ---------------------------------------------------------------------------
+# Helpers — derived metrics
+# ---------------------------------------------------------------------------
+
+def calculate_derived_metrics(metrics: dict) -> dict:
+    spend = metrics.get("spend")
+    conversions = metrics.get("conversions")
+    clicks = metrics.get("clicks")
+    impressions = metrics.get("impressions")
+
+    cpa = metrics.get("cpa")
+    if cpa is None and spend is not None and conversions and conversions > 0:
+        cpa = spend / conversions
+
+    ctr = clicks / impressions if (impressions and impressions > 0 and clicks is not None) else None
+    cpc = spend / clicks if (clicks and clicks > 0 and spend is not None) else None
+    conversion_rate = conversions / clicks if (clicks and clicks > 0 and conversions is not None) else None
+    cpm = spend / impressions * 1000 if (impressions and impressions > 0 and spend is not None) else None
+
+    return {
+        "cpa": cpa,
+        "ctr": ctr,
+        "cpc": cpc,
+        "conversion_rate": conversion_rate,
+        "cpm": cpm,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Helpers — classification
+# ---------------------------------------------------------------------------
+
+def classify_cpa(cpa, conversions) -> str:
+    if conversions is None or conversions <= 0:
+        return "no_conversions"
+    if cpa is None:
+        return "unknown"
+    if cpa <= 2000:
+        return "efficient"
+    if cpa <= 4000:
+        return "needs_optimization"
+    return "inefficient"
+
+
+def classify_ctr(ctr, impressions=None, clicks=None) -> str:
+    if ctr is None:
+        return "unknown"
+    if ctr >= 0.03:
+        return "strong"
+    if ctr >= 0.01:
+        return "acceptable"
+    return "weak"
+
+
+def classify_conversion_rate(conversion_rate, clicks=None) -> str:
+    if conversion_rate is None:
+        return "unknown"
+    if conversion_rate >= 0.05:
+        return "strong"
+    if conversion_rate >= 0.02:
+        return "acceptable"
+    return "weak"
+
+
+def classify_spend_efficiency(spend, conversions, cpa_level, conversion_rate_level) -> str:
+    if spend and spend > 0 and (conversions is None or conversions == 0):
+        return "critical"
+    if cpa_level == "efficient" and conversion_rate_level == "strong":
+        return "strong"
+    if cpa_level == "needs_optimization":
+        return "moderate"
+    if cpa_level == "inefficient":
+        return "weak"
+    return "unknown"
+
+
+def score_performance(cpa_level, ctr_level, conversion_rate_level, conversions) -> int:
+    score = 50
+
+    if cpa_level == "efficient":
+        score += 25
+    elif cpa_level == "needs_optimization":
+        score += 10
+    elif cpa_level == "inefficient":
+        score -= 15
+    elif cpa_level == "no_conversions":
+        score -= 30
+
+    if ctr_level == "strong":
+        score += 10
+    elif ctr_level == "weak":
+        score -= 10
+
+    if conversion_rate_level == "strong":
+        score += 15
+    elif conversion_rate_level == "weak":
+        score -= 10
+
+    return max(0, min(100, score))
+
+
+def map_status(score, spend_efficiency) -> str:
+    if spend_efficiency == "critical":
+        return "critical"
+    if score >= 70:
+        return "efficient"
+    if score >= 40:
+        return "warning"
+    return "critical"
 
 
 # ---------------------------------------------------------------------------
@@ -84,21 +216,33 @@ def normalize_metrics(state: AdsAgentState) -> dict:
     cpa_raw = data.get("cpa")
     cpa = safe_float(cpa_raw) if cpa_raw is not None else None
 
-    spend = safe_float(data.get("spend", 0))
-    conversions = safe_int(data.get("conversions", 0))
+    spend = safe_float(data.get("spend", 0), default=0.0)
+    conversions = safe_int(data.get("conversions", 0), default=0)
+    clicks = safe_int(data.get("clicks", 0), default=0)
+    impressions = safe_int(data.get("impressions", 0), default=0)
 
-    if cpa is None and conversions > 0:
+    if cpa is None and conversions and conversions > 0:
         cpa = spend / conversions
 
+    ctr = clicks / impressions if impressions and impressions > 0 else None
+    cpc = spend / clicks if clicks and clicks > 0 else None
+    conversion_rate = conversions / clicks if clicks and clicks > 0 else None
+    cpm = spend / impressions * 1000 if impressions and impressions > 0 else None
+
     normalized = {
-        "client":      data.get("client", state.get("client_id", "")),
-        "campaign":    data.get("campaign", ""),
-        "spend":       spend,
-        "conversions": conversions,
-        "clicks":      safe_int(data.get("clicks", 0)),
-        "impressions": safe_int(data.get("impressions", 0)),
-        "currency":    data.get("currency", "ARS"),
-        "cpa":         cpa,
+        "client":              data.get("client", state.get("client_id", "")),
+        "campaign":            data.get("campaign", ""),
+        "spend":               spend,
+        "conversions":         conversions,
+        "clicks":              clicks,
+        "impressions":         impressions,
+        "currency":            data.get("currency", "ARS"),
+        "cpa":                 cpa,
+        "ctr":                 ctr,
+        "cpc":                 cpc,
+        "conversion_rate":     conversion_rate,
+        "cpm":                 cpm,
+        "unavailable_metrics": UNAVAILABLE_METRICS,
     }
     return {"normalized_metrics": normalized}
 
@@ -107,32 +251,56 @@ def analyze_performance(state: AdsAgentState) -> dict:
     metrics = state.get("normalized_metrics") or {}
     cpa = metrics.get("cpa")
     conversions = metrics.get("conversions", 0)
+    spend = metrics.get("spend", 0)
+    ctr = metrics.get("ctr")
+    conversion_rate = metrics.get("conversion_rate")
 
-    if conversions == 0:
-        cpa_level, status = "no_conversions", "no_conversions"
-        notes = ["Campaign has spend but no recorded conversions."]
-    elif cpa is None:
-        cpa_level, status = "unknown", "unknown"
-        notes = ["CPA could not be determined."]
-    elif cpa <= 2000:
-        cpa_level, status = "efficient", "healthy"
-        notes = ["Campaign is performing within an efficient CPA range."]
-    elif cpa <= 4000:
-        cpa_level, status = "needs_optimization", "warning"
-        notes = ["Campaign is converting, but CPA optimization is recommended."]
-    else:
-        cpa_level, status = "inefficient", "critical"
-        notes = ["CPA is high. Budget, targeting, and creatives should be reviewed."]
+    cpa_level = classify_cpa(cpa, conversions)
+    ctr_level = classify_ctr(ctr)
+    conversion_rate_level = classify_conversion_rate(conversion_rate)
+    spend_efficiency = classify_spend_efficiency(spend, conversions, cpa_level, conversion_rate_level)
+    performance_score = score_performance(cpa_level, ctr_level, conversion_rate_level, conversions)
+    status = map_status(performance_score, spend_efficiency)
 
-    conversion_volume = conversions
+    notes = []
+    risk_flags = []
+
+    if cpa_level == "efficient":
+        notes.append("Campaign is performing within an efficient CPA range.")
+    elif cpa_level == "needs_optimization":
+        notes.append("Campaign is converting, but CPA optimization is recommended.")
+    elif cpa_level == "inefficient":
+        notes.append("CPA is high. Budget, targeting, and creatives should be reviewed.")
+        risk_flags.append("CPA exceeds 4000 threshold.")
+    elif cpa_level == "no_conversions":
+        notes.append("Campaign has spend but no recorded conversions.")
+        risk_flags.append("Zero conversions with active spend.")
+
+    if ctr_level == "weak":
+        risk_flags.append("CTR below 1% — ad creative may need improvement.")
+    elif ctr_level == "strong":
+        notes.append("CTR is strong.")
+
+    if conversion_rate_level == "weak":
+        risk_flags.append("Conversion rate below 2% — landing page review recommended.")
+    elif conversion_rate_level == "strong":
+        notes.append("Conversion rate is strong.")
+
+    # Preserve legacy conversion_level for backward compatibility
+    conversion_volume = conversions or 0
     conversion_level = "high" if conversion_volume > 100 else "medium" if conversion_volume > 30 else "low"
 
     return {
         "analysis": {
-            "status": status,
-            "cpa_level": cpa_level,
-            "conversion_level": conversion_level,
-            "notes": notes,
+            "status":                status,
+            "performance_score":     performance_score,
+            "cpa_level":             cpa_level,
+            "ctr_level":             ctr_level,
+            "conversion_rate_level": conversion_rate_level,
+            "spend_efficiency":      spend_efficiency,
+            "conversion_level":      conversion_level,
+            "notes":                 notes,
+            "risk_flags":            risk_flags,
         }
     }
 
@@ -145,7 +313,7 @@ def generate_recommendations(state: AdsAgentState) -> dict:
 
     recommendations = []
 
-    if status == "no_conversions":
+    if status == "no_conversions" or cpa_level == "no_conversions":
         recommendations.append({
             "priority": "high",
             "area": "Conversions",
@@ -171,7 +339,7 @@ def generate_recommendations(state: AdsAgentState) -> dict:
             ),
         })
 
-    if conversion_level == "low" and status not in ("no_conversions", "unknown"):
+    if conversion_level == "low" and cpa_level not in ("no_conversions", "unknown"):
         recommendations.append({
             "priority": "medium",
             "area": "Volume",
@@ -214,8 +382,10 @@ def format_response(state: AdsAgentState) -> dict:
     elif request_type == "conversions":
         data = {
             "metrics": {
-                "campaign":    metrics.get("campaign"),
-                "conversions": metrics.get("conversions"),
+                "campaign":        metrics.get("campaign"),
+                "conversions":     metrics.get("conversions"),
+                "clicks":          metrics.get("clicks"),
+                "conversion_rate": metrics.get("conversion_rate"),
             },
             "analysis": {},
             "recommendations": [],
@@ -229,9 +399,10 @@ def format_response(state: AdsAgentState) -> dict:
                 "currency":    metrics.get("currency"),
             },
             "analysis": {
-                "cpa_level": analysis.get("cpa_level"),
-                "status":    analysis.get("status"),
-                "notes":     analysis.get("notes", []),
+                "cpa_level":         analysis.get("cpa_level"),
+                "performance_score": analysis.get("performance_score"),
+                "status":            analysis.get("status"),
+                "notes":             analysis.get("notes", []),
             },
             "recommendations": [],
         }
@@ -289,18 +460,18 @@ def _route_after_analyze(state: AdsAgentState) -> str:
 def _build_graph() -> object:
     graph = StateGraph(AdsAgentState)
 
-    graph.add_node("validate_input",         validate_input)
-    graph.add_node("fetch_metrics_from_n8n", fetch_metrics_from_n8n)
-    graph.add_node("normalize_metrics",      normalize_metrics)
-    graph.add_node("analyze_performance",    analyze_performance)
+    graph.add_node("validate_input",           validate_input)
+    graph.add_node("fetch_metrics_from_n8n",   fetch_metrics_from_n8n)
+    graph.add_node("normalize_metrics",        normalize_metrics)
+    graph.add_node("analyze_performance",      analyze_performance)
     graph.add_node("generate_recommendations", generate_recommendations)
-    graph.add_node("format_response",        format_response)
+    graph.add_node("format_response",          format_response)
 
     graph.add_edge(START, "validate_input")
-    graph.add_conditional_edges("validate_input",         _route_after_validate)
-    graph.add_conditional_edges("fetch_metrics_from_n8n", _route_after_fetch)
-    graph.add_conditional_edges("normalize_metrics",      _route_after_normalize)
-    graph.add_conditional_edges("analyze_performance",    _route_after_analyze)
+    graph.add_conditional_edges("validate_input",           _route_after_validate)
+    graph.add_conditional_edges("fetch_metrics_from_n8n",   _route_after_fetch)
+    graph.add_conditional_edges("normalize_metrics",        _route_after_normalize)
+    graph.add_conditional_edges("analyze_performance",      _route_after_analyze)
     graph.add_edge("generate_recommendations", "format_response")
     graph.add_edge("format_response", END)
 
