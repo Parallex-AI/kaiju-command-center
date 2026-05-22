@@ -106,6 +106,35 @@ Available chat commands: `CPA`, `Conversiones`, `Resumen`, `¿Cómo viene la cam
 
 > **Note:** The `/webhook-test/` URL is a temporary n8n test endpoint. The agent must always use `/webhook/ads-agent-demo` (production). Never use `/webhook-test/` in Python agent code.
 
+## V1 LangGraph Graph Demo
+
+The graph demo runs a multi-step LangGraph `StateGraph` through the Ads Agent pipeline: validate → fetch → normalize → analyze → recommend → format. It is isolated and does not affect the Router or any V0 path.
+
+**Dependency install (into `.venv`):**
+```bash
+~/kaiju/.venv/bin/python3 -m pip install langgraph
+```
+
+Or install from the requirements file:
+```bash
+~/kaiju/.venv/bin/pip install -r ~/kaiju/agents/ads-agent/requirements.txt
+```
+
+**Run the graph demo:**
+```bash
+cd ~/kaiju/agents/ads-agent
+
+~/kaiju/.venv/bin/python3 run_graph_demo.py              # defaults to summary
+~/kaiju/.venv/bin/python3 run_graph_demo.py summary
+~/kaiju/.venv/bin/python3 run_graph_demo.py cpa
+~/kaiju/.venv/bin/python3 run_graph_demo.py conversions
+~/kaiju/.venv/bin/python3 run_graph_demo.py raw
+```
+
+The graph response envelope includes `execution_mode: "graph"`, `metrics`, `analysis`, and `recommendations` for `summary`; focused subsets for `cpa` and `conversions`; and the raw n8n payload for `raw`.
+
+> The legacy scripts `run_n8n_demo.py` and `chat_n8n_demo.py` are unchanged and continue to work independently of the graph.
+
 ## Status
 
-MVP complete with local demo and n8n webhook integration.
+V0 complete. V1 LangGraph graph demo isolated and working (branch: `v1-langgraph`).
