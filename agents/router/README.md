@@ -96,7 +96,87 @@ Available commands: `Resumen`, `CPA`, `Conversiones`, `Raw`, `JSON`, `¿Cómo vi
 
 All commands are routed through `route_request()` — no direct calls to the Ads Agent.
 
+## HTTP Server
+
+The Router exposes a local HTTP API via FastAPI.
+
+### Dependencies
+
+```bash
+sudo apt install python3-pip        # if pip is not available
+pip3 install -r requirements.txt    # fastapi, uvicorn, requests
+```
+
+### Start the server
+
+```bash
+cd ~/kaiju/agents/router
+python3 -m uvicorn server:app --host 0.0.0.0 --port 8000
+```
+
+> This is for local development only. The server is not production-hardened.
+
+### Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | Service metadata |
+| `GET` | `/health` | Health check |
+| `POST` | `/route` | Dispatch a request to an agent |
+
+### Health check
+
+```bash
+curl http://localhost:8000/health
+```
+
+Expected response:
+```json
+{"ok": true, "service": "kaiju-command-center-router", "status": "healthy"}
+```
+
+### Route requests
+
+```bash
+# summary
+curl -X POST http://localhost:8000/route \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}'
+
+# cpa
+curl -X POST http://localhost:8000/route \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"cpa"}'
+
+# conversions
+curl -X POST http://localhost:8000/route \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"conversions"}'
+
+# raw
+curl -X POST http://localhost:8000/route \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"raw"}'
+```
+
+### Error path tests
+
+```bash
+# unsupported agent
+curl -X POST http://localhost:8000/route \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"analytics-agent","request":"summary"}'
+
+# unsupported request type
+curl -X POST http://localhost:8000/route \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"invalid"}'
+```
+
+Both return structured `ok: false` JSON — no server 500.
+
 ## Status
 
-V0 — Router functional. Dispatches to Ads Agent via n8n production webhook.
+V0 — Router functional with CLI, chat, and HTTP API.
+Dispatches to Ads Agent via n8n production webhook.
 OpenClaw gateway not yet implemented.
