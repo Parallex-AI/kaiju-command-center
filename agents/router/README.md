@@ -175,8 +175,30 @@ curl -X POST http://localhost:8000/route \
 
 Both return structured `ok: false` JSON — no server 500.
 
+## Execution Mode
+
+The Router supports two Ads Agent execution modes controlled by `ADS_AGENT_EXECUTION_MODE`.
+
+| Value | Behaviour |
+|---|---|
+| unset (default) | `graph` — LangGraph multi-step pipeline |
+| `graph` | `graph` — explicit graph mode |
+| `legacy` | `legacy` — direct n8n call (V0 path) |
+| any other value | `graph` — falls back to graph |
+
+Responses include `"execution_mode": "graph"` or `"execution_mode": "legacy"` so callers can observe which path ran.
+
+**Run in legacy mode (opt-out):**
+```bash
+ADS_AGENT_EXECUTION_MODE=legacy ~/kaiju/.venv/bin/python3 -m uvicorn server:app --host 0.0.0.0 --port 8000
+```
+
+**Run V0 smoke test against legacy mode:**
+```bash
+ADS_AGENT_EXECUTION_MODE=legacy ~/kaiju/scripts/smoke_test_v0.sh
+```
+
 ## Status
 
-V0 — Router functional with CLI, chat, and HTTP API.
-Dispatches to Ads Agent via n8n production webhook.
+V1.3 — Graph mode is the default. Legacy mode available via `ADS_AGENT_EXECUTION_MODE=legacy`.
 OpenClaw gateway not yet implemented.

@@ -200,11 +200,21 @@ export ADS_AGENT_EXECUTION_MODE=graph
 ~/kaiju/.venv/bin/python3 -m uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-### Phase V1.3 — Graph mode as default
+### Phase V1.3 — Graph mode as default ✓ Complete
 
-- Set `ADS_AGENT_EXECUTION_MODE=graph` as the new default
-- Keep `legacy` as an explicit opt-out
-- Add graph mode to smoke test
+From V1.3, `graph` is the default execution mode. No env var is needed to run in graph mode.
+
+- `ADS_AGENT_EXECUTION_MODE` unset → `graph`
+- `ADS_AGENT_EXECUTION_MODE=graph` → `graph`
+- `ADS_AGENT_EXECUTION_MODE=legacy` → `legacy` (explicit opt-out)
+- `ADS_AGENT_EXECUTION_MODE=<invalid>` → `graph` fallback
+
+To run the Router in legacy mode:
+```bash
+ADS_AGENT_EXECUTION_MODE=legacy ~/kaiju/.venv/bin/python3 -m uvicorn server:app --host 0.0.0.0 --port 8000
+```
+
+The V1 graph smoke test (`scripts/smoke_test_v1_graph.sh`) now validates both default graph mode (no env var) and explicit legacy opt-out in a single run.
 
 ### Phase V1.4 — Richer analysis and recommendations
 

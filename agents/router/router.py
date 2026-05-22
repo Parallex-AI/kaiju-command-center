@@ -14,9 +14,9 @@ ROUTER_ID = "kaiju-command-center-router"
 
 
 def get_ads_agent_execution_mode() -> str:
-    mode = os.getenv("ADS_AGENT_EXECUTION_MODE", "legacy").strip().lower()
+    mode = os.getenv("ADS_AGENT_EXECUTION_MODE", "graph").strip().lower()
     if mode not in {"legacy", "graph"}:
-        return "legacy"
+        return "graph"
     return mode
 
 

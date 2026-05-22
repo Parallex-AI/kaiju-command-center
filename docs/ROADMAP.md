@@ -35,9 +35,9 @@ Goal: Replace stateless agent dispatch with a stateful LangGraph workflow for mu
 
 ### Implementation phases
 
-- [ ] **V1.1** — Graph scaffold: `ads_graph.py`, `run_graph_demo.py`, no Router integration
-- [ ] **V1.2** — Execution mode flag: `ADS_AGENT_EXECUTION_MODE=legacy|graph`
-- [ ] **V1.3** — Graph mode as default, legacy as fallback
+- [x] **V1.1** — Graph scaffold: `ads_graph.py`, `run_graph_demo.py`, no Router integration
+- [x] **V1.2** — Execution mode flag: `ADS_AGENT_EXECUTION_MODE=legacy|graph`
+- [x] **V1.3** — Graph mode as default; `ADS_AGENT_EXECUTION_MODE=legacy` as explicit opt-out
 - [ ] **V1.4** — Richer analysis, structured recommendations, report generation
 
 ### Design notes

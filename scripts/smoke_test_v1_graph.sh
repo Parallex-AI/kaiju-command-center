@@ -60,6 +60,25 @@ assert_field() {
     fi
 }
 
+assert_legacy_ok() {
+    local label="$1"
+    local response="$2"
+
+    local ok=false
+    local has_legacy=false
+
+    echo "$response" | grep -q '"ok": true\|"ok":true' && ok=true || true
+    echo "$response" | grep -q '"execution_mode": "legacy"\|"execution_mode":"legacy"' && has_legacy=true || true
+
+    if [ "$ok" = true ] && [ "$has_legacy" = true ]; then
+        pass "$label"
+    else
+        echo "  ✗ $label — expected ok:true and execution_mode:\"legacy\":"
+        echo "$response"
+        exit 1
+    fi
+}
+
 route_post() {
     local data="$1"
     curl -s -X POST "$ROUTER_URL/route" \
@@ -96,7 +115,7 @@ $PYTHON -c "import langgraph" 2>/dev/null && pass "langgraph" || fail "langgraph
 # Section 3: Start Router in graph mode
 # ---------------------------------------------------------------------------
 echo ""
-echo "[3/6] Starting Router in graph mode..."
+echo "[3/7] Starting Router in default graph mode (no env var)..."
 
 if curl -s --max-time 2 "$ROUTER_URL/health" | grep -q '"ok"' 2>/dev/null; then
     echo "  Port 8000 is already in use. Stop the existing Router server before running the V1 graph smoke test."
@@ -104,15 +123,15 @@ if curl -s --max-time 2 "$ROUTER_URL/health" | grep -q '"ok"' 2>/dev/null; then
 fi
 
 cd "$REPO/agents/router"
-ADS_AGENT_EXECUTION_MODE=graph $PYTHON -m uvicorn server:app --host 0.0.0.0 --port 8000 \
+$PYTHON -m uvicorn server:app --host 0.0.0.0 --port 8000 \
     > /tmp/kaiju_v1_uvicorn.log 2>&1 &
 SERVER_PID=$!
-echo "  Server PID: $SERVER_PID (ADS_AGENT_EXECUTION_MODE=graph)"
+echo "  Server PID: $SERVER_PID (ADS_AGENT_EXECUTION_MODE unset — default graph)"
 
 for i in $(seq 1 8); do
     sleep 1
     if curl -s --max-time 2 "$ROUTER_URL/health" | grep -q '"ok"' 2>/dev/null; then
-        pass "Router started in graph mode (waited ${i}s)"
+        pass "Router started in default graph mode (waited ${i}s)"
         break
     fi
     if [ "$i" -eq 8 ]; then
@@ -126,7 +145,7 @@ done
 # Section 4: HTTP graph route tests
 # ---------------------------------------------------------------------------
 echo ""
-echo "[4/6] Testing HTTP graph routes..."
+echo "[4/7] Testing HTTP graph routes..."
 
 # Health
 response=$(curl -s --max-time 5 "$ROUTER_URL/health")
@@ -161,7 +180,7 @@ assert_field     "POST /route raw — contains metrics field"    "metrics"  "$re
 # Section 5: Demo Client through graph mode
 # ---------------------------------------------------------------------------
 echo ""
-echo "[5/6] Testing Demo Client through graph mode..."
+echo "[5/7] Testing Demo Client through graph mode..."
 
 cd "$REPO/projects/demo-client"
 for req in summary cpa conversions raw; do
@@ -183,7 +202,7 @@ done
 # Section 6: Direct Ads Graph demos
 # ---------------------------------------------------------------------------
 echo ""
-echo "[6/6] Testing direct Ads Graph demos..."
+echo "[6/7] Testing direct Ads Graph demos..."
 
 cd "$REPO/agents/ads-agent"
 for req in summary cpa conversions raw; do
@@ -200,6 +219,40 @@ for req in summary cpa conversions raw; do
         exit 1
     fi
 done
+
+# ---------------------------------------------------------------------------
+# Section 7: Explicit legacy opt-out check
+# ---------------------------------------------------------------------------
+echo ""
+echo "[7/7] Testing explicit legacy opt-out (ADS_AGENT_EXECUTION_MODE=legacy)..."
+
+# Stop the default-mode server cleanly before starting legacy server
+kill "$SERVER_PID" 2>/dev/null || true
+wait "$SERVER_PID" 2>/dev/null || true
+SERVER_PID=""
+echo "  Default graph-mode server stopped."
+
+cd "$REPO/agents/router"
+ADS_AGENT_EXECUTION_MODE=legacy $PYTHON -m uvicorn server:app --host 0.0.0.0 --port 8000 \
+    > /tmp/kaiju_v1_uvicorn_legacy.log 2>&1 &
+SERVER_PID=$!
+echo "  Server PID: $SERVER_PID (ADS_AGENT_EXECUTION_MODE=legacy)"
+
+for i in $(seq 1 8); do
+    sleep 1
+    if curl -s --max-time 2 "$ROUTER_URL/health" | grep -q '"ok"' 2>/dev/null; then
+        pass "Legacy Router started (waited ${i}s)"
+        break
+    fi
+    if [ "$i" -eq 8 ]; then
+        echo "  Legacy Router did not become healthy after 8s:"
+        cat /tmp/kaiju_v1_uvicorn_legacy.log
+        exit 1
+    fi
+done
+
+response=$(route_post '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}')
+assert_legacy_ok "POST /route summary — ok + execution_mode:legacy" "$response"
 
 # ---------------------------------------------------------------------------
 # Done
