@@ -1,34 +1,65 @@
 # Kaiju Command Center
 
-Estado actual:
+AI agent lab for Kaiju Digital.
 
-- WSL2 OK
-- Docker OK
-- VS Code OK
+## Current milestone
 
-Objetivo:
+**V0 complete** — tag `v0.0.1`
 
-Cliente
-→ OpenClaw
-→ Router
-→ Agente Ads
-→ n8n
-→ GCP
-→ Respuesta
+Full end-to-end flow from HTTP client through Router to Ads Agent to n8n is working and tested.
 
-Roadmap:
+## Architecture
 
-V0:
-OpenClaw
-Claude Code
-n8n
-GCP
+```
+Demo Client (HTTP POST)
+    ↓
+Router HTTP Server  (FastAPI · localhost:8000)
+    ↓
+Router Core         (route_request · validation · dispatch)
+    ↓
+Ads Agent           (n8n_client · request type routing)
+    ↓
+n8n Webhook         (flows.kaiju.digital · production)
+    ↓
+JSON Response
+```
 
-V1:
-LangGraph
+## Quick start
 
-V2:
-MemPalace
+**1. Start the Router server**
 
-V3:
-SaaS
+```bash
+cd ~/kaiju/agents/router
+~/kaiju/.venv/bin/python3 -m uvicorn server:app --host 0.0.0.0 --port 8000
+```
+
+**2. Run the Demo Client**
+
+```bash
+cd ~/kaiju/projects/demo-client
+~/kaiju/.venv/bin/python3 client.py summary
+~/kaiju/.venv/bin/python3 client.py cpa
+~/kaiju/.venv/bin/python3 client.py conversions
+~/kaiju/.venv/bin/python3 client.py raw
+```
+
+**3. Run the interactive chat client**
+
+```bash
+~/kaiju/.venv/bin/python3 chat_client.py
+```
+
+## Documentation
+
+- [V0 Architecture](docs/V0_ARCHITECTURE.md)
+- [V0 Runbook](docs/V0_RUNBOOK.md)
+- [Roadmap](docs/ROADMAP.md)
+
+## Roadmap summary
+
+| Version | Focus | Status |
+|---|---|---|
+| V0 | Ads Agent · Router · n8n · Demo Client | **Complete** |
+| V1 | LangGraph · stateful analysis | Planned |
+| V2 | MemPalace · persistent client memory | Planned |
+| V3 | OpenClaw · SaaS · multi-tenant · GCP production | Planned |
