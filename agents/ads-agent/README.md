@@ -51,26 +51,58 @@ https://flows.kaiju.digital/webhook/ads-agent-demo
 export N8N_ADS_WEBHOOK_URL=https://flows.kaiju.digital/webhook/ads-agent-demo
 ```
 
-**curl test:**
+### Supported request types
+
+| Type | Description |
+|---|---|
+| `summary` | Full campaign metrics and executive summary |
+| `cpa` | Spend, conversions, and CPA only |
+| `conversions` | Campaign name and conversion count only |
+| `raw` | Raw JSON returned by n8n, formatted with indentation |
+
+### curl examples
+
 ```bash
+# summary
 curl -X POST https://flows.kaiju.digital/webhook/ads-agent-demo \
   -H "Content-Type: application/json" \
   -d '{"client_id": "demo-client", "agent": "ads-agent", "request": "summary"}'
+
+# cpa
+curl -X POST https://flows.kaiju.digital/webhook/ads-agent-demo \
+  -H "Content-Type: application/json" \
+  -d '{"client_id": "demo-client", "agent": "ads-agent", "request": "cpa"}'
+
+# conversions
+curl -X POST https://flows.kaiju.digital/webhook/ads-agent-demo \
+  -H "Content-Type: application/json" \
+  -d '{"client_id": "demo-client", "agent": "ads-agent", "request": "conversions"}'
+
+# raw
+curl -X POST https://flows.kaiju.digital/webhook/ads-agent-demo \
+  -H "Content-Type: application/json" \
+  -d '{"client_id": "demo-client", "agent": "ads-agent", "request": "raw"}'
 ```
 
-**Run the n8n report demo:**
+### Run the n8n report demo
+
 ```bash
 cd ~/kaiju/agents/ads-agent
-python3 run_n8n_demo.py
+python3 run_n8n_demo.py              # defaults to summary
+python3 run_n8n_demo.py summary
+python3 run_n8n_demo.py cpa
+python3 run_n8n_demo.py conversions
+python3 run_n8n_demo.py raw
 ```
 
-**Run the n8n chat demo (Spanish):**
+### Run the n8n chat demo (Spanish)
+
 ```bash
 cd ~/kaiju/agents/ads-agent
 python3 chat_n8n_demo.py
 ```
 
-Available chat commands: `CPA`, `Conversiones`, `Resumen`, `¿Cómo viene la campaña?`, `salir`
+Available chat commands: `CPA`, `Conversiones`, `Resumen`, `¿Cómo viene la campaña?`, `Raw`, `JSON`, `salir`
 
 > **Note:** The `/webhook-test/` URL is a temporary n8n test endpoint. The agent must always use `/webhook/ads-agent-demo` (production). Never use `/webhook-test/` in Python agent code.
 

@@ -4,8 +4,13 @@ import requests
 
 DEFAULT_N8N_WEBHOOK_URL = "https://flows.kaiju.digital/webhook/ads-agent-demo"
 
+VALID_REQUEST_TYPES = {"summary", "cpa", "conversions", "raw"}
+
 
 def fetch_ads_data_from_n8n(client_id="demo-client", request_type="summary"):
+    if request_type not in VALID_REQUEST_TYPES:
+        raise ValueError(f"Unsupported request_type: {request_type}")
+
     webhook_url = os.getenv("N8N_ADS_WEBHOOK_URL", DEFAULT_N8N_WEBHOOK_URL)
 
     payload = {
