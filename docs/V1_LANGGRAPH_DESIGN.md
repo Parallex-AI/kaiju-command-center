@@ -241,6 +241,31 @@ The first V1 implementation (Phase V1.1) is complete when:
 
 ---
 
+## V1 Graph Smoke Test
+
+A dedicated smoke test validates the full graph-mode flow end to end.
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v1_graph.sh
+```
+
+**Key behaviours:**
+- Intentionally refuses to run if port 8000 is already in use — this prevents accidentally testing legacy mode from a running server. Stop any existing Router server first.
+- Starts the Router with `ADS_AGENT_EXECUTION_MODE=graph` in the background.
+- Stops the server on exit via `trap cleanup`.
+- Does **not** replace or modify `scripts/smoke_test_v0.sh`. Both tests are independent and must pass.
+
+**What it validates:**
+1. Virtual environment and all dependencies (`fastapi`, `uvicorn`, `requests`, `langgraph`)
+2. Router starts cleanly in graph mode
+3. HTTP routes: `/health`, `/route summary`, `/route cpa`, `/route conversions`, `/route raw` — each checked for `ok: true` and `execution_mode: "graph"`
+4. `summary` response contains `analysis` and `recommendations` fields
+5. Demo Client (`client.py`) output contains `ok: true` and `execution_mode: "graph"` for all request types
+6. Direct graph demo (`run_graph_demo.py`) output contains `ok: true` and `execution_mode: "graph"` for all request types
+
+---
+
 ## File map for V1.1
 
 ```
