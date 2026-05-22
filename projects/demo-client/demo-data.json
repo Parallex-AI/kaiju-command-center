@@ -1,0 +1,9 @@
+{
+  "client": "Kaiju Demo",
+  "campaign": "HotSale",
+  "metrics": {
+    "spend": 500000,
+    "conversions": 210,
+    "cpa": 1900
+  }
+}

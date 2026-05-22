@@ -1,0 +1,25 @@
+{
+  "agent": "ads-agent",
+  "version": "0.1.0",
+  "model_provider": "anthropic_subscription",
+  "model_strategy": "use_available_claude_code_model",
+  "description": "Analyzes Google Ads performance and generates optimization recommendations",
+  "capabilities": [
+    "campaign-analysis",
+    "cpa-optimization",
+    "spend-review",
+    "conversion-tracking"
+  ],
+  "memory": {
+    "enabled": true,
+    "source": "memory/client-memory"
+  },
+  "inputs": {
+    "metrics": ["spend", "conversions", "cpa", "roas", "campaign", "client"]
+  },
+  "thresholds": {
+    "cpa_alert": 2500,
+    "min_conversions": 10,
+    "max_spend_variance_pct": 20
+  }
+}
