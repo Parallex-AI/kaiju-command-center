@@ -172,6 +172,19 @@ Verify the client fails gracefully when the Router is unavailable.
 
 ---
 
+## 10. Run full V0 smoke test
+
+Runs all checks in sequence: venv, dependencies, Router server (starts it if needed), HTTP routes, Demo Client, and CLI regressions. Stops the server after the run if it started it.
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v0.sh
+```
+
+Expected final line: `=== V0 smoke test passed. ===`
+
+---
+
 ## Notes
 
 - **n8n webhook:** Always use the production URL `https://flows.kaiju.digital/webhook/ads-agent-demo`. The `/webhook-test/` URL is temporary and must never appear in agent code.
