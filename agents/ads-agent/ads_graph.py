@@ -174,6 +174,55 @@ def map_status(score, spend_efficiency) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Helpers — recommendations
+# ---------------------------------------------------------------------------
+
+def make_recommendation(rec_type, severity, priority, area, action, expected_impact, rationale) -> dict:
+    return {
+        "type":            rec_type,
+        "severity":        severity,
+        "priority":        priority,
+        "area":            area,
+        "action":          action,
+        "expected_impact": expected_impact,
+        "rationale":       rationale,
+    }
+
+
+def _filter_recommendations(recommendations: list, request_type: str) -> list:
+    if request_type == "summary":
+        return recommendations
+
+    monitoring = make_recommendation(
+        rec_type="strategy",
+        severity="low",
+        priority="low",
+        area="Monitoring",
+        action="Continue monitoring performance and collect more data before making major changes.",
+        expected_impact="Avoids premature optimization based on limited or inconclusive signals.",
+        rationale="No critical performance issue was detected from the currently available metrics.",
+    )
+
+    if request_type == "cpa":
+        filtered = [
+            r for r in recommendations
+            if r.get("type") in ("optimization", "tracking")
+            or "cpa" in r.get("area", "").lower()
+        ]
+        return filtered if filtered else [monitoring]
+
+    if request_type == "conversions":
+        filtered = [
+            r for r in recommendations
+            if r.get("type") in ("strategy", "tracking")
+            or "conversion" in r.get("area", "").lower()
+        ]
+        return filtered if filtered else [monitoring]
+
+    return []
+
+
+# ---------------------------------------------------------------------------
 # Nodes
 # ---------------------------------------------------------------------------
 
@@ -307,47 +356,101 @@ def analyze_performance(state: AdsAgentState) -> dict:
 
 def generate_recommendations(state: AdsAgentState) -> dict:
     analysis = state.get("analysis") or {}
-    status = analysis.get("status", "unknown")
+    metrics = state.get("normalized_metrics") or {}
+
     cpa_level = analysis.get("cpa_level", "unknown")
-    conversion_level = analysis.get("conversion_level", "unknown")
+    ctr_level = analysis.get("ctr_level", "unknown")
+    conversion_rate_level = analysis.get("conversion_rate_level", "unknown")
+    performance_score = analysis.get("performance_score", 50)
+    conversions = metrics.get("conversions", 0)
+    spend = metrics.get("spend", 0)
+    cpa = metrics.get("cpa")
 
     recommendations = []
 
-    if status == "no_conversions" or cpa_level == "no_conversions":
-        recommendations.append({
-            "priority": "high",
-            "area": "Conversions",
-            "recommendation": (
-                "No conversions recorded. Review conversion tracking, "
-                "landing pages, and audience targeting."
-            ),
-        })
+    # A: No conversions
+    if cpa_level == "no_conversions" or (not conversions and spend and spend > 0):
+        recommendations.append(make_recommendation(
+            rec_type="tracking",
+            severity="critical",
+            priority="high",
+            area="Conversion Tracking",
+            action="Verify conversion tracking, landing page flow, and post-click events before scaling spend.",
+            expected_impact="Prevents budget waste and confirms whether the campaign is truly failing or measurement is broken.",
+            rationale="Spend exists but no conversions were recorded.",
+        ))
 
+    # B: CPA inefficient
+    if cpa_level == "inefficient":
+        recommendations.append(make_recommendation(
+            rec_type="optimization",
+            severity="high",
+            priority="high",
+            area="CPA Efficiency",
+            action="Review targeting, search terms, placements, bidding signals, and creative efficiency to reduce CPA.",
+            expected_impact="Improves cost efficiency and reduces acquisition waste.",
+            rationale="CPA is above the efficient range.",
+        ))
+
+    # C: CPA needs optimization
     if cpa_level == "needs_optimization":
-        recommendations.append({
-            "priority": "medium",
-            "area": "CPA",
-            "recommendation": "Review targeting and creative efficiency to reduce CPA.",
-        })
-    elif cpa_level == "inefficient":
-        recommendations.append({
-            "priority": "high",
-            "area": "CPA",
-            "recommendation": (
-                "CPA is critically high. Pause underperforming ad groups "
-                "and reallocate budget to top performers."
-            ),
-        })
+        recommendations.append(make_recommendation(
+            rec_type="optimization",
+            severity="medium",
+            priority="medium",
+            area="CPA Optimization",
+            action="Identify high-cost segments and test budget reallocation toward better-performing audiences or keywords.",
+            expected_impact="Can reduce CPA while preserving conversion volume.",
+            rationale="CPA is acceptable enough to keep running, but still above the ideal efficiency threshold.",
+        ))
 
-    if conversion_level == "low" and cpa_level not in ("no_conversions", "unknown"):
-        recommendations.append({
-            "priority": "medium",
-            "area": "Volume",
-            "recommendation": (
-                "Conversion volume is low. Consider expanding audience "
-                "targeting or increasing budget."
-            ),
-        })
+    # D: CTR weak
+    if ctr_level == "weak":
+        recommendations.append(make_recommendation(
+            rec_type="creative",
+            severity="medium",
+            priority="medium",
+            area="Ad Engagement",
+            action="Test new hooks, headlines, thumbnails, and value propositions to improve click-through rate.",
+            expected_impact="Can increase qualified traffic without increasing media spend.",
+            rationale="CTR is below the acceptable threshold.",
+        ))
+
+    # E: Conversion rate weak
+    if conversion_rate_level == "weak":
+        recommendations.append(make_recommendation(
+            rec_type="strategy",
+            severity="high",
+            priority="high",
+            area="Post-Click Conversion",
+            action="Review landing page relevance, offer clarity, form friction, and checkout or registration flow.",
+            expected_impact="Can increase conversion volume from the same traffic base.",
+            rationale="Conversion rate is weak relative to the current click volume.",
+        ))
+
+    # F: Strong performance
+    if performance_score >= 80:
+        recommendations.append(make_recommendation(
+            rec_type="budget",
+            severity="low",
+            priority="medium",
+            area="Budget Scaling",
+            action="Consider controlled budget scaling while monitoring CPA and conversion rate stability.",
+            expected_impact="Can increase conversion volume without immediately degrading efficiency.",
+            rationale="Performance score indicates strong campaign health.",
+        ))
+
+    # G: No specific issue found
+    if not recommendations:
+        recommendations.append(make_recommendation(
+            rec_type="strategy",
+            severity="low",
+            priority="low",
+            area="Monitoring",
+            action="Continue monitoring performance and collect more data before making major changes.",
+            expected_impact="Avoids premature optimization based on limited or inconclusive signals.",
+            rationale="No critical performance issue was detected from the currently available metrics.",
+        ))
 
     return {"recommendations": recommendations}
 
@@ -388,7 +491,7 @@ def format_response(state: AdsAgentState) -> dict:
                 "conversion_rate": metrics.get("conversion_rate"),
             },
             "analysis": {},
-            "recommendations": [],
+            "recommendations": _filter_recommendations(recommendations, "conversions"),
         }
     elif request_type == "cpa":
         data = {
@@ -404,7 +507,7 @@ def format_response(state: AdsAgentState) -> dict:
                 "status":            analysis.get("status"),
                 "notes":             analysis.get("notes", []),
             },
-            "recommendations": [],
+            "recommendations": _filter_recommendations(recommendations, "cpa"),
         }
     else:  # summary
         data = {
@@ -447,8 +550,6 @@ def _route_after_normalize(state: AdsAgentState) -> str:
 
 def _route_after_analyze(state: AdsAgentState) -> str:
     if state.get("errors"):
-        return "format_response"
-    if state.get("request_type") in ("cpa", "conversions"):
         return "format_response"
     return "generate_recommendations"
 
