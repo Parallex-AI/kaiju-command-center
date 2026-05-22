@@ -27,22 +27,22 @@ Demo Client → Router HTTP Server → Router Core → Ads Agent → n8n → Res
 
 ---
 
-## V1 — LangGraph (Planned)
+## V1 — LangGraph (In progress — branch: `v1-langgraph`)
 
 Goal: Replace stateless agent dispatch with a stateful LangGraph workflow for multi-step campaign analysis.
 
-### Proposed scope
+**Design document:** [docs/V1_LANGGRAPH_DESIGN.md](V1_LANGGRAPH_DESIGN.md)
 
-- [ ] Introduce LangGraph as the agent execution framework
-- [ ] Define agent state object (campaign data, analysis steps, recommendations)
-- [ ] Multi-step reasoning: ingest → analyze → diagnose → recommend
-- [ ] Structured output: typed recommendation objects
-- [ ] Report generation: executive summary with action items
-- [ ] Router updated to invoke LangGraph graph instead of bare n8n call
+### Implementation phases
+
+- [ ] **V1.1** — Graph scaffold: `ads_graph.py`, `run_graph_demo.py`, no Router integration
+- [ ] **V1.2** — Execution mode flag: `ADS_AGENT_EXECUTION_MODE=legacy|graph`
+- [ ] **V1.3** — Graph mode as default, legacy as fallback
+- [ ] **V1.4** — Richer analysis, structured recommendations, report generation
 
 ### Design notes
 
-The Router Core dispatch interface (`route_request`) will remain stable. LangGraph replaces the internals of the Ads Agent execution, not the Router API.
+The Router Core dispatch interface (`route_request`) remains stable throughout V1. LangGraph replaces the internals of the Ads Agent execution only. The V0 smoke test must pass at every phase.
 
 ---
 
