@@ -222,6 +222,84 @@ def _filter_recommendations(recommendations: list, request_type: str) -> list:
     return []
 
 
+def generate_executive_summary(request_type: str, metrics: dict, analysis: dict, recommendations: list) -> dict:
+    spend = metrics.get("spend", 0) or 0
+    clicks = metrics.get("clicks", 0) or 0
+    impressions = metrics.get("impressions", 0) or 0
+    conversions = metrics.get("conversions")
+    currency = metrics.get("currency", "ARS")
+    campaign = metrics.get("campaign", "")
+    cpa = metrics.get("cpa")
+
+    cpa_level = analysis.get("cpa_level", "unknown")
+    performance_score = analysis.get("performance_score")
+
+    # Confidence
+    if request_type == "raw":
+        confidence = "low"
+    elif spend > 0 and clicks > 0 and impressions > 0 and conversions is not None:
+        confidence = "high"
+    elif spend > 0 and conversions is not None:
+        confidence = "medium"
+    else:
+        confidence = "low"
+
+    # Headline
+    if request_type == "raw":
+        headline = "Raw campaign data returned without full strategic analysis."
+    elif cpa_level == "no_conversions":
+        headline = "Campaign spend is active but no conversions were recorded."
+    elif cpa_level == "efficient":
+        headline = "Campaign CPA is currently efficient."
+    elif cpa_level == "needs_optimization":
+        headline = "Campaign is converting, but CPA optimization is recommended."
+    elif cpa_level == "inefficient":
+        headline = "Campaign CPA is inefficient and requires intervention."
+    else:
+        headline = "Campaign performance analysis completed."
+
+    # Summary text
+    if request_type == "raw":
+        summary_text = "Raw payload returned. Full analysis was not performed."
+    else:
+        label = f"The campaign '{campaign}'" if campaign else "The campaign"
+        if spend > 0:
+            label += f" invested {currency} {spend:,.2f}"
+        if conversions is not None and conversions > 0:
+            if spend > 0:
+                label += f" and generated {conversions} conversion{'s' if conversions != 1 else ''}"
+            else:
+                label += f" generated {conversions} conversion{'s' if conversions != 1 else ''}"
+        elif conversions is not None:
+            label += " but recorded no conversions"
+        parts = [label + "."]
+        if cpa is not None and cpa > 0 and conversions and conversions > 0:
+            parts.append(f"CPA is {currency} {cpa:,.2f} ({cpa_level.replace('_', ' ')}).")
+        if performance_score is not None:
+            parts.append(f"Performance score: {performance_score}/100.")
+        summary_text = " ".join(parts)
+
+    # Next best action
+    if request_type == "raw":
+        next_best_action = "Review raw payload before running strategic analysis."
+    elif recommendations:
+        priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+        sorted_recs = sorted(
+            recommendations,
+            key=lambda r: priority_order.get(r.get("severity", "low"), 3),
+        )
+        next_best_action = sorted_recs[0].get("action", "Continue monitoring performance until more data is available.")
+    else:
+        next_best_action = "Continue monitoring performance until more data is available."
+
+    return {
+        "headline":         headline,
+        "summary":          summary_text,
+        "next_best_action": next_best_action,
+        "confidence":       confidence,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Nodes
 # ---------------------------------------------------------------------------
@@ -478,11 +556,13 @@ def format_response(state: AdsAgentState) -> dict:
 
     if request_type == "raw":
         data = {
-            "metrics": state.get("raw_metrics") or {},
-            "analysis": {},
-            "recommendations": [],
+            "metrics":           state.get("raw_metrics") or {},
+            "analysis":          {},
+            "recommendations":   [],
+            "executive_summary": generate_executive_summary("raw", {}, {}, []),
         }
     elif request_type == "conversions":
+        filtered_recs = _filter_recommendations(recommendations, "conversions")
         data = {
             "metrics": {
                 "campaign":        metrics.get("campaign"),
@@ -490,10 +570,12 @@ def format_response(state: AdsAgentState) -> dict:
                 "clicks":          metrics.get("clicks"),
                 "conversion_rate": metrics.get("conversion_rate"),
             },
-            "analysis": {},
-            "recommendations": _filter_recommendations(recommendations, "conversions"),
+            "analysis":          {},
+            "recommendations":   filtered_recs,
+            "executive_summary": generate_executive_summary("conversions", metrics, {}, filtered_recs),
         }
     elif request_type == "cpa":
+        filtered_recs = _filter_recommendations(recommendations, "cpa")
         data = {
             "metrics": {
                 "spend":       metrics.get("spend"),
@@ -507,13 +589,15 @@ def format_response(state: AdsAgentState) -> dict:
                 "status":            analysis.get("status"),
                 "notes":             analysis.get("notes", []),
             },
-            "recommendations": _filter_recommendations(recommendations, "cpa"),
+            "recommendations":   filtered_recs,
+            "executive_summary": generate_executive_summary("cpa", metrics, analysis, filtered_recs),
         }
     else:  # summary
         data = {
-            "metrics":         metrics,
-            "analysis":        analysis,
-            "recommendations": recommendations,
+            "metrics":           metrics,
+            "analysis":          analysis,
+            "recommendations":   recommendations,
+            "executive_summary": generate_executive_summary("summary", metrics, analysis, recommendations),
         }
 
     return {
