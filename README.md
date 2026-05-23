@@ -4,9 +4,9 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V0 complete** — tag `v0.0.1`
+**V1.4 complete** — branch `v1.4-analysis`
 
-Full end-to-end flow from HTTP client through Router to Ads Agent to n8n is working and tested.
+LangGraph-powered Ads Agent with derived metrics, structured recommendations, executive summary, and deterministic performance scoring. V0 end-to-end flow remains intact.
 
 ## Architecture
 
@@ -59,7 +59,7 @@ cd ~/kaiju/projects/demo-client
 
 | Version | Focus | Status |
 |---|---|---|
-| V0 | Ads Agent · Router · n8n · Demo Client | **Complete** |
-| V1 | LangGraph · stateful analysis | Planned |
+| V0 | Ads Agent · Router · n8n · Demo Client | **Complete** — `v0.0.1` |
+| V1 | LangGraph · stateful analysis | **Complete** — `v1.4-analysis` |
 | V2 | MemPalace · persistent client memory | Planned |
 | V3 | OpenClaw · SaaS · multi-tenant · GCP production | Planned |

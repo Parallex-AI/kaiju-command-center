@@ -1,5 +1,23 @@
 # Kaiju Command Center — V1.4 Analysis Micro-Spec
 
+## Implementation Status
+
+**Status: Complete**  
+**Branch:** `v1.4-analysis`
+
+| Phase | Description | Commit |
+|---|---|---|
+| V1.4.1 | Helper functions and derived metrics | `57cf41f` |
+| V1.4.3 | Structured recommendation schema | `496a47c` |
+| V1.4.4 | Executive summary in graph response | `72d3476` |
+| V1.4.5 | Smoke test assertions for V1.4 fields | `e8e4da7` |
+
+**Test results:**
+- V1 graph smoke test: 33/33 passed
+- V0 legacy smoke test: passed
+
+---
+
 ## 1. Purpose
 
 V1.4 enriches the Ads Agent graph analysis layer. It adds richer KPI interpretation, a structured recommendation schema, and an executive summary block to the graph response.

@@ -38,7 +38,17 @@ Goal: Replace stateless agent dispatch with a stateful LangGraph workflow for mu
 - [x] **V1.1** — Graph scaffold: `ads_graph.py`, `run_graph_demo.py`, no Router integration
 - [x] **V1.2** — Execution mode flag: `ADS_AGENT_EXECUTION_MODE=legacy|graph`
 - [x] **V1.3** — Graph mode as default; `ADS_AGENT_EXECUTION_MODE=legacy` as explicit opt-out
-- [ ] **V1.4** — Richer analysis, structured recommendations, executive summary — **[spec: docs/V1_4_ANALYSIS_SPEC.md](V1_4_ANALYSIS_SPEC.md)**
+- [x] **V1.4** — Richer analysis, structured recommendations, executive summary — **[spec: docs/V1_4_ANALYSIS_SPEC.md](V1_4_ANALYSIS_SPEC.md)**
+
+### V1.4 completed capabilities
+
+- Derived metrics: `ctr`, `cpc`, `conversion_rate`, `cpm`
+- `unavailable_metrics` declaration in response (e.g. `roas`, `revenue`)
+- `performance_score` — deterministic integer 0–100
+- Metric classification: `cpa_level`, `ctr_level`, `conversion_rate_level`, `spend_efficiency`
+- Structured recommendation schema: `type`, `severity`, `priority`, `area`, `action`, `expected_impact`, `rationale`
+- `executive_summary` block: `headline`, `summary`, `next_best_action`, `confidence`
+- V1 graph smoke test assertions for all V1.4 fields (33/33 passing)
 
 ### Design notes
 
