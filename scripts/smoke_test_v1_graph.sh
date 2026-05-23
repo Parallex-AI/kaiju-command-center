@@ -79,6 +79,26 @@ assert_legacy_ok() {
     fi
 }
 
+# assert_py: run a block of Python against a JSON response; pass or fail.
+# Usage: assert_py "label" "$response" "python_code"
+assert_py() {
+    local label="$1"
+    local response="$2"
+    local pycode="$3"
+
+    if echo "$response" | $PYTHON -c "
+import json, sys
+data = json.load(sys.stdin)
+$pycode
+" 2>/dev/null; then
+        pass "$label"
+    else
+        echo "  ✗ $label"
+        echo "  Response: $(echo "$response" | $PYTHON -m json.tool 2>/dev/null | head -30 || echo "$response" | head -c 300)"
+        exit 1
+    fi
+}
+
 route_post() {
     local data="$1"
     curl -s -X POST "$ROUTER_URL/route" \
@@ -92,7 +112,7 @@ route_post() {
 echo ""
 echo "=== Kaiju Command Center V1 Graph Smoke Test ==="
 echo ""
-echo "[1/6] Checking virtual environment..."
+echo "[1/7] Checking virtual environment..."
 
 if [ ! -f "$PYTHON" ]; then
     echo "  Missing virtual environment. Expected: ~/kaiju/.venv/bin/python3"
@@ -104,7 +124,7 @@ pass "Python found at $PYTHON"
 # Section 2: Dependencies
 # ---------------------------------------------------------------------------
 echo ""
-echo "[2/6] Checking dependencies..."
+echo "[2/7] Checking dependencies..."
 
 $PYTHON -c "import fastapi"   2>/dev/null && pass "fastapi"   || fail "fastapi not importable"
 $PYTHON -c "import uvicorn"   2>/dev/null && pass "uvicorn"   || fail "uvicorn not importable"
@@ -112,7 +132,7 @@ $PYTHON -c "import requests"  2>/dev/null && pass "requests"  || fail "requests 
 $PYTHON -c "import langgraph" 2>/dev/null && pass "langgraph" || fail "langgraph not importable"
 
 # ---------------------------------------------------------------------------
-# Section 3: Start Router in graph mode
+# Section 3: Start Router in default graph mode
 # ---------------------------------------------------------------------------
 echo ""
 echo "[3/7] Starting Router in default graph mode (no env var)..."
@@ -155,26 +175,100 @@ else
     fail "GET /health — unexpected: $response"
 fi
 
-# summary — ok + execution_mode:graph + analysis + recommendations
+# ---- summary ----
 response=$(route_post '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}')
-assert_graph_ok  "POST /route summary — ok + execution_mode:graph" "$response"
-assert_field     "POST /route summary — contains analysis"         "analysis"         "$response"
-assert_field     "POST /route summary — contains recommendations"  "recommendations"  "$response"
 
-# cpa
+# Routing / envelope
+assert_graph_ok "POST /route summary — ok + execution_mode:graph"       "$response"
+assert_field    "POST /route summary — contains analysis"               "analysis"        "$response"
+assert_field    "POST /route summary — contains recommendations"        "recommendations" "$response"
+
+# V1.4 — derived metrics
+assert_py "POST /route summary — metrics has derived fields (ctr, cpc, conversion_rate, cpm)" "$response" \
+"m = data['data']['data']['metrics']
+assert 'ctr' in m, 'ctr missing'
+assert 'cpc' in m, 'cpc missing'
+assert 'conversion_rate' in m, 'conversion_rate missing'
+assert 'cpm' in m, 'cpm missing'"
+
+# V1.4 — unavailable_metrics
+assert_py "POST /route summary — unavailable_metrics declared and contains roas" "$response" \
+"m = data['data']['data']['metrics']
+um = m['unavailable_metrics']
+assert isinstance(um, list), 'unavailable_metrics not a list'
+assert 'roas' in um, 'roas not in unavailable_metrics'"
+
+# V1.4 — analysis classification fields
+assert_py "POST /route summary — analysis has V1.4 classification fields" "$response" \
+"a = data['data']['data']['analysis']
+assert 'performance_score' in a, 'performance_score missing'
+assert 'cpa_level' in a, 'cpa_level missing'
+assert 'ctr_level' in a, 'ctr_level missing'
+assert 'conversion_rate_level' in a, 'conversion_rate_level missing'
+assert 'spend_efficiency' in a, 'spend_efficiency missing'"
+
+# V1.4 — recommendations list
+assert_py "POST /route summary — recommendations is non-empty list" "$response" \
+"recs = data['data']['data']['recommendations']
+assert isinstance(recs, list), 'recommendations not a list'
+assert len(recs) > 0, 'recommendations list is empty for current demo data'"
+
+# V1.4 — recommendation structured schema
+assert_py "POST /route summary — recommendation uses full structured schema" "$response" \
+"r = data['data']['data']['recommendations'][0]
+for field in ('type', 'severity', 'priority', 'area', 'action', 'expected_impact', 'rationale'):
+    assert field in r, field + ' missing from recommendation'"
+
+# V1.4 — executive_summary
+assert_py "POST /route summary — executive_summary exists" "$response" \
+"assert 'executive_summary' in data['data']['data'], 'executive_summary missing'"
+
+assert_py "POST /route summary — executive_summary has all fields" "$response" \
+"es = data['data']['data']['executive_summary']
+for field in ('headline', 'summary', 'next_best_action', 'confidence'):
+    assert field in es, field + ' missing from executive_summary'"
+
+# ---- cpa ----
 response=$(route_post '{"client_id":"demo-client","agent":"ads-agent","request":"cpa"}')
-assert_graph_ok  "POST /route cpa — ok + execution_mode:graph" "$response"
-assert_field     "POST /route cpa — contains cpa field"        "cpa"  "$response"
 
-# conversions
+assert_graph_ok "POST /route cpa — ok + execution_mode:graph" "$response"
+assert_field    "POST /route cpa — contains cpa field"        "cpa" "$response"
+
+# V1.4 — cpa assertions
+assert_py "POST /route cpa — analysis has performance_score" "$response" \
+"assert 'performance_score' in data['data']['data']['analysis'], 'performance_score missing'"
+
+assert_py "POST /route cpa — recommendations exists" "$response" \
+"assert 'recommendations' in data['data']['data'], 'recommendations missing'"
+
+assert_py "POST /route cpa — executive_summary exists" "$response" \
+"assert 'executive_summary' in data['data']['data'], 'executive_summary missing'"
+
+# ---- conversions ----
 response=$(route_post '{"client_id":"demo-client","agent":"ads-agent","request":"conversions"}')
-assert_graph_ok  "POST /route conversions — ok + execution_mode:graph"    "$response"
-assert_field     "POST /route conversions — contains conversions field"   "conversions"  "$response"
 
-# raw
+assert_graph_ok "POST /route conversions — ok + execution_mode:graph"  "$response"
+assert_field    "POST /route conversions — contains conversions field" "conversions" "$response"
+
+# V1.4 — conversions assertions
+assert_py "POST /route conversions — conversion_rate field present" "$response" \
+"assert 'conversion_rate' in data['data']['data']['metrics'], 'conversion_rate missing'"
+
+assert_py "POST /route conversions — recommendations exists" "$response" \
+"assert 'recommendations' in data['data']['data'], 'recommendations missing'"
+
+assert_py "POST /route conversions — executive_summary exists" "$response" \
+"assert 'executive_summary' in data['data']['data'], 'executive_summary missing'"
+
+# ---- raw ----
 response=$(route_post '{"client_id":"demo-client","agent":"ads-agent","request":"raw"}')
-assert_graph_ok  "POST /route raw — ok + execution_mode:graph" "$response"
-assert_field     "POST /route raw — contains metrics field"    "metrics"  "$response"
+
+assert_graph_ok "POST /route raw — ok + execution_mode:graph" "$response"
+assert_field    "POST /route raw — contains metrics field"    "metrics" "$response"
+
+# V1.4 — raw assertion
+assert_py "POST /route raw — executive_summary exists" "$response" \
+"assert 'executive_summary' in data['data']['data'], 'executive_summary missing'"
 
 # ---------------------------------------------------------------------------
 # Section 5: Demo Client through graph mode
