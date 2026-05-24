@@ -159,6 +159,42 @@ N8N_WEBHOOK_TIMEOUT=30 python3 run_n8n_demo.py summary
 
 If `N8N_WEBHOOK_TIMEOUT` is missing, invalid, zero, or negative, the client falls back to 15 seconds.
 
+## V2 MemPalace Local Memory Utilities
+
+`mempalace.py` provides a local-first, file-based memory layer for client-scoped campaign context. It is a pure utility module — not yet integrated into the Ads Graph.
+
+**What it does:**
+- Creates and manages `memory/client-memory/<client_id>/ads-agent/` directory structure
+- Reads and writes `profile.json` (client metadata)
+- Writes timestamped JSON snapshots under `snapshots/`
+- Updates `latest_summary.json` on each summary run
+- Appends to `recommendations.jsonl` (one structured record per line)
+- Appends to `insights.jsonl` (one insight record per line)
+- Reads recent snapshots for historical context
+
+**Environment variables:**
+
+| Variable | Default | Description |
+|---|---|---|
+| `MEMORY_ENABLED` | `true` | Set to `false` to disable all memory reads/writes |
+| `MEMORY_ROOT` | `memory/client-memory` | Root directory for client memory |
+| `MEMORY_MAX_RECENT_SNAPSHOTS` | `5` | Number of recent snapshots to load |
+
+**Run the memory utility demo:**
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_mempalace_demo.py demo-client
+
+# With memory disabled:
+MEMORY_ENABLED=false ~/kaiju/.venv/bin/python3 run_mempalace_demo.py demo-client
+
+# Custom memory root:
+MEMORY_ROOT=/tmp/kaiju-memory ~/kaiju/.venv/bin/python3 run_mempalace_demo.py demo-client
+```
+
+> **Note:** Memory utilities are not yet integrated into the Ads Graph. Graph execution is unchanged by V2.1. Integration will happen in V2.2.
+
 ## Status
 
-V1.4.1 complete. n8n client resilience hotfix merged into master (branch: `v1.4.1-n8n-resilience`).
+V2.1 in progress (branch: `v2-mempalace`). Memory utility module implemented. Graph integration pending.

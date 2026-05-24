@@ -15,5 +15,8 @@ env/
 logs/
 temp/
 
+# MemPalace generated client memory (runtime output — not committed)
+memory/client-memory/
+
 # macOS
 .DS_Store
