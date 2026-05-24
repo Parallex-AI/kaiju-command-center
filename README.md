@@ -4,9 +4,9 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V1.4.1 complete** — branch `v1.4.1-n8n-resilience`
+**V2 MemPalace — in progress** — branch `v2-mempalace`
 
-LangGraph-powered Ads Agent with derived metrics, structured recommendations, executive summary, and deterministic performance scoring. n8n client includes retry/backoff and configurable timeout. V0 end-to-end flow remains intact.
+Design phase complete. V2 introduces persistent client-scoped memory: campaign snapshots, recommendation history, trend detection, and historical comparison across sessions. V1.4.1 remains fully stable.
 
 ## Architecture
 
@@ -61,5 +61,5 @@ cd ~/kaiju/projects/demo-client
 |---|---|---|
 | V0 | Ads Agent · Router · n8n · Demo Client | **Complete** — `v0.0.1` |
 | V1 | LangGraph · stateful analysis | **Complete** — `v1.4.1-n8n-resilience` |
-| V2 | MemPalace · persistent client memory | Planned |
+| V2 | MemPalace · persistent client memory | **In progress** — `v2-mempalace` |
 | V3 | OpenClaw · SaaS · multi-tenant · GCP production | Planned |

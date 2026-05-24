@@ -67,18 +67,27 @@ The Router Core dispatch interface (`route_request`) remains stable throughout V
 
 ---
 
-## V2 — MemPalace (Planned)
+## V2 — MemPalace (In progress — branch: `v2-mempalace`)
 
 Goal: Add a persistent memory layer so agents have context across sessions and clients.
 
-### Proposed scope
+**Design document:** [docs/V2_MEMPALACE_DESIGN.md](V2_MEMPALACE_DESIGN.md)
 
-- [ ] MemPalace memory store (client-specific, structured)
-- [ ] Historical campaign snapshots
-- [ ] Trend detection across sessions
-- [ ] Memory-augmented agent prompts
-- [ ] Client memory API (read, write, summarize)
-- [ ] Integration with Router payload (memory context passed to agent)
+### Implementation phases
+
+- [ ] **V2.1** — Memory utility module: read/write profile, snapshots, recommendations, insights
+- [ ] **V2.2** — Memory nodes in Ads Graph: load and write memory around analysis
+- [ ] **V2.3** — Historical comparison: trend detection, recurring recommendation detection
+- [ ] **V2.4** — Memory smoke test and runbook update
+- [ ] **V2.5** — Retention controls and raw payload opt-in flag
+
+### Design principles
+
+- Client-scoped file storage under `memory/client-memory/`
+- Additive: memory off or missing → graph continues unchanged
+- No database required in V2 (local files only)
+- Compatible with future GCP/multi-tenant migration
+- No credentials, secrets, or PII in memory files
 
 ---
 
