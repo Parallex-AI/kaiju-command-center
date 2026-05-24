@@ -135,6 +135,30 @@ The graph response envelope includes `execution_mode: "graph"`, `metrics`, `anal
 
 > The legacy scripts `run_n8n_demo.py` and `chat_n8n_demo.py` are unchanged and continue to work independently of the graph.
 
+## n8n Client Resilience
+
+The n8n client (`n8n_client.py`) retries transient network failures automatically.
+
+| Behavior | Detail |
+|---|---|
+| Attempts | 3 |
+| Backoff | 1s after attempt 1, 2s after attempt 2 |
+| Retries on | `Timeout`, `ConnectionError`, other request errors without an HTTP response |
+| Does not retry | HTTP errors (4xx / 5xx) |
+| Retry logging | Each non-final failure prints a timestamped line to stderr |
+
+**Configurable timeout:**
+
+```bash
+# Default is 15 seconds. Override with:
+export N8N_WEBHOOK_TIMEOUT=30
+
+# Or inline:
+N8N_WEBHOOK_TIMEOUT=30 python3 run_n8n_demo.py summary
+```
+
+If `N8N_WEBHOOK_TIMEOUT` is missing, invalid, zero, or negative, the client falls back to 15 seconds.
+
 ## Status
 
-V0 complete. V1 LangGraph graph demo isolated and working (branch: `v1-langgraph`).
+V1.4.1 complete. n8n client resilience hotfix merged into master (branch: `v1.4.1-n8n-resilience`).

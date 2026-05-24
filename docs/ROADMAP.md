@@ -27,7 +27,7 @@ Demo Client → Router HTTP Server → Router Core → Ads Agent → n8n → Res
 
 ---
 
-## V1 — LangGraph (In progress — branch: `v1-langgraph`)
+## V1 — LangGraph (Complete)
 
 Goal: Replace stateless agent dispatch with a stateful LangGraph workflow for multi-step campaign analysis.
 
@@ -49,6 +49,17 @@ Goal: Replace stateless agent dispatch with a stateful LangGraph workflow for mu
 - Structured recommendation schema: `type`, `severity`, `priority`, `area`, `action`, `expected_impact`, `rationale`
 - `executive_summary` block: `headline`, `summary`, `next_best_action`, `confidence`
 - V1 graph smoke test assertions for all V1.4 fields (33/33 passing)
+
+- [x] **V1.4.1** — n8n client resilience hotfix: retry/backoff, configurable timeout, clearer errors
+
+### V1.4.1 completed capabilities
+
+- Retry on transient Timeout / ConnectionError: 3 attempts, backoff 1s → 2s
+- Configurable timeout via `N8N_WEBHOOK_TIMEOUT` env var (default: 15s, safe fallback on invalid values)
+- No retry on HTTP errors (4xx/5xx)
+- Clearer error messages: attempt count, URL, and root cause in every error
+- Stderr retry logging with UTC timestamp
+- Motivation: transient n8n webhook timeouts observed during V1.4 smoke test runs
 
 ### Design notes
 
