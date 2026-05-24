@@ -1,11 +1,13 @@
-from pathlib import Path
+import copy
 import sys
+from pathlib import Path
 from typing import TypedDict
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from langgraph.graph import StateGraph, START, END
 from n8n_client import fetch_ads_data_from_n8n, VALID_REQUEST_TYPES
+import mempalace
 
 
 # ---------------------------------------------------------------------------
@@ -21,6 +23,10 @@ class AdsAgentState(TypedDict):
     recommendations: list
     response: dict
     errors: list
+    memory_context: dict
+    historical_comparison: dict
+    memory_write_result: dict
+    warnings: list
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +307,19 @@ def generate_executive_summary(request_type: str, metrics: dict, analysis: dict,
 
 
 # ---------------------------------------------------------------------------
+# Memory helper
+# ---------------------------------------------------------------------------
+
+def _inject_memory_into_response(response: dict, memory_block: dict) -> dict:
+    if not response.get("ok"):
+        return response
+    updated = copy.deepcopy(response)
+    if "data" in updated:
+        updated["data"]["memory"] = memory_block
+    return updated
+
+
+# ---------------------------------------------------------------------------
 # Nodes
 # ---------------------------------------------------------------------------
 
@@ -318,6 +337,38 @@ def validate_input(state: AdsAgentState) -> dict:
         )
 
     return {"errors": errors}
+
+
+def load_client_memory(state: AdsAgentState) -> dict:
+    warnings = list(state.get("warnings") or [])
+
+    if not mempalace.is_memory_enabled():
+        return {
+            "memory_context": {"enabled": False},
+            "warnings": warnings,
+        }
+
+    client_id = state.get("client_id", "")
+
+    try:
+        profile = mempalace.read_profile(client_id)
+        latest_summary = mempalace.read_latest_summary(client_id)
+        recent_snapshots = mempalace.read_recent_snapshots(client_id)
+
+        memory_context = {
+            "enabled": True,
+            "profile": profile,
+            "latest_summary": latest_summary,
+            "recent_snapshots": recent_snapshots,
+        }
+    except Exception as error:
+        warnings.append(f"Memory load failed: {error}")
+        memory_context = {"enabled": False, "error": str(error)}
+
+    return {
+        "memory_context": memory_context,
+        "warnings": warnings,
+    }
 
 
 def fetch_metrics_from_n8n(state: AdsAgentState) -> dict:
@@ -374,6 +425,79 @@ def normalize_metrics(state: AdsAgentState) -> dict:
     return {"normalized_metrics": normalized}
 
 
+def compare_with_history(state: AdsAgentState) -> dict:
+    memory_context = state.get("memory_context") or {}
+    metrics = state.get("normalized_metrics") or {}
+    warnings = list(state.get("warnings") or [])
+
+    no_history = {
+        "has_history": False,
+        "cpa_direction": "unknown",
+        "conversions_direction": "unknown",
+        "performance_score_direction": "unknown",
+        "notes": [],
+    }
+
+    if not memory_context.get("enabled"):
+        no_history["notes"] = ["Memory is disabled or unavailable."]
+        return {"historical_comparison": no_history, "warnings": warnings}
+
+    latest_summary = memory_context.get("latest_summary")
+
+    if not latest_summary or not isinstance(latest_summary, dict) or "warning" in latest_summary:
+        no_history["notes"] = ["No previous summary memory available for comparison."]
+        return {"historical_comparison": no_history, "warnings": warnings}
+
+    prev_metrics = latest_summary.get("metrics") or {}
+    notes = []
+
+    def _direction(current, previous, higher_is_better=True):
+        if current is None or previous is None:
+            return "unknown"
+        if current > previous:
+            return "improved" if higher_is_better else "worsened"
+        if current < previous:
+            return "worsened" if higher_is_better else "improved"
+        return "stable"
+
+    current_cpa = metrics.get("cpa")
+    prev_cpa = prev_metrics.get("cpa")
+    cpa_direction = _direction(current_cpa, prev_cpa, higher_is_better=False)
+
+    if cpa_direction == "improved" and current_cpa is not None and prev_cpa is not None:
+        notes.append(f"CPA improved from {prev_cpa:.2f} to {current_cpa:.2f}.")
+    elif cpa_direction == "worsened" and current_cpa is not None and prev_cpa is not None:
+        notes.append(f"CPA worsened from {prev_cpa:.2f} to {current_cpa:.2f}.")
+
+    current_conversions = metrics.get("conversions")
+    prev_conversions = prev_metrics.get("conversions")
+    conversions_direction = _direction(current_conversions, prev_conversions, higher_is_better=True)
+
+    if conversions_direction == "improved":
+        notes.append(f"Conversions improved from {prev_conversions} to {current_conversions}.")
+    elif conversions_direction == "worsened":
+        notes.append(f"Conversions decreased from {prev_conversions} to {current_conversions}.")
+
+    prev_analysis = latest_summary.get("analysis") or {}
+    prev_score = prev_analysis.get("performance_score")
+    # Current score not yet computed; will be "unknown" until analysis runs
+    performance_score_direction = "unknown" if prev_score is None else "pending"
+
+    if not notes:
+        notes.append("Campaign metrics are stable compared to the previous run.")
+
+    return {
+        "historical_comparison": {
+            "has_history": True,
+            "cpa_direction": cpa_direction,
+            "conversions_direction": conversions_direction,
+            "performance_score_direction": performance_score_direction,
+            "notes": notes,
+        },
+        "warnings": warnings,
+    }
+
+
 def analyze_performance(state: AdsAgentState) -> dict:
     metrics = state.get("normalized_metrics") or {}
     cpa = metrics.get("cpa")
@@ -412,6 +536,12 @@ def analyze_performance(state: AdsAgentState) -> dict:
         risk_flags.append("Conversion rate below 2% — landing page review recommended.")
     elif conversion_rate_level == "strong":
         notes.append("Conversion rate is strong.")
+
+    # Enrich notes with historical comparison if available
+    historical = state.get("historical_comparison") or {}
+    if historical.get("has_history") and historical.get("notes"):
+        for note in historical["notes"]:
+            notes.append(f"[History] {note}")
 
     # Preserve legacy conversion_level for backward compatibility
     conversion_volume = conversions or 0
@@ -612,12 +742,107 @@ def format_response(state: AdsAgentState) -> dict:
     }
 
 
+def write_memory(state: AdsAgentState) -> dict:
+    warnings = list(state.get("warnings") or [])
+    request_type = state.get("request_type", "")
+    client_id = state.get("client_id", "")
+    response = state.get("response") or {}
+    memory_context = state.get("memory_context") or {}
+    historical_comparison = state.get("historical_comparison") or {}
+    memory_enabled = mempalace.is_memory_enabled()
+
+    memory_block = {
+        "enabled": memory_enabled,
+        "has_history": historical_comparison.get("has_history", False),
+        "historical_comparison": historical_comparison,
+        "warnings": warnings,
+    }
+
+    def _finish(write_result):
+        mb = {**memory_block, "write_result": write_result, "warnings": warnings}
+        return {
+            "memory_write_result": write_result,
+            "response": _inject_memory_into_response(response, mb),
+            "warnings": warnings,
+        }
+
+    # Skip for raw mode — never store raw payload
+    if request_type == "raw":
+        return _finish({"ok": True, "skipped": True, "reason": "raw mode: memory write skipped"})
+
+    # Skip if memory disabled
+    if not memory_enabled:
+        return _finish({"ok": False, "skipped": True, "reason": "Memory disabled"})
+
+    # Skip if graph returned an error
+    if not response.get("ok"):
+        return _finish({"ok": False, "skipped": True, "reason": "Graph returned error; no memory written"})
+
+    snapshot = {
+        "metrics":              state.get("normalized_metrics") or {},
+        "analysis":             state.get("analysis") or {},
+        "recommendations":      state.get("recommendations") or [],
+        "executive_summary":    (response.get("data") or {}).get("executive_summary"),
+        "historical_comparison": historical_comparison,
+    }
+
+    write_results = {}
+
+    try:
+        snap_result = mempalace.write_snapshot(
+            client_id=client_id,
+            snapshot=snapshot,
+            agent="ads-agent",
+            request_type=request_type,
+        )
+        write_results["snapshot"] = snap_result
+    except Exception as error:
+        warnings.append(f"Memory snapshot write failed: {error}")
+        write_results["snapshot"] = {"ok": False, "error": str(error)}
+
+    try:
+        recs = state.get("recommendations") or []
+        if recs:
+            rec_result = mempalace.append_recommendations(
+                client_id=client_id,
+                recommendations=recs,
+                agent="ads-agent",
+            )
+            write_results["recommendations"] = rec_result
+    except Exception as error:
+        warnings.append(f"Memory recommendations write failed: {error}")
+        write_results["recommendations"] = {"ok": False, "error": str(error)}
+
+    try:
+        hist = historical_comparison
+        if hist.get("has_history") and hist.get("notes"):
+            insight_result = mempalace.append_insight(
+                client_id=client_id,
+                insight={
+                    "insight_type": "trend",
+                    "summary": "; ".join(hist.get("notes", [])),
+                    "evidence": {
+                        "cpa_direction": hist.get("cpa_direction"),
+                        "conversions_direction": hist.get("conversions_direction"),
+                        "performance_score_direction": hist.get("performance_score_direction"),
+                    },
+                },
+                agent="ads-agent",
+            )
+            write_results["insight"] = insight_result
+    except Exception as error:
+        warnings.append(f"Memory insight write failed: {error}")
+        write_results["insight"] = {"ok": False, "error": str(error)}
+
+    return _finish({"ok": True, "results": write_results})
+
+
 # ---------------------------------------------------------------------------
 # Routing
 # ---------------------------------------------------------------------------
 
 def _route_after_validate(state: AdsAgentState) -> str:
-    return "format_response" if state.get("errors") else "fetch_metrics_from_n8n"
+    return "format_response" if state.get("errors") else "load_client_memory"
 
 
 def _route_after_fetch(state: AdsAgentState) -> str:
@@ -629,7 +854,7 @@ def _route_after_normalize(state: AdsAgentState) -> str:
         return "format_response"
     if state.get("request_type") == "raw":
         return "format_response"
-    return "analyze_performance"
+    return "compare_with_history"
 
 
 def _route_after_analyze(state: AdsAgentState) -> str:
@@ -646,19 +871,25 @@ def _build_graph() -> object:
     graph = StateGraph(AdsAgentState)
 
     graph.add_node("validate_input",           validate_input)
+    graph.add_node("load_client_memory",       load_client_memory)
     graph.add_node("fetch_metrics_from_n8n",   fetch_metrics_from_n8n)
     graph.add_node("normalize_metrics",        normalize_metrics)
+    graph.add_node("compare_with_history",     compare_with_history)
     graph.add_node("analyze_performance",      analyze_performance)
     graph.add_node("generate_recommendations", generate_recommendations)
     graph.add_node("format_response",          format_response)
+    graph.add_node("write_memory",             write_memory)
 
     graph.add_edge(START, "validate_input")
     graph.add_conditional_edges("validate_input",           _route_after_validate)
+    graph.add_edge("load_client_memory", "fetch_metrics_from_n8n")
     graph.add_conditional_edges("fetch_metrics_from_n8n",   _route_after_fetch)
     graph.add_conditional_edges("normalize_metrics",        _route_after_normalize)
+    graph.add_edge("compare_with_history", "analyze_performance")
     graph.add_conditional_edges("analyze_performance",      _route_after_analyze)
     graph.add_edge("generate_recommendations", "format_response")
-    graph.add_edge("format_response", END)
+    graph.add_edge("format_response", "write_memory")
+    graph.add_edge("write_memory", END)
 
     return graph.compile()
 
@@ -672,14 +903,18 @@ _compiled_graph = _build_graph()
 
 def run_ads_graph(client_id: str = "demo-client", request_type: str = "summary") -> dict:
     initial_state: AdsAgentState = {
-        "client_id":          client_id,
-        "request_type":       request_type,
-        "raw_metrics":        {},
-        "normalized_metrics": {},
-        "analysis":           {},
-        "recommendations":    [],
-        "response":           {},
-        "errors":             [],
+        "client_id":             client_id,
+        "request_type":          request_type,
+        "raw_metrics":           {},
+        "normalized_metrics":    {},
+        "analysis":              {},
+        "recommendations":       [],
+        "response":              {},
+        "errors":                [],
+        "memory_context":        {},
+        "historical_comparison": {},
+        "memory_write_result":   {},
+        "warnings":              [],
     }
     result = _compiled_graph.invoke(initial_state)
     return result["response"]
