@@ -1,7 +1,7 @@
 # Kaiju Command Center — V3 OpenClaw Design
 
 **Branch:** `v3-openclaw`  
-**Status:** V3.1 complete — smoke test passing
+**Status:** V3.2 complete — HTTP server running on port 8100
 
 ---
 
@@ -11,7 +11,7 @@
 |---|---|---|---|
 | Design | V3 OpenClaw design document | `823232c` | Complete |
 | V3.1 | `process_request`, registry, policy, schemas, context, trace_id propagation, CLI demo, smoke test | `927262c` | Complete |
-| V3.2 | OpenClaw HTTP server (`POST /openclaw/request`, `GET /openclaw/health`) | — | Pending |
+| V3.2 | OpenClaw HTTP server (`POST /openclaw/process`, `GET /openclaw/health`) — port 8100 | — | Complete |
 | V3.3 | Tenant context from MemPalace, `request_id`/`trace_id` propagation | — | Pending |
 | V3.4 | Usage log / local observability audit trail | — | Pending |
 | V3.5 | SaaS/auth/GCP preparation | — | Pending |

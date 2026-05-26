@@ -2,9 +2,9 @@
 
 OpenClaw is the V3 orchestration layer that sits above the existing Router in the Kaiju Command Center. It normalizes incoming requests, resolves tenant context, enforces policy, dispatches to the Router, and wraps every response in a consistent envelope with `request_id`, `trace_id`, and timing metadata.
 
-## V3.1 Scope
+## V3.1 / V3.2 Scope
 
-V3.1 is a local-only implementation. There is no HTTP server yet. OpenClaw is called directly via `process_request(payload)` from the demo script or other local callers.
+V3.1 introduced the local orchestration layer (`process_request`). V3.2 adds a FastAPI HTTP server on port **8100** that delegates every request to `process_request(payload)` — no logic lives in the server itself.
 
 ## Architecture Position
 
@@ -87,11 +87,58 @@ On failure:
 |---|---|---|
 | `ads-agent` | active | `summary`, `cpa`, `conversions`, `raw` |
 
+## HTTP Server (V3.2)
+
+### Start
+
+```bash
+cd ~/kaiju/openclaw
+~/kaiju/.venv/bin/python3 -m uvicorn server:app --host 0.0.0.0 --port 8100
+```
+
+The server delegates all request processing to `process_request()` — no logic is duplicated in `server.py`.
+
+### Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | Service metadata |
+| `GET` | `/openclaw/health` | Health check |
+| `POST` | `/openclaw/process` | Process an agent request |
+
+### curl examples
+
+```bash
+# Health
+curl http://localhost:8100/openclaw/health
+
+# Summary request with trace_id
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary","metadata":{"trace_id":"my-trace-id"}}'
+
+# Unsupported request (ok=false, code=unsupported_request)
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"invalid"}'
+
+# Unsupported agent (ok=false, code=unsupported_agent)
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"analytics-agent","request":"summary"}'
+
+# Malformed JSON (HTTP 400, code=invalid_json)
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -d '{bad json}'
+```
+
 ## Modules
 
 | File | Purpose |
 |---|---|
 | `openclaw.py` | `process_request(payload)` — main entry point |
+| `server.py` | FastAPI HTTP server — delegates to `process_request` |
 | `schemas.py` | Envelope builder, ID generators, `make_error` |
 | `registry.py` | Agent registry and lookup functions |
 | `policy.py` | `validate_request_policy(payload)` — agent/request validation |
@@ -119,6 +166,5 @@ cd ~/kaiju/openclaw
 - Agent execution (Router owns dispatch)
 - n8n workflow execution
 - MemPalace read/write (except optional profile read in context resolution)
-- HTTP transport (V3.2)
 - Authentication (V3.5)
 - Billing (V3.5)

@@ -158,7 +158,7 @@ Goal: Add an orchestration layer (OpenClaw) above the Router for request normali
 ### Implementation phases
 
 - [x] **V3.1** — OpenClaw local orchestrator: `openclaw.py`, `registry.py`, `policy.py`, `schemas.py`, `context.py`, `run_openclaw_demo.py`; `trace_id` propagation; dedicated smoke test
-- [ ] **V3.2** — HTTP server: `server.py` exposing `/health` and `/process` via FastAPI
+- [x] **V3.2** — HTTP server: `server.py` — FastAPI, port 8100, `GET /`, `GET /openclaw/health`, `POST /openclaw/process`; delegates to `process_request`; malformed JSON handled
 - [ ] **V3.3** — Tenant context: per-client config, scoped memory root, tenant-aware dispatch
 - [ ] **V3.4** — Audit log: append-only JSONL request/response log under `openclaw/audit/`
 - [ ] **V3.5** — SaaS + GCP: Cloud Run deployment, real Google Ads API, GA4, Meta Ads, CI/CD
