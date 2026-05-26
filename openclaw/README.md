@@ -133,6 +133,15 @@ curl -X POST http://localhost:8100/openclaw/process \
   -d '{bad json}'
 ```
 
+### Run the HTTP smoke test
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v3_openclaw_http.sh
+```
+
+The script starts and stops the server automatically. It refuses to run if port 8100 is already occupied.
+
 ## Modules
 
 | File | Purpose |

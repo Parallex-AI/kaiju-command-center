@@ -661,3 +661,31 @@ Uses dedicated client ID `openclaw-smoke-client` — never touches `demo-client`
 cd ~/kaiju
 ./scripts/smoke_test_v3_openclaw.sh
 ```
+
+---
+
+## 21. V3.2 OpenClaw HTTP Smoke Test
+
+A dedicated HTTP smoke test validates the V3.2 OpenClaw HTTP server end-to-end, starting and stopping the server automatically.
+
+### Coverage
+
+| Section | Assertions |
+|---|---|
+| [1/6] Environment | Python venv exists; `fastapi`, `uvicorn`, `requests` importable; port 8100 available |
+| [2/6] Start server | Server starts on port 8100; health endpoint responds within 10s |
+| [3/6] Metadata and health | `GET /` — service, status, endpoints; `GET /openclaw/health` — `ok=true`, `status=healthy` |
+| [4/6] Valid requests | `summary` (full envelope + `trace_id` propagation + `router_response`), `cpa`, `conversions`, `raw` |
+| [5/6] Error handling | Unsupported request → `code=unsupported_request`; unsupported agent → `code=unsupported_agent`; malformed JSON → `code=invalid_json`, no traceback |
+| [6/6] Cleanup | Server stopped; PID released |
+
+### Isolation
+
+Uses dedicated client ID `openclaw-http-smoke-client` — never touches `demo-client` memory. Refuses to run if port 8100 is already occupied.
+
+### Run
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v3_openclaw_http.sh
+```
