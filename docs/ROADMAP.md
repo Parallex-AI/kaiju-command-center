@@ -149,7 +149,7 @@ Goal: Add a persistent memory layer so agents have context across sessions and c
 
 ---
 
-## V3 — OpenClaw + SaaS (Design in progress — branch: `v3-openclaw`)
+## V3 — OpenClaw + SaaS (In progress — branch: `v3-openclaw`)
 
 Goal: Add an orchestration layer (OpenClaw) above the Router for request normalization, tenant context, agent registry, policy enforcement, and structured response envelopes — laying the foundation for a production-ready multi-tenant SaaS platform.
 
@@ -157,11 +157,23 @@ Goal: Add an orchestration layer (OpenClaw) above the Router for request normali
 
 ### Implementation phases
 
-- [ ] **V3.1** — OpenClaw CLI demo: `openclaw.py`, `registry.py`, `policy.py`, `schemas.py`, `run_openclaw_demo.py` — no HTTP server
+- [x] **V3.1** — OpenClaw local orchestrator: `openclaw.py`, `registry.py`, `policy.py`, `schemas.py`, `context.py`, `run_openclaw_demo.py`; `trace_id` propagation; dedicated smoke test
 - [ ] **V3.2** — HTTP server: `server.py` exposing `/health` and `/process` via FastAPI
 - [ ] **V3.3** — Tenant context: per-client config, scoped memory root, tenant-aware dispatch
 - [ ] **V3.4** — Audit log: append-only JSONL request/response log under `openclaw/audit/`
 - [ ] **V3.5** — SaaS + GCP: Cloud Run deployment, real Google Ads API, GA4, Meta Ads, CI/CD
+
+### V3.1 completed capabilities
+
+- `process_request(payload)` — main entry point: context resolution → policy validation → Router dispatch → normalized envelope
+- Agent registry (`registry.py`): `ads-agent` active, `get_agent`, `list_agents`, `get_supported_agents`, `get_supported_requests`
+- Policy layer (`policy.py`): validates agent, request type, and client_id before dispatch
+- Tenant context (`context.py`): resolves `client_id`, `tenant`, `channel`, `user_id`, metadata; optional non-fatal MemPalace profile read
+- Normalized envelope: `ok`, `openclaw` block (`version`, `request_id`, `trace_id`, `tenant`, `agent`, `execution_mode`, `started_at`, `finished_at`, `duration_ms`), `data.router_response`, `errors`, `warnings`
+- `trace_id` propagation: caller may supply `metadata.trace_id` to pin the trace ID across systems
+- Unsupported agent and unsupported request return `ok=false` with structured error — no Python traceback exposed
+- Router dispatch: calls existing `route_request(payload)` — does not touch Ads Agent or MemPalace directly
+- Dedicated smoke test (`scripts/smoke_test_v3_openclaw.sh`): 5 sections, validates all of the above with isolated client `openclaw-smoke-client`
 
 ### V3 architecture target
 
@@ -186,9 +198,11 @@ Response
 - Owns: request normalization, `request_id` / `trace_id` generation, agent registry lookup, policy enforcement, response envelope, error normalization
 - Does not own: agent logic, graph execution, memory reads/writes, n8n communication
 
-### V3.1 acceptance criteria
+### V3.1 acceptance criteria (met)
 
-- `process_request({"client_id": "demo-client", "agent": "ads-agent", "request": "summary"})` returns a valid V3 envelope
-- `ok: true`, `request_id` present, `agent` present, `data` present, `meta.duration_ms` present
-- Unknown agent returns `ok: false`, `error.code: "AGENT_NOT_FOUND"`, no traceback
-- All V0, V1, and V2 smoke tests continue to pass
+- `process_request(...)` returns a valid V3 envelope with `ok`, `openclaw` block, `data.router_response`, `errors`, `warnings`
+- `request_id`, `trace_id`, `tenant`, `agent`, `execution_mode`, `duration_ms` present in every response
+- `metadata.trace_id` propagated to `openclaw.trace_id` when supplied
+- Unsupported agent returns `ok=false`, `errors[0].code="unsupported_agent"`, no traceback
+- Unsupported request returns `ok=false`, `errors[0].code="unsupported_request"`, no traceback
+- All V0, V1, and V2 smoke tests pass

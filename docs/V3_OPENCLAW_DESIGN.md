@@ -1,7 +1,7 @@
 # Kaiju Command Center — V3 OpenClaw Design
 
 **Branch:** `v3-openclaw`  
-**Status:** Design phase — implementation pending
+**Status:** V3.1 complete — smoke test passing
 
 ---
 
@@ -9,8 +9,8 @@
 
 | Phase | Description | Commit | Status |
 |---|---|---|---|
-| Design | V3 OpenClaw design document | — | In progress |
-| V3.1 | `process_request`, registry, policy, schemas, CLI demo | — | Pending |
+| Design | V3 OpenClaw design document | `823232c` | Complete |
+| V3.1 | `process_request`, registry, policy, schemas, context, trace_id propagation, CLI demo, smoke test | `927262c` | Complete |
 | V3.2 | OpenClaw HTTP server (`POST /openclaw/request`, `GET /openclaw/health`) | — | Pending |
 | V3.3 | Tenant context from MemPalace, `request_id`/`trace_id` propagation | — | Pending |
 | V3.4 | Usage log / local observability audit trail | — | Pending |
@@ -633,4 +633,31 @@ The following should be resolved before or during V3 implementation:
 4. **MemPalace context depth** — In V3.3, how much MemPalace context should OpenClaw load? Profile only, or recent snapshots too?
 5. **`raw` request access control** — Should `raw` request type require a dev/local channel flag, or remain open?
 6. **Audit log location** — Should usage/audit logs live under `memory/` (co-located with client memory), a separate `logs/` directory, or GCP Logging in V3.5?
-7. **OpenClaw smoke test** — Should there be a dedicated `scripts/smoke_test_v3_openclaw.sh`, or should OpenClaw assertions be added to the V1 graph smoke test?
+7. **OpenClaw smoke test** — Resolved: dedicated `scripts/smoke_test_v3_openclaw.sh` created in V3.1.
+
+---
+
+## 20. V3.1 OpenClaw Smoke Test
+
+A dedicated smoke test validates the OpenClaw V3.1 local orchestration layer end-to-end.
+
+### Coverage
+
+| Section | Assertions |
+|---|---|
+| [1/5] Environment | Python venv exists; all OpenClaw modules importable |
+| [2/5] Valid requests | `summary`, `cpa`, `conversions`, `raw` — `ok=true`, full envelope shape, `request_id`, `trace_id`, `tenant`, `agent`, `data.router_response` |
+| [3/5] Error handling | Unsupported request → `ok=false`, `code=unsupported_request`; unsupported agent → `ok=false`, `code=unsupported_agent`; no traceback exposed |
+| [4/5] trace_id propagation | `metadata.trace_id` is propagated to `openclaw.trace_id` in response |
+| [5/5] CLI demo | `run_openclaw_demo.py` exits cleanly for valid, invalid, and unsupported-agent cases |
+
+### Isolation
+
+Uses dedicated client ID `openclaw-smoke-client` — never touches `demo-client` memory.
+
+### Run
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v3_openclaw.sh
+```

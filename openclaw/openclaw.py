@@ -28,6 +28,11 @@ def process_request(payload: dict) -> dict:
     t0 = time.monotonic()
     request_id = generate_request_id()
     trace_id = generate_trace_id()
+    # Allow caller to supply a trace_id via metadata for propagation
+    if isinstance(payload, dict):
+        _meta_trace = (payload.get("metadata") or {}).get("trace_id")
+        if _meta_trace and isinstance(_meta_trace, str):
+            trace_id = _meta_trace
 
     context = resolve_context(payload if isinstance(payload, dict) else {})
     context_warnings = context.get("warnings", [])
