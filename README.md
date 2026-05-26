@@ -4,9 +4,13 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V2.2 complete** — branch `v2-mempalace`
+**V2 MemPalace beta complete** — branch `v2-mempalace`
 
-MemPalace memory utility module and Ads Graph integration are implemented. The graph now loads client memory, compares metrics with history, and writes snapshots and recommendations after each run. V2.3–V2.5 pending.
+V2.1–V2.4 are implemented and tested: local-first memory utilities, graph memory integration, enriched historical comparison with recurring recommendation detection, and a dedicated memory smoke test. Runtime memory is ignored by Git. `MEMORY_ENABLED=false` degrades cleanly. Raw mode skips full payload storage.
+
+V2.5 retention controls and `MEMORY_STORE_RAW_PAYLOADS` opt-in are deferred as future improvements — not required for V2 beta.
+
+**Master merge and tag are pending.**
 
 ## Architecture
 
@@ -61,5 +65,5 @@ cd ~/kaiju/projects/demo-client
 |---|---|---|
 | V0 | Ads Agent · Router · n8n · Demo Client | **Complete** — `v0.0.1` |
 | V1 | LangGraph · stateful analysis | **Complete** — `v1.4.1-n8n-resilience` |
-| V2 | MemPalace · persistent client memory | **In progress** — `v2-mempalace` |
+| V2 | MemPalace · persistent client memory | **Beta complete** — `v2-mempalace` |
 | V3 | OpenClaw · SaaS · multi-tenant · GCP production | Planned |

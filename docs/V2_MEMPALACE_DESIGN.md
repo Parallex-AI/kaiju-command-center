@@ -1,7 +1,7 @@
 # Kaiju Command Center — V2 MemPalace Design
 
 **Branch:** `v2-mempalace`  
-**Status:** V2.1 + V2.2 + V2.3 + V2.4 complete — V2.5 pending
+**Status:** V2 beta complete — V2.5 deferred
 
 ---
 
@@ -13,8 +13,8 @@
 | V2.1 | Memory utility module (`mempalace.py`) | `fb1a82a` | Complete |
 | V2.2 | Graph memory integration (load/write nodes) | `01a93dd` | Complete |
 | V2.3 | Historical comparison and trend detection | `1cf4e93` | Complete |
-| V2.4 | Memory smoke test and runbook | — | Complete |
-| V2.5 | Retention controls and raw payload flag | — | Pending |
+| V2.4 | Memory smoke test and runbook | `5b45f18` | Complete |
+| V2.5 | Retention controls and raw payload flag | — | Deferred |
 
 **Test results (V2.1 + V2.2):**
 - MemPalace utility demo passed (`run_mempalace_demo.py demo-client`)
@@ -429,3 +429,37 @@ The following must be resolved before or during V2.1 implementation:
 4. **Recommendation IDs** — Should `recommendation_id` be a deterministic hash of (client_id + type + area + action), or a random UUID? Deterministic hashes enable deduplication; UUIDs are simpler.
 5. **Memory write for cpa/conversions** — Should partial request types (cpa, conversions) write full snapshots or only the fields they receive?
 6. **Raw mode memory** — Should raw mode ever write memory? Current proposal: no by default, opt-in via `MEMORY_STORE_RAW_PAYLOADS=true`.
+
+---
+
+## 17. V2 Beta Completion Status
+
+V2 beta is complete on branch `v2-mempalace`. All four implementation phases are committed and tested.
+
+### Completed commits
+
+| Phase | Commit | Description |
+|---|---|---|
+| V2.1 | `fb1a82a` | Add V2.1 MemPalace memory utility module |
+| V2.2 | `01a93dd` | Add V2.2 MemPalace graph memory integration |
+| V2.3 | `1cf4e93` | Add V2.3 enriched historical comparison |
+| V2.4 | `5b45f18` | Add V2.4 MemPalace memory smoke test |
+
+### Final test results
+
+```bash
+./scripts/smoke_test_v2_memory.sh          # passed — all 20 assertions
+./scripts/smoke_test_v1_graph.sh           # passed — 33/33
+ADS_AGENT_EXECUTION_MODE=legacy ./scripts/smoke_test_v0.sh  # passed — 20/20
+```
+
+### Deferred to future improvement
+
+- **V2.5 snapshot pruning** — `MEMORY_MAX_RECENT_SNAPSHOTS` controls the load window; full pruning of old snapshots beyond that limit is not yet implemented
+- **`MEMORY_STORE_RAW_PAYLOADS=true` opt-in** — raw mode always skips memory write in V2; explicit opt-in is a future enhancement
+- Neither item is required for V2 beta functionality
+
+### Pending
+
+- Merge `v2-mempalace` → `master`
+- Annotated Git tag for V2 beta milestone

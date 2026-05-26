@@ -221,4 +221,11 @@ MEMORY_ROOT=/tmp/kaiju-memory ~/kaiju/.venv/bin/python3 run_mempalace_demo.py de
 
 ## Status
 
-V2.2 complete (branch: `v2-mempalace`). Memory utility module and graph integration are implemented and tested. V2.3 (trend detection) is next.
+V2 beta complete (branch: `v2-mempalace`). Memory utility module, graph integration, enriched historical comparison, and memory smoke test are implemented and tested. V2.5 retention controls are deferred.
+
+### Run the V2 memory smoke test
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v2_memory.sh
+```

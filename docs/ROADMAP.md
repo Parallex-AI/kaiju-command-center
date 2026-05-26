@@ -67,7 +67,7 @@ The Router Core dispatch interface (`route_request`) remains stable throughout V
 
 ---
 
-## V2 — MemPalace (In progress — branch: `v2-mempalace`)
+## V2 — MemPalace (Beta complete — branch: `v2-mempalace`)
 
 Goal: Add a persistent memory layer so agents have context across sessions and clients.
 
@@ -79,7 +79,7 @@ Goal: Add a persistent memory layer so agents have context across sessions and c
 - [x] **V2.2** — Memory nodes in Ads Graph: load and write memory around analysis
 - [x] **V2.3** — Historical comparison: trend detection, recurring recommendation detection
 - [x] **V2.4** — Memory smoke test and runbook update
-- [ ] **V2.5** — Retention controls and raw payload opt-in flag
+- [ ] **V2.5** — Retention controls and raw payload opt-in flag *(deferred — not required for V2 beta)*
 
 ### V2.1 completed capabilities
 
@@ -124,6 +124,20 @@ Goal: Add a persistent memory layer so agents have context across sessions and c
 - V2 memory smoke test: all assertions pass
 - V1 graph smoke test: 33/33 passed
 - V0 legacy smoke test: 20/20 passed
+
+### V2 beta completed capabilities
+
+- Local-first memory utilities (`mempalace.py`) — standard library only, no external dependencies
+- Graph memory integration: `load_client_memory`, `compare_with_history`, `write_memory` nodes
+- Enriched historical comparison: trend direction for CPA, CTR, conversion rate, performance score
+- Recurring recommendation area and risk flag detection across snapshot window
+- Memory smoke test (`scripts/smoke_test_v2_memory.sh`) — 20 assertions, isolated test client
+- Runtime memory (`memory/client-memory/`) ignored by Git
+- `MEMORY_ENABLED=false` safe degradation — no crash, `ok: true`, `memory.enabled: false`
+- Raw mode skips full payload storage (`write_result.skipped: true`)
+- All memory failures non-fatal warnings — graph always returns `ok: true`
+
+**V2.5 is deferred.** Snapshot pruning and `MEMORY_STORE_RAW_PAYLOADS=true` are improvements, not blockers for the V2 beta milestone.
 
 ### Design principles
 
