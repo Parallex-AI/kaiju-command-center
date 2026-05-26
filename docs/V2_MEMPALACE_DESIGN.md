@@ -1,7 +1,27 @@
 # Kaiju Command Center — V2 MemPalace Design
 
 **Branch:** `v2-mempalace`  
-**Status:** Design / Pre-implementation
+**Status:** V2.1 + V2.2 complete — V2.3–V2.5 pending
+
+---
+
+## Implementation Status
+
+| Phase | Description | Commit | Status |
+|---|---|---|---|
+| Design | V2 MemPalace design document | `1cad275` | Complete |
+| V2.1 | Memory utility module (`mempalace.py`) | `fb1a82a` | Complete |
+| V2.2 | Graph memory integration (load/write nodes) | `01a93dd` | Complete |
+| V2.3 | Historical comparison and trend detection | — | Pending |
+| V2.4 | Memory smoke test and runbook | — | Pending |
+| V2.5 | Retention controls and raw payload flag | — | Pending |
+
+**Test results (V2.1 + V2.2):**
+- MemPalace utility demo passed (`run_mempalace_demo.py demo-client`)
+- `MEMORY_ENABLED=false` test passed — no crash, `ok: true`, `memory.enabled: false`
+- Summary run twice: second run detected history (`has_history: true`, `cpa_direction: stable`)
+- V1 graph smoke test: 33/33 passed
+- V0 legacy smoke test: 20/20 passed
 
 ---
 

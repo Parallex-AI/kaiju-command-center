@@ -4,9 +4,9 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V2 MemPalace — in progress** — branch `v2-mempalace`
+**V2.2 complete** — branch `v2-mempalace`
 
-Design phase complete. V2 introduces persistent client-scoped memory: campaign snapshots, recommendation history, trend detection, and historical comparison across sessions. V1.4.1 remains fully stable.
+MemPalace memory utility module and Ads Graph integration are implemented. The graph now loads client memory, compares metrics with history, and writes snapshots and recommendations after each run. V2.3–V2.5 pending.
 
 ## Architecture
 

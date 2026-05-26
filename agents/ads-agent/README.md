@@ -159,42 +159,66 @@ N8N_WEBHOOK_TIMEOUT=30 python3 run_n8n_demo.py summary
 
 If `N8N_WEBHOOK_TIMEOUT` is missing, invalid, zero, or negative, the client falls back to 15 seconds.
 
-## V2 MemPalace Local Memory Utilities
+## V2 MemPalace Local Memory
 
-`mempalace.py` provides a local-first, file-based memory layer for client-scoped campaign context. It is a pure utility module — not yet integrated into the Ads Graph.
+MemPalace provides a local-first, file-based memory layer for client-scoped campaign context. V2.1 implements the utility module; V2.2 integrates it into the Ads Agent Graph.
 
-**What it does:**
-- Creates and manages `memory/client-memory/<client_id>/ads-agent/` directory structure
-- Reads and writes `profile.json` (client metadata)
-- Writes timestamped JSON snapshots under `snapshots/`
-- Updates `latest_summary.json` on each summary run
-- Appends to `recommendations.jsonl` (one structured record per line)
-- Appends to `insights.jsonl` (one insight record per line)
-- Reads recent snapshots for historical context
+### V2.1 — Memory utility module (`mempalace.py`)
 
-**Environment variables:**
+Creates and manages `memory/client-memory/<client_id>/ads-agent/` with:
+- `profile.json` — client metadata (read/write, atomic replacement)
+- `snapshots/<timestamp>_<request_type>.json` — per-run analysis snapshots
+- `latest_summary.json` — most recent summary for quick history loading
+- `recommendations.jsonl` — append-only log with deterministic `recommendation_id`
+- `insights.jsonl` — append-only trend/risk/opportunity log
+
+Generated runtime memory is stored under `memory/client-memory/` and is **ignored by Git**.
+
+### V2.2 — Graph integration (`ads_graph.py`)
+
+The Ads Agent Graph now includes three memory nodes:
+
+| Node | Position | Behavior |
+|---|---|---|
+| `load_client_memory` | Before n8n fetch | Loads profile, latest_summary, recent_snapshots into state |
+| `compare_with_history` | After normalize, before analyze | Compares CPA and conversions vs. previous run |
+| `write_memory` | After format_response | Writes snapshot, recommendations, insight; skips raw mode |
+
+All non-raw graph responses include a `data.memory` block:
+```json
+{
+  "enabled": true,
+  "has_history": true,
+  "historical_comparison": { "cpa_direction": "stable", ... },
+  "write_result": { "ok": true, "results": { ... } },
+  "warnings": []
+}
+```
+
+**Raw requests** skip memory write and return `write_result.skipped: true`.  
+**Memory failures** are non-fatal warnings — graph continues and returns `ok: true`.
+
+### Environment variables
 
 | Variable | Default | Description |
 |---|---|---|
 | `MEMORY_ENABLED` | `true` | Set to `false` to disable all memory reads/writes |
-| `MEMORY_ROOT` | `memory/client-memory` | Root directory for client memory |
-| `MEMORY_MAX_RECENT_SNAPSHOTS` | `5` | Number of recent snapshots to load |
+| `MEMORY_ROOT` | `memory/client-memory` (repo-relative) | Root directory for client memory |
+| `MEMORY_MAX_RECENT_SNAPSHOTS` | `5` | Number of recent snapshots to load per run |
 
-**Run the memory utility demo:**
+### Run the memory utility demo
 
 ```bash
 cd ~/kaiju/agents/ads-agent
 ~/kaiju/.venv/bin/python3 run_mempalace_demo.py demo-client
 
-# With memory disabled:
+# With memory disabled (no crash, ok: true, enabled: false):
 MEMORY_ENABLED=false ~/kaiju/.venv/bin/python3 run_mempalace_demo.py demo-client
 
 # Custom memory root:
 MEMORY_ROOT=/tmp/kaiju-memory ~/kaiju/.venv/bin/python3 run_mempalace_demo.py demo-client
 ```
 
-> **Note:** Memory utilities are not yet integrated into the Ads Graph. Graph execution is unchanged by V2.1. Integration will happen in V2.2.
-
 ## Status
 
-V2.1 in progress (branch: `v2-mempalace`). Memory utility module implemented. Graph integration pending.
+V2.2 complete (branch: `v2-mempalace`). Memory utility module and graph integration are implemented and tested. V2.3 (trend detection) is next.

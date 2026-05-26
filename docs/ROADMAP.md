@@ -75,11 +75,36 @@ Goal: Add a persistent memory layer so agents have context across sessions and c
 
 ### Implementation phases
 
-- [ ] **V2.1** — Memory utility module: read/write profile, snapshots, recommendations, insights
-- [ ] **V2.2** — Memory nodes in Ads Graph: load and write memory around analysis
+- [x] **V2.1** — Memory utility module: read/write profile, snapshots, recommendations, insights
+- [x] **V2.2** — Memory nodes in Ads Graph: load and write memory around analysis
 - [ ] **V2.3** — Historical comparison: trend detection, recurring recommendation detection
 - [ ] **V2.4** — Memory smoke test and runbook update
 - [ ] **V2.5** — Retention controls and raw payload opt-in flag
+
+### V2.1 completed capabilities
+
+- Local-first memory utility module (`mempalace.py`) — standard library only, no external dependencies
+- Profile read/write: `profile.json` per client with atomic temp-file replacement
+- Snapshot write: timestamped JSON files under `snapshots/`
+- `latest_summary.json` updated on every summary run
+- `recommendations.jsonl` append: deterministic 12-char SHA-256 `recommendation_id`
+- `insights.jsonl` append
+- Recent snapshots reader with configurable limit (`MEMORY_MAX_RECENT_SNAPSHOTS`)
+- Memory root anchored to repo root via `Path(__file__).parents[2]`
+- Runtime memory files ignored via `.gitignore` (`memory/client-memory/`)
+- `MEMORY_ENABLED=false` disables all reads/writes without crashing
+
+### V2.2 completed capabilities
+
+- `load_client_memory` graph node: loads profile, latest_summary, and recent_snapshots before n8n fetch
+- `compare_with_history` graph node: compares CPA and conversions vs. previous snapshot; produces `cpa_direction`, `conversions_direction`, `notes`
+- `write_memory` graph node: writes snapshot, recommendations, insight after response formatting; skips raw mode
+- `AdsAgentState` extended with `memory_context`, `historical_comparison`, `memory_write_result`, `warnings`
+- `memory` block injected into all non-raw graph responses under `data.memory`
+- Raw requests skip full payload storage (`write_result.skipped: true, reason: "raw mode"`)
+- `MEMORY_ENABLED=false` flows through graph cleanly; `data.memory.enabled: false` in response
+- Memory failures are non-fatal warnings — graph continues and returns `ok: true`
+- Historical notes from `compare_with_history` surface in `analysis.notes` as `[History] ...`
 
 ### Design principles
 
