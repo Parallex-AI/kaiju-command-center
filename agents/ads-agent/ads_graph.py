@@ -180,6 +180,82 @@ def map_status(score, spend_efficiency) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Helpers — historical comparison
+# ---------------------------------------------------------------------------
+
+def extract_snapshot_metrics(snapshot: dict) -> dict:
+    if not isinstance(snapshot, dict):
+        return {}
+    for getter in [
+        lambda s: s.get("metrics"),
+        lambda s: (s.get("data") or {}).get("metrics"),
+        lambda s: ((s.get("response") or {}).get("data") or {}).get("metrics"),
+        lambda s: (s.get("snapshot") or {}).get("metrics"),
+    ]:
+        try:
+            result = getter(snapshot)
+            if isinstance(result, dict):
+                return result
+        except Exception:
+            pass
+    return {}
+
+
+def extract_snapshot_analysis(snapshot: dict) -> dict:
+    if not isinstance(snapshot, dict):
+        return {}
+    for getter in [
+        lambda s: s.get("analysis"),
+        lambda s: (s.get("data") or {}).get("analysis"),
+        lambda s: ((s.get("response") or {}).get("data") or {}).get("analysis"),
+    ]:
+        try:
+            result = getter(snapshot)
+            if isinstance(result, dict):
+                return result
+        except Exception:
+            pass
+    return {}
+
+
+def compare_numeric_direction(
+    current,
+    previous,
+    tolerance_ratio: float = 0.03,
+    lower_is_better: bool = False,
+) -> str:
+    try:
+        current = float(current)
+        previous = float(previous)
+    except (TypeError, ValueError):
+        return "unknown"
+
+    if previous == 0 and current == 0:
+        return "stable"
+
+    if previous == 0:
+        if current > 0:
+            return "worsened" if lower_is_better else "improved"
+        return "improved" if lower_is_better else "worsened"
+
+    tolerance = abs(previous) * tolerance_ratio
+    diff = current - previous
+
+    if lower_is_better:
+        if diff < -tolerance:
+            return "improved"
+        if diff > tolerance:
+            return "worsened"
+        return "stable"
+    else:
+        if diff > tolerance:
+            return "improved"
+        if diff < -tolerance:
+            return "worsened"
+        return "stable"
+
+
+# ---------------------------------------------------------------------------
 # Helpers — recommendations
 # ---------------------------------------------------------------------------
 
@@ -430,68 +506,120 @@ def compare_with_history(state: AdsAgentState) -> dict:
     metrics = state.get("normalized_metrics") or {}
     warnings = list(state.get("warnings") or [])
 
-    no_history = {
+    _no_history_base = {
         "has_history": False,
+        "history_count": 0,
+        "comparison_window": 0,
         "cpa_direction": "unknown",
         "conversions_direction": "unknown",
+        "ctr_direction": "unknown",
+        "conversion_rate_direction": "unknown",
         "performance_score_direction": "unknown",
+        "recurring_risk_flags": [],
+        "recurring_recommendation_areas": [],
         "notes": [],
     }
 
     if not memory_context.get("enabled"):
-        no_history["notes"] = ["Memory is disabled or unavailable."]
-        return {"historical_comparison": no_history, "warnings": warnings}
+        return {
+            "historical_comparison": {**_no_history_base, "notes": ["Memory is disabled or unavailable."]},
+            "warnings": warnings,
+        }
 
-    latest_summary = memory_context.get("latest_summary")
+    recent_snapshots = memory_context.get("recent_snapshots") or []
+    comparison_window = len(recent_snapshots)
 
-    if not latest_summary or not isinstance(latest_summary, dict) or "warning" in latest_summary:
-        no_history["notes"] = ["No previous summary memory available for comparison."]
-        return {"historical_comparison": no_history, "warnings": warnings}
+    # Collect usable snapshots (parseable, have extractable metrics)
+    usable = [
+        s for s in recent_snapshots
+        if isinstance(s, dict) and "warning" not in s and extract_snapshot_metrics(s)
+    ]
 
-    prev_metrics = latest_summary.get("metrics") or {}
-    notes = []
+    # Fall back to latest_summary if snapshot list is empty
+    if not usable:
+        latest = memory_context.get("latest_summary")
+        if isinstance(latest, dict) and "warning" not in latest and extract_snapshot_metrics(latest):
+            usable = [latest]
+            comparison_window = max(comparison_window, 1)
 
-    def _direction(current, previous, higher_is_better=True):
-        if current is None or previous is None:
-            return "unknown"
-        if current > previous:
-            return "improved" if higher_is_better else "worsened"
-        if current < previous:
-            return "worsened" if higher_is_better else "improved"
-        return "stable"
+    history_count = len(usable)
 
-    current_cpa = metrics.get("cpa")
-    prev_cpa = prev_metrics.get("cpa")
-    cpa_direction = _direction(current_cpa, prev_cpa, higher_is_better=False)
+    if history_count == 0:
+        return {
+            "historical_comparison": {
+                **_no_history_base,
+                "comparison_window": comparison_window,
+                "notes": ["No previous memory available for comparison."],
+            },
+            "warnings": warnings,
+        }
 
-    if cpa_direction == "improved" and current_cpa is not None and prev_cpa is not None:
-        notes.append(f"CPA improved from {prev_cpa:.2f} to {current_cpa:.2f}.")
-    elif cpa_direction == "worsened" and current_cpa is not None and prev_cpa is not None:
-        notes.append(f"CPA worsened from {prev_cpa:.2f} to {current_cpa:.2f}.")
+    # Compare against most recent usable snapshot (list is sorted descending by timestamp)
+    prev_snap = usable[0]
+    prev_metrics = extract_snapshot_metrics(prev_snap)
+    prev_analysis = extract_snapshot_analysis(prev_snap)
 
-    current_conversions = metrics.get("conversions")
-    prev_conversions = prev_metrics.get("conversions")
-    conversions_direction = _direction(current_conversions, prev_conversions, higher_is_better=True)
+    cpa_direction = compare_numeric_direction(
+        metrics.get("cpa"), prev_metrics.get("cpa"), lower_is_better=True
+    )
+    conversions_direction = compare_numeric_direction(
+        metrics.get("conversions"), prev_metrics.get("conversions"), lower_is_better=False
+    )
+    ctr_direction = compare_numeric_direction(
+        metrics.get("ctr"), prev_metrics.get("ctr"), lower_is_better=False
+    )
+    conversion_rate_direction = compare_numeric_direction(
+        metrics.get("conversion_rate"), prev_metrics.get("conversion_rate"), lower_is_better=False
+    )
 
-    if conversions_direction == "improved":
-        notes.append(f"Conversions improved from {prev_conversions} to {current_conversions}.")
-    elif conversions_direction == "worsened":
-        notes.append(f"Conversions decreased from {prev_conversions} to {current_conversions}.")
-
-    prev_analysis = latest_summary.get("analysis") or {}
+    # performance_score not yet computed for current run; finalized later in write_memory
     prev_score = prev_analysis.get("performance_score")
-    # Current score not yet computed; will be "unknown" until analysis runs
-    performance_score_direction = "unknown" if prev_score is None else "pending"
+    performance_score_direction = "pending" if prev_score is not None else "unknown"
 
+    # Recurring signals: flags/areas appearing in 2+ usable snapshots
+    flag_counts: dict = {}
+    area_counts: dict = {}
+    for snap in usable:
+        a = extract_snapshot_analysis(snap)
+        for flag in (a.get("risk_flags") or []):
+            flag_counts[flag] = flag_counts.get(flag, 0) + 1
+        for rec in (snap.get("recommendations") or []):
+            area = rec.get("area", "")
+            if area:
+                area_counts[area] = area_counts.get(area, 0) + 1
+
+    recurring_risk_flags = [f for f, n in flag_counts.items() if n >= 2]
+    recurring_recommendation_areas = [a for a, n in area_counts.items() if n >= 2]
+
+    # Notes: concise directional signals used by analyze_performance for [History] entries
+    notes = []
+    if cpa_direction in ("improved", "worsened"):
+        curr_cpa = metrics.get("cpa")
+        prev_cpa = prev_metrics.get("cpa")
+        if curr_cpa is not None and prev_cpa is not None:
+            notes.append(f"CPA {cpa_direction} from {prev_cpa:.2f} to {curr_cpa:.2f}.")
+        else:
+            notes.append(f"CPA {cpa_direction} compared with previous snapshot.")
+    if conversions_direction in ("improved", "worsened"):
+        notes.append(
+            f"Conversions {conversions_direction} from "
+            f"{prev_metrics.get('conversions')} to {metrics.get('conversions')}."
+        )
     if not notes:
         notes.append("Campaign metrics are stable compared to the previous run.")
 
     return {
         "historical_comparison": {
             "has_history": True,
+            "history_count": history_count,
+            "comparison_window": comparison_window,
             "cpa_direction": cpa_direction,
             "conversions_direction": conversions_direction,
+            "ctr_direction": ctr_direction,
+            "conversion_rate_direction": conversion_rate_direction,
             "performance_score_direction": performance_score_direction,
+            "recurring_risk_flags": recurring_risk_flags,
+            "recurring_recommendation_areas": recurring_recommendation_areas,
             "notes": notes,
         },
         "warnings": warnings,
@@ -537,11 +665,17 @@ def analyze_performance(state: AdsAgentState) -> dict:
     elif conversion_rate_level == "strong":
         notes.append("Conversion rate is strong.")
 
-    # Enrich notes with historical comparison if available
+    # Enrich notes with historical comparison signals
     historical = state.get("historical_comparison") or {}
-    if historical.get("has_history") and historical.get("notes"):
-        for note in historical["notes"]:
-            notes.append(f"[History] {note}")
+    if historical.get("has_history"):
+        cpa_dir = historical.get("cpa_direction", "unknown")
+        if cpa_dir in ("improved", "worsened"):
+            notes.append(f"[History] CPA {cpa_dir} compared with previous snapshot.")
+        conv_dir = historical.get("conversions_direction", "unknown")
+        if conv_dir in ("improved", "worsened"):
+            notes.append(f"[History] Conversions {conv_dir} compared with previous snapshot.")
+        for flag in (historical.get("recurring_risk_flags") or []):
+            notes.append(f"[History] Recurring risk flag detected: {flag}")
 
     # Preserve legacy conversion_level for backward compatibility
     conversion_volume = conversions or 0
@@ -748,7 +882,7 @@ def write_memory(state: AdsAgentState) -> dict:
     client_id = state.get("client_id", "")
     response = state.get("response") or {}
     memory_context = state.get("memory_context") or {}
-    historical_comparison = state.get("historical_comparison") or {}
+    historical_comparison = dict(state.get("historical_comparison") or {})
     memory_enabled = mempalace.is_memory_enabled()
 
     memory_block = {
@@ -778,11 +912,32 @@ def write_memory(state: AdsAgentState) -> dict:
     if not response.get("ok"):
         return _finish({"ok": False, "skipped": True, "reason": "Graph returned error; no memory written"})
 
+    # Finalize performance_score_direction now that analysis is complete
+    if historical_comparison.get("performance_score_direction") == "pending":
+        try:
+            current_score = (state.get("analysis") or {}).get("performance_score")
+            recent = memory_context.get("recent_snapshots") or []
+            prev_snap = next(
+                (s for s in recent if isinstance(s, dict) and "warning" not in s), None
+            )
+            if prev_snap is None:
+                ls = memory_context.get("latest_summary")
+                if isinstance(ls, dict) and "warning" not in ls:
+                    prev_snap = ls
+            if prev_snap is not None and current_score is not None:
+                prev_score = extract_snapshot_analysis(prev_snap).get("performance_score")
+                if prev_score is not None:
+                    historical_comparison["performance_score_direction"] = compare_numeric_direction(
+                        current_score, prev_score, lower_is_better=False
+                    )
+        except Exception:
+            pass
+
     snapshot = {
-        "metrics":              state.get("normalized_metrics") or {},
-        "analysis":             state.get("analysis") or {},
-        "recommendations":      state.get("recommendations") or [],
-        "executive_summary":    (response.get("data") or {}).get("executive_summary"),
+        "metrics":               state.get("normalized_metrics") or {},
+        "analysis":              state.get("analysis") or {},
+        "recommendations":       state.get("recommendations") or [],
+        "executive_summary":     (response.get("data") or {}).get("executive_summary"),
         "historical_comparison": historical_comparison,
     }
 
