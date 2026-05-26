@@ -66,4 +66,4 @@ cd ~/kaiju/projects/demo-client
 | V0 | Ads Agent · Router · n8n · Demo Client | **Complete** — `v0.0.1` |
 | V1 | LangGraph · stateful analysis | **Complete** — `v1.4.1-n8n-resilience` |
 | V2 | MemPalace · persistent client memory | **Beta complete** — `v2-mempalace` |
-| V3 | OpenClaw · SaaS · multi-tenant · GCP production | Planned |
+| V3 | OpenClaw · SaaS · multi-tenant · GCP production | **Design in progress** — `v3-openclaw` |

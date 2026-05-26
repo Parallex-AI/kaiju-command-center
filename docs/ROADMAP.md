@@ -149,30 +149,26 @@ Goal: Add a persistent memory layer so agents have context across sessions and c
 
 ---
 
-## V3 — OpenClaw + SaaS (Planned)
+## V3 — OpenClaw + SaaS (Design in progress — branch: `v3-openclaw`)
 
-Goal: Production-ready multi-tenant platform with real data integrations.
+Goal: Add an orchestration layer (OpenClaw) above the Router for request normalization, tenant context, agent registry, policy enforcement, and structured response envelopes — laying the foundation for a production-ready multi-tenant SaaS platform.
 
-### Proposed scope
+**Design document:** [docs/V3_OPENCLAW_DESIGN.md](V3_OPENCLAW_DESIGN.md)
 
-- [ ] OpenClaw gateway (public-facing API, request parsing, client auth)
-- [ ] Multi-tenant architecture (client isolation, scoped data)
-- [ ] Authentication and authorization
-- [ ] Client management interface
-- [ ] Billing readiness
-- [ ] Production GCP deployment (Cloud Run or GKE)
-- [ ] Real Google Ads API integration
-- [ ] Real GA4 integration
-- [ ] Meta Ads integration
-- [ ] Docker production containers
-- [ ] CI/CD pipeline
+### Implementation phases
 
-### Architecture target
+- [ ] **V3.1** — OpenClaw CLI demo: `openclaw.py`, `registry.py`, `policy.py`, `schemas.py`, `run_openclaw_demo.py` — no HTTP server
+- [ ] **V3.2** — HTTP server: `server.py` exposing `/health` and `/process` via FastAPI
+- [ ] **V3.3** — Tenant context: per-client config, scoped memory root, tenant-aware dispatch
+- [ ] **V3.4** — Audit log: append-only JSONL request/response log under `openclaw/audit/`
+- [ ] **V3.5** — SaaS + GCP: Cloud Run deployment, real Google Ads API, GA4, Meta Ads, CI/CD
+
+### V3 architecture target
 
 ```
 Client
   ↓
-OpenClaw  (auth · routing · rate limiting)
+OpenClaw  (request normalization · tenant context · agent registry · policy · dispatch)
   ↓
 Router    (agent dispatch · validation)
   ↓
@@ -184,3 +180,15 @@ GCP       (data · storage · compute)
   ↓
 Response
 ```
+
+### OpenClaw responsibilities
+
+- Owns: request normalization, `request_id` / `trace_id` generation, agent registry lookup, policy enforcement, response envelope, error normalization
+- Does not own: agent logic, graph execution, memory reads/writes, n8n communication
+
+### V3.1 acceptance criteria
+
+- `process_request({"client_id": "demo-client", "agent": "ads-agent", "request": "summary"})` returns a valid V3 envelope
+- `ok: true`, `request_id` present, `agent` present, `data` present, `meta.duration_ms` present
+- Unknown agent returns `ok: false`, `error.code: "AGENT_NOT_FOUND"`, no traceback
+- All V0, V1, and V2 smoke tests continue to pass
