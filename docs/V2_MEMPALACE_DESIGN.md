@@ -1,7 +1,7 @@
 # Kaiju Command Center — V2 MemPalace Design
 
 **Branch:** `v2-mempalace`  
-**Status:** V2.1 + V2.2 complete — V2.3–V2.5 pending
+**Status:** V2.1 + V2.2 + V2.3 + V2.4 complete — V2.5 pending
 
 ---
 
@@ -12,14 +12,25 @@
 | Design | V2 MemPalace design document | `1cad275` | Complete |
 | V2.1 | Memory utility module (`mempalace.py`) | `fb1a82a` | Complete |
 | V2.2 | Graph memory integration (load/write nodes) | `01a93dd` | Complete |
-| V2.3 | Historical comparison and trend detection | — | Pending |
-| V2.4 | Memory smoke test and runbook | — | Pending |
+| V2.3 | Historical comparison and trend detection | `1cf4e93` | Complete |
+| V2.4 | Memory smoke test and runbook | — | Complete |
 | V2.5 | Retention controls and raw payload flag | — | Pending |
 
 **Test results (V2.1 + V2.2):**
 - MemPalace utility demo passed (`run_mempalace_demo.py demo-client`)
 - `MEMORY_ENABLED=false` test passed — no crash, `ok: true`, `memory.enabled: false`
 - Summary run twice: second run detected history (`has_history: true`, `cpa_direction: stable`)
+- V1 graph smoke test: 33/33 passed
+- V0 legacy smoke test: 20/20 passed
+
+**Test results (V2.3 + V2.4):**
+- V2 memory smoke test passed — all 20 assertions pass (`scripts/smoke_test_v2_memory.sh`)
+- MemPalace utility: create, read, write, append flows verified
+- Memory disabled: all utility functions degrade correctly with `MEMORY_ENABLED=false`
+- Graph integration: history detected on second run, all enriched fields present
+- Raw mode: `write_result.skipped: true` confirmed
+- Graph `MEMORY_ENABLED=false`: `ok: true`, `memory.enabled: false`, no crash
+- `memory/client-memory/` confirmed ignored by Git
 - V1 graph smoke test: 33/33 passed
 - V0 legacy smoke test: 20/20 passed
 
@@ -379,7 +390,36 @@ Memory is **additive**. If `MEMORY_ENABLED=false` or the memory directory does n
 
 ---
 
-## 15. Open Questions
+## 15. V2 Memory Smoke Test
+
+The V2 memory smoke test (`scripts/smoke_test_v2_memory.sh`) validates the full memory stack end-to-end using a dedicated test client (`memory-smoke-client`).
+
+### Run
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v2_memory.sh
+```
+
+### Coverage
+
+| Section | What is tested |
+|---|---|
+| Environment | Python, langgraph, requests, mempalace, ads_graph importable |
+| MemPalace utility | `ensure_client_memory_dirs`, `write_profile`, `read_profile`, `write_snapshot`, `read_latest_summary`, `append_recommendations`, `append_insight`, `read_recent_snapshots` |
+| Memory disabled (utility) | All utility functions degrade correctly with `MEMORY_ENABLED=false` |
+| Graph integration | Two summary runs; second run must detect history and return enriched `historical_comparison` |
+| Raw mode skip | `write_result.skipped: true` with `raw` in reason |
+| Graph disabled | `MEMORY_ENABLED=false` graph run returns `ok: true`, `memory.enabled: false` |
+| Git ignore | `memory/client-memory/` produces no output from `git status` |
+
+### Isolation
+
+The script cleans `memory/client-memory/memory-smoke-client` at the start of each run. It does **not** touch `memory/client-memory/demo-client` or the root `memory/client-memory/` directory.
+
+---
+
+## 16. Open Questions
 
 The following must be resolved before or during V2.1 implementation:
 

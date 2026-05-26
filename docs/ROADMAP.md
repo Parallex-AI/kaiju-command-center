@@ -77,8 +77,8 @@ Goal: Add a persistent memory layer so agents have context across sessions and c
 
 - [x] **V2.1** — Memory utility module: read/write profile, snapshots, recommendations, insights
 - [x] **V2.2** — Memory nodes in Ads Graph: load and write memory around analysis
-- [ ] **V2.3** — Historical comparison: trend detection, recurring recommendation detection
-- [ ] **V2.4** — Memory smoke test and runbook update
+- [x] **V2.3** — Historical comparison: trend detection, recurring recommendation detection
+- [x] **V2.4** — Memory smoke test and runbook update
 - [ ] **V2.5** — Retention controls and raw payload opt-in flag
 
 ### V2.1 completed capabilities
@@ -105,6 +105,25 @@ Goal: Add a persistent memory layer so agents have context across sessions and c
 - `MEMORY_ENABLED=false` flows through graph cleanly; `data.memory.enabled: false` in response
 - Memory failures are non-fatal warnings — graph continues and returns `ok: true`
 - Historical notes from `compare_with_history` surface in `analysis.notes` as `[History] ...`
+
+### V2.3 completed capabilities
+
+- `extract_snapshot_metrics` and `extract_snapshot_analysis` — defensive helpers for multi-shape snapshot extraction
+- `compare_numeric_direction` — tolerance-based direction helper (3% band, `lower_is_better` flag)
+- `compare_with_history` enriched to use `recent_snapshots` window (not only `latest_summary`)
+- `historical_comparison` enriched: `history_count`, `comparison_window`, `ctr_direction`, `conversion_rate_direction`, `recurring_risk_flags`, `recurring_recommendation_areas`
+- `performance_score_direction` finalized in `write_memory` after analysis completes
+- `analyze_performance` generates specific `[History]` notes: CPA/conversions direction, recurring risk flags
+- Backward-compatible: `has_history`, `cpa_direction`, `conversions_direction`, `notes` preserved
+
+### V2.4 completed capabilities
+
+- Dedicated memory smoke test: `scripts/smoke_test_v2_memory.sh`
+- Isolated test client: `memory-smoke-client` (cleaned at test start; never touches `demo-client`)
+- 20 assertions across 7 sections: environment, utility functions, memory disabled, graph integration, raw skip, graph disabled, Git ignore
+- V2 memory smoke test: all assertions pass
+- V1 graph smoke test: 33/33 passed
+- V0 legacy smoke test: 20/20 passed
 
 ### Design principles
 
