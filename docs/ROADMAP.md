@@ -160,7 +160,7 @@ Goal: Add an orchestration layer (OpenClaw) above the Router for request normali
 - [x] **V3.1** — OpenClaw local orchestrator: `openclaw.py`, `registry.py`, `policy.py`, `schemas.py`, `context.py`, `run_openclaw_demo.py`; `trace_id` propagation; dedicated smoke test
 - [x] **V3.2** — HTTP server: `server.py` — FastAPI, port 8100, `GET /`, `GET /openclaw/health`, `POST /openclaw/process`; delegates to `process_request`; malformed JSON handled; dedicated HTTP smoke test (`scripts/smoke_test_v3_openclaw_http.sh`)
 - [x] **V3.3** — Tenant context enrichment: `channel`, `user_id`, `tenant_id` in envelope; HTTP header propagation (`X-Trace-Id`, `X-Request-Id`, `X-User-Id`, `X-Channel`, `X-Tenant-Id`); `request_id` external supply; headers win over body metadata
-- [ ] **V3.4** — Audit log: append-only JSONL request/response log under `openclaw/audit/`
+- [x] **V3.4** — Audit log: append-only JSONL under `openclaw/audit/YYYY-MM-DD.jsonl`; non-fatal writes; `OPENCLAW_AUDIT_ENABLED` / `OPENCLAW_AUDIT_ROOT` env vars; audit files ignored by Git
 - [ ] **V3.5** — SaaS + GCP: Cloud Run deployment, real Google Ads API, GA4, Meta Ads, CI/CD
 
 ### V3.1 completed capabilities

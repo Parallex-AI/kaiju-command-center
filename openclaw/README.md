@@ -196,6 +196,60 @@ cd ~/kaiju/openclaw
 ~/kaiju/.venv/bin/python3 run_openclaw_demo.py summary analytics-agent
 ```
 
+## Audit Log (V3.4)
+
+OpenClaw appends one JSON event per request to a local JSONL file. Audit writes are **non-fatal** — if a write fails, OpenClaw returns `ok=true` with a `warnings` entry; it never fails the request.
+
+### Location
+
+```
+openclaw/audit/YYYY-MM-DD.jsonl
+```
+
+One file per UTC day. Runtime audit files are ignored by Git.
+
+### Audit event fields
+
+| Field | Description |
+|---|---|
+| `timestamp` | UTC ISO-8601 started_at |
+| `request_id` | OpenClaw request ID |
+| `trace_id` | OpenClaw trace ID |
+| `tenant` | Resolved tenant |
+| `user_id` | Resolved user ID |
+| `channel` | Resolved channel |
+| `agent` | Target agent |
+| `request` | Request type |
+| `execution_mode` | `graph`, `legacy`, `none`, `unknown` |
+| `ok` | True/False |
+| `duration_ms` | Total OpenClaw duration |
+| `error_codes` | List of error codes (empty on success) |
+| `warning_count` | Number of warnings |
+| `source` | Always `"openclaw"` |
+
+**Not stored:** full payload, router_response, raw metrics, recommendations, tokens, or PII.
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `OPENCLAW_AUDIT_ENABLED` | `true` | Set to `false` to disable all writes |
+| `OPENCLAW_AUDIT_ROOT` | `openclaw/audit/` (repo-relative) | Override audit directory |
+
+### Examples
+
+```bash
+# Audit enabled (default)
+cd ~/kaiju/openclaw
+~/kaiju/.venv/bin/python3 run_openclaw_demo.py summary
+
+# Audit disabled — no crash, request still succeeds
+OPENCLAW_AUDIT_ENABLED=false ~/kaiju/.venv/bin/python3 run_openclaw_demo.py summary
+
+# Read today's audit log
+tail -n 5 ~/kaiju/openclaw/audit/*.jsonl
+```
+
 ## What OpenClaw Does Not Own
 
 - Agent execution (Router owns dispatch)

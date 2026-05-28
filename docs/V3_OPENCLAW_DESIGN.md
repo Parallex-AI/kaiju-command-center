@@ -13,7 +13,7 @@
 | V3.1 | `process_request`, registry, policy, schemas, context, trace_id propagation, CLI demo, smoke test | `927262c` | Complete |
 | V3.2 | OpenClaw HTTP server (`POST /openclaw/process`, `GET /openclaw/health`) — port 8100 | — | Complete |
 | V3.3 | Tenant context enrichment, HTTP header propagation, `request_id`/`trace_id` propagation | — | Complete |
-| V3.4 | Usage log / local observability audit trail | — | Pending |
+| V3.4 | Append-only local JSONL audit log (`openclaw/audit/YYYY-MM-DD.jsonl`); non-fatal writes; no payload/response storage | — | Complete |
 | V3.5 | SaaS/auth/GCP preparation | — | Pending |
 
 ---

@@ -18,5 +18,8 @@ temp/
 # MemPalace generated client memory (runtime output — not committed)
 memory/client-memory/
 
+# OpenClaw runtime audit log (runtime output — not committed)
+openclaw/audit/
+
 # macOS
 .DS_Store

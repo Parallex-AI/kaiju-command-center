@@ -20,6 +20,7 @@ from schemas import (
 from registry import get_agent
 from policy import validate_request_policy
 from context import resolve_context
+from audit import append_audit_event, build_audit_event
 from router import route_request
 
 
@@ -58,10 +59,13 @@ def process_request(payload: dict) -> dict:
 
     policy_ok, policy_errors = validate_request_policy(normalized)
 
+    # -----------------------------------------------------------------------
+    # Build response — restructured to avoid early returns so audit always runs
+    # -----------------------------------------------------------------------
     if not policy_ok:
         finished_at = utc_now_iso()
         duration_ms = int((time.monotonic() - t0) * 1000)
-        return make_openclaw_envelope(
+        response = make_openclaw_envelope(
             ok=False,
             request_id=request_id,
             trace_id=trace_id,
@@ -78,58 +82,70 @@ def process_request(payload: dict) -> dict:
             errors=policy_errors,
             warnings=context_warnings,
         )
+    else:
+        try:
+            router_response = route_request(normalized)
+            finished_at = utc_now_iso()
+            duration_ms = int((time.monotonic() - t0) * 1000)
 
-    try:
-        router_response = route_request(normalized)
-    except Exception:
-        finished_at = utc_now_iso()
-        duration_ms = int((time.monotonic() - t0) * 1000)
-        return make_openclaw_envelope(
-            ok=False,
-            request_id=request_id,
-            trace_id=trace_id,
-            tenant=tenant,
-            agent=agent,
-            execution_mode="unknown",
-            started_at=started_at,
-            finished_at=finished_at,
-            duration_ms=duration_ms,
-            channel=channel,
-            user_id=user_id,
-            tenant_id=tenant_id,
-            data={},
-            errors=[make_error("internal_error", "An internal error occurred.", source="openclaw")],
-            warnings=context_warnings,
-        )
+            ok = bool(router_response.get("ok"))
+            execution_mode = router_response.get("execution_mode", "unknown")
 
-    finished_at = utc_now_iso()
-    duration_ms = int((time.monotonic() - t0) * 1000)
+            errors = []
+            if not ok:
+                errors.append(make_error(
+                    router_response.get("error", "router_error"),
+                    router_response.get("message", "Router returned an error."),
+                    source="router",
+                ))
 
-    ok = bool(router_response.get("ok"))
-    execution_mode = router_response.get("execution_mode", "unknown")
+            response = make_openclaw_envelope(
+                ok=ok,
+                request_id=request_id,
+                trace_id=trace_id,
+                tenant=tenant,
+                agent=agent,
+                execution_mode=execution_mode,
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_ms=duration_ms,
+                channel=channel,
+                user_id=user_id,
+                tenant_id=tenant_id,
+                data={"router_response": router_response},
+                errors=errors,
+                warnings=context_warnings,
+            )
+        except Exception:
+            finished_at = utc_now_iso()
+            duration_ms = int((time.monotonic() - t0) * 1000)
+            response = make_openclaw_envelope(
+                ok=False,
+                request_id=request_id,
+                trace_id=trace_id,
+                tenant=tenant,
+                agent=agent,
+                execution_mode="unknown",
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_ms=duration_ms,
+                channel=channel,
+                user_id=user_id,
+                tenant_id=tenant_id,
+                data={},
+                errors=[make_error("internal_error", "An internal error occurred.", source="openclaw")],
+                warnings=context_warnings,
+            )
 
-    errors = []
-    if not ok:
-        errors.append(make_error(
-            router_response.get("error", "router_error"),
-            router_response.get("message", "Router returned an error."),
-            source="router",
-        ))
+    # -----------------------------------------------------------------------
+    # Audit — non-fatal; failure appends warning, never flips ok=true to false
+    # -----------------------------------------------------------------------
+    audit_result = append_audit_event(build_audit_event(response, normalized))
+    if not audit_result.get("ok") and not audit_result.get("skipped"):
+        response.setdefault("warnings", []).append({
+            "code": "audit_write_failed",
+            "message": audit_result.get("error", "Audit write failed."),
+            "source": "openclaw",
+        })
 
-    return make_openclaw_envelope(
-        ok=ok,
-        request_id=request_id,
-        trace_id=trace_id,
-        tenant=tenant,
-        agent=agent,
-        execution_mode=execution_mode,
-        started_at=started_at,
-        finished_at=finished_at,
-        duration_ms=duration_ms,
-        channel=channel,
-        user_id=user_id,
-        tenant_id=tenant_id,
-        data={"router_response": router_response},
-        errors=errors,
-        warnings=context_warnings,
-    )
+    return response
