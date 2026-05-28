@@ -429,13 +429,18 @@ Auth, CORS, and config modules must be **additive only** — no existing call si
 - No behavior changes to `server.py`, `openclaw.py`, `policy.py`, `context.py`
 - All existing smoke tests pass: V0 / V1 / V2 / V3 core / V3 HTTP / V3 audit
 
-### V3.5.3 — Auth placeholder
+### V3.5.3 — Auth placeholder ✓ Complete
 
-- `openclaw/auth.py` created
-- `validate_api_key()` function
-- `server.py` updated to call auth check before `process_request`
-- Default disabled (`OPENCLAW_API_AUTH_ENABLED=false`)
-- New smoke test assertions: auth disabled passes, auth enabled with valid key passes, auth enabled with invalid key returns `unauthorized`
+- `openclaw/auth.py` created — stdlib only
+- `extract_bearer_token(authorization_header)` — case-insensitive Bearer extraction, returns None on missing/malformed
+- `validate_api_auth(headers, config)` — returns `(True, [])` when disabled; `(False, [error])` for missing token, invalid token, or no keys configured
+- `server.py` updated: auth check runs after JSON parse, before `process_request`; trace_id/request_id propagated even on 401
+- Default disabled: `OPENCLAW_API_AUTH_ENABLED=false` — all existing tests pass without tokens
+- HTTP enforcement only: direct `process_request()` calls remain unauthenticated
+- Error codes: `unauthorized` (recoverable), `auth_not_configured` (not recoverable)
+- 18/18 auth unit checks passed
+- 5/5 HTTP auth scenarios passed (disabled/missing/invalid/valid/no-keys)
+- All existing smoke tests pass: V0 / V1 / V2 / V3 core / V3 HTTP / V3 audit
 
 ### V3.5.4 — CORS config
 

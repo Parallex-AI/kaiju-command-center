@@ -181,6 +181,7 @@ The script starts and stops the server automatically. It refuses to run if port 
 | `run_openclaw_demo.py` | CLI demo |
 | `config.py` | Typed env config helpers — `get_config()`, `redacted_config_dict()` |
 | `run_config_demo.py` | Config demo — prints redacted config as JSON |
+| `auth.py` | API key auth placeholder — `extract_bearer_token()`, `validate_api_auth()` |
 
 ## Run the Demo
 
@@ -308,6 +309,87 @@ API keys are **never printed** — the demo output shows count only:
 | `PORT` | `8100` | HTTP server port (Cloud Run sets this automatically) |
 
 Invalid values fall back to the default silently — no crash, no error log.
+
+## API Key Auth Placeholder (V3.5.3)
+
+API key authentication is a **placeholder** for future OAuth/OIDC. It is **disabled by default** — local and demo usage requires no token.
+
+### Enable auth
+
+```bash
+export OPENCLAW_API_AUTH_ENABLED=true
+export OPENCLAW_API_KEYS="my-secret-key,another-key"
+```
+
+### HTTP Authorization header
+
+```
+Authorization: Bearer <token>
+```
+
+Token must appear in `OPENCLAW_API_KEYS`. Scheme is case-insensitive (`bearer` accepted).
+
+### Auth applies to HTTP server only
+
+`POST /openclaw/process` is protected when auth is enabled. Direct calls to `process_request()` (e.g. `run_openclaw_demo.py`) are not affected — the HTTP boundary is the enforcement point.
+
+### Error responses
+
+**Missing or malformed header:**
+```json
+{
+  "ok": false,
+  "errors": [{ "code": "unauthorized", "message": "Missing or malformed Authorization header...", "recoverable": true }]
+}
+```
+
+**Invalid token:**
+```json
+{
+  "ok": false,
+  "errors": [{ "code": "unauthorized", "message": "Invalid bearer token.", "recoverable": true }]
+}
+```
+
+**Auth enabled but no keys configured (misconfiguration):**
+```json
+{
+  "ok": false,
+  "errors": [{ "code": "auth_not_configured", "recoverable": false }]
+}
+```
+
+### curl examples
+
+```bash
+# Auth disabled (default) — no token needed
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}'
+
+# Auth enabled — valid token
+OPENCLAW_API_AUTH_ENABLED=true OPENCLAW_API_KEYS="my-key" \
+  uvicorn openclaw.server:app --port 8100
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer my-key" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}'
+
+# Auth enabled — missing token (401, code=unauthorized)
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}'
+
+# Auth enabled — invalid token (401, code=unauthorized)
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer wrong-key" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}'
+```
+
+### What this is NOT
+
+This is not OAuth, OIDC, or JWT validation. Tokens are plaintext strings in an env var. **Never use in production without replacing with a proper auth system.** API keys are never printed by `run_config_demo.py` — output shows count only.
 
 ## What OpenClaw Does Not Own
 
