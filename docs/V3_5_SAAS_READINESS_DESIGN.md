@@ -453,13 +453,16 @@ Auth, CORS, and config modules must be **additive only** — no existing call si
 - Disallowed origins receive no `access-control-allow-origin` header
 - All existing smoke tests pass: V0 / V1 / V2 / V3 core / V3 HTTP / V3 audit
 
-### V3.5.5 — Dockerfile
+### V3.5.5 — Dockerfile ✓ Complete
 
-- `docker/openclaw.Dockerfile` created
-- `docker/docker-compose.openclaw.yml` created
-- Local container run documented
-- `PORT` env var wired to uvicorn
-- No Cloud Run deployment yet
+- `docker/openclaw.Dockerfile` created — `python:3.11-slim`, installs from both component requirements files, WORKDIR `/app/openclaw` to match local sibling-module import pattern, `PORT` env var passed to uvicorn CMD
+- `docker/docker-compose.openclaw.yml` created — single `openclaw` service, host volumes for `memory/` and `openclaw/audit/`, all env vars pre-configured for local use
+- `.dockerignore` created — excludes `.git`, `.venv`, `__pycache__`, runtime memory/audit files, `.env`, `docs/`, `projects/`, `scripts/`
+- Docker build: success (python:3.11-slim, all deps installed from requirements files)
+- Docker run health check: `GET /openclaw/health` → `{"ok": true}` ✓
+- Docker process endpoint: `POST /openclaw/process` → `ok=true`, `data.router_response` present ✓
+- Docker Compose up/down: service starts cleanly, health confirmed, teardown clean ✓
+- Local container does not deploy to GCP; Cloud Run plan is V3.5.6
 
 ### V3.5.6 — GCP deployment plan
 

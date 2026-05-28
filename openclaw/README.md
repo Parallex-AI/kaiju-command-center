@@ -183,6 +183,44 @@ The script starts and stops the server automatically. It refuses to run if port 
 | `run_config_demo.py` | Config demo — prints redacted config as JSON |
 | `auth.py` | API key auth placeholder — `extract_bearer_token()`, `validate_api_auth()` |
 
+## Container Readiness (V3.5.5)
+
+OpenClaw can be built and run as a Docker container. This enables local container testing and prepares the path for future Cloud Run deployment.
+
+### Build
+
+```bash
+cd ~/kaiju
+docker build -f docker/openclaw.Dockerfile -t kaiju-openclaw .
+```
+
+### Run
+
+```bash
+docker run --rm -p 8100:8100 \
+  -e PORT=8100 \
+  -e OPENCLAW_ENV=local \
+  kaiju-openclaw
+```
+
+### Health check
+
+```bash
+curl http://localhost:8100/openclaw/health
+```
+
+### Docker Compose (local)
+
+```bash
+cd ~/kaiju
+docker compose -f docker/docker-compose.openclaw.yml up --build
+docker compose -f docker/docker-compose.openclaw.yml down
+```
+
+Compose mounts `memory/` and `openclaw/audit/` as volumes so runtime files persist on the host.
+
+> **Note:** This is local container readiness only. Production Cloud Run deployment is documented in `docs/GCP_DEPLOYMENT_PLAN.md` (V3.5.6).
+
 ## Run the Demo
 
 ```bash
