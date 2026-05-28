@@ -689,3 +689,30 @@ Uses dedicated client ID `openclaw-http-smoke-client` — never touches `demo-cl
 cd ~/kaiju
 ./scripts/smoke_test_v3_openclaw_http.sh
 ```
+
+---
+
+## 22. V3.4 OpenClaw Audit Smoke Test
+
+A dedicated smoke test validates the V3.4 audit log end-to-end using an isolated temporary audit directory.
+
+### Coverage
+
+| Section | Assertions |
+|---|---|
+| [1/5] Environment | Python venv exists; `openclaw` and `audit` modules importable |
+| [2/5] Audit writes | Three `process_request` calls write events; JSONL file created; ≥ 3 entries |
+| [3/5] JSONL content | All required fields present; `source="openclaw"`; no forbidden fields (`payload`, `router_response`, `raw_metrics`, `recommendations`, `executive_summary`); expected event types verified |
+| [4/5] Disabled + failure | `OPENCLAW_AUDIT_ENABLED=false` → `ok=true`, no crash, no dir created; invalid audit root → `ok=true`, `audit_write_failed` in warnings |
+| [5/5] Git ignore | `openclaw/audit/` produces no output from `git status` |
+
+### Isolation
+
+Uses `OPENCLAW_AUDIT_ROOT=/tmp/kaiju-openclaw-audit-smoke` — never touches runtime audit files. Cleaned up on exit.
+
+### Run
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v3_openclaw_audit.sh
+```

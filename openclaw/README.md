@@ -250,6 +250,15 @@ OPENCLAW_AUDIT_ENABLED=false ~/kaiju/.venv/bin/python3 run_openclaw_demo.py summ
 tail -n 5 ~/kaiju/openclaw/audit/*.jsonl
 ```
 
+### Run the audit smoke test
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v3_openclaw_audit.sh
+```
+
+The script uses an isolated temporary audit directory and cleans up on exit.
+
 ## What OpenClaw Does Not Own
 
 - Agent execution (Router owns dispatch)
