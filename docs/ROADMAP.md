@@ -161,7 +161,12 @@ Goal: Add an orchestration layer (OpenClaw) above the Router for request normali
 - [x] **V3.2** — HTTP server: `server.py` — FastAPI, port 8100, `GET /`, `GET /openclaw/health`, `POST /openclaw/process`; delegates to `process_request`; malformed JSON handled; dedicated HTTP smoke test (`scripts/smoke_test_v3_openclaw_http.sh`)
 - [x] **V3.3** — Tenant context enrichment: `channel`, `user_id`, `tenant_id` in envelope; HTTP header propagation (`X-Trace-Id`, `X-Request-Id`, `X-User-Id`, `X-Channel`, `X-Tenant-Id`); `request_id` external supply; headers win over body metadata
 - [x] **V3.4** — Audit log: append-only JSONL under `openclaw/audit/YYYY-MM-DD.jsonl`; non-fatal writes; `OPENCLAW_AUDIT_ENABLED` / `OPENCLAW_AUDIT_ROOT` env vars; audit files ignored by Git; dedicated smoke test (`scripts/smoke_test_v3_openclaw_audit.sh`)
-- [ ] **V3.5** — SaaS + GCP: Cloud Run deployment, real Google Ads API, GA4, Meta Ads, CI/CD
+- [x] **V3.5.1** — SaaS/GCP readiness design doc + ROADMAP update — **[spec: docs/V3_5_SAAS_READINESS_DESIGN.md](V3_5_SAAS_READINESS_DESIGN.md)**
+- [x] **V3.5.2** — `openclaw/config.py`: typed env config helpers
+- [x] **V3.5.3** — `openclaw/auth.py`: API key auth placeholder (disabled by default)
+- [x] **V3.5.4** — CORS config in HTTP server (`OPENCLAW_ALLOWED_ORIGINS` env var)
+- [x] **V3.5.5** — Dockerfile and local container run notes (`docker/openclaw.Dockerfile`)
+- [x] **V3.5.6** — GCP Cloud Run deployment plan doc + `.env.example` + `ENVIRONMENT_VARIABLES.md`
 
 ### V3.1 completed capabilities
 
@@ -206,3 +211,32 @@ Response
 - Unsupported agent returns `ok=false`, `errors[0].code="unsupported_agent"`, no traceback
 - Unsupported request returns `ok=false`, `errors[0].code="unsupported_request"`, no traceback
 - All V0, V1, and V2 smoke tests pass
+
+---
+
+## V3.5 — SaaS/GCP Readiness (Beta complete — branch: `v3.5-saas-readiness`)
+
+Goal: Add configuration scaffolding, auth placeholder, CORS policy, Dockerfile, and GCP Cloud Run deployment plan to make OpenClaw production-shapeable without implementing real auth, billing, or database-backed tenants.
+
+**Design document:** [docs/V3_5_SAAS_READINESS_DESIGN.md](V3_5_SAAS_READINESS_DESIGN.md)
+
+### Implementation phases
+
+- [x] **V3.5.1** — Design doc + ROADMAP update
+- [x] **V3.5.2** — `openclaw/config.py`: typed env config helpers
+- [x] **V3.5.3** — `openclaw/auth.py`: API key auth placeholder (disabled by default)
+- [x] **V3.5.4** — CORS config in HTTP server (`OPENCLAW_ALLOWED_ORIGINS`)
+- [x] **V3.5.5** — `docker/openclaw.Dockerfile` + `docker-compose.openclaw.yml`
+- [x] **V3.5.6** — `docs/GCP_DEPLOYMENT_PLAN.md` + `docs/ENVIRONMENT_VARIABLES.md` + `.env.example`
+
+### V3.5 non-goals
+
+V3.5 does not implement: real user login, OAuth, billing, database-backed tenants, Google Ads API production integration, Kubernetes, or multi-region deployment.
+
+### V3.5 design principles
+
+- Local developer experience remains frictionless (all security controls default off)
+- Every env var has a safe local default
+- Auth, CORS, and config are additive — no existing call site changes until features are enabled
+- No secrets committed; production secrets from GCP Secret Manager
+- All existing smoke suites (V0/V1/V2/V3) pass at every phase

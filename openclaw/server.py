@@ -7,6 +7,7 @@ if _OPENCLAW_DIR not in _sys.path:
     _sys.path.insert(0, _OPENCLAW_DIR)
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from openclaw import process_request
@@ -18,6 +19,8 @@ from schemas import (
     make_error,
     make_openclaw_envelope,
 )
+from auth import validate_api_auth
+from config import get_config
 
 SERVICE_NAME = "kaiju-openclaw"
 
@@ -29,6 +32,17 @@ _META_HEADERS = {
 }
 
 app = FastAPI(title=SERVICE_NAME, version=OPENCLAW_VERSION, docs_url=None, redoc_url=None)
+
+# CORS (V3.5.4) — read origins from config at startup
+_cors_origins = get_config().allowed_origins
+_cors_credentials = "*" not in _cors_origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_credentials,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")
@@ -75,6 +89,33 @@ async def process(request: Request):
         return JSONResponse(status_code=400, content=envelope)
 
     headers = request.headers
+    headers_dict = dict(headers)
+
+    # Check API key auth before any further processing (V3.5.3)
+    auth_ok, auth_errors = validate_api_auth(headers=headers_dict)
+    if not auth_ok:
+        # Propagate trace/request IDs even on auth failure
+        meta = dict(payload.get("metadata") or {}) if isinstance(payload, dict) else {}
+        trace_id = headers.get("x-trace-id") or meta.get("trace_id") or generate_trace_id()
+        request_id = headers.get("x-request-id") or meta.get("request_id") or generate_request_id()
+        client_id = payload.get("client_id", "unknown") if isinstance(payload, dict) else "unknown"
+        agent = payload.get("agent", "unknown") if isinstance(payload, dict) else "unknown"
+        now = utc_now_iso()
+        envelope = make_openclaw_envelope(
+            ok=False,
+            request_id=request_id,
+            trace_id=trace_id,
+            tenant=client_id,
+            agent=agent,
+            execution_mode="none",
+            started_at=now,
+            finished_at=now,
+            duration_ms=0,
+            data={},
+            errors=auth_errors,
+            warnings=[],
+        )
+        return JSONResponse(status_code=401, content=envelope)
 
     # Inject trace_id, request_id, tenant_id from headers into metadata
     # Headers win over body metadata

@@ -179,6 +179,55 @@ The script starts and stops the server automatically. It refuses to run if port 
 | `policy.py` | `validate_request_policy(payload)` — agent/request validation |
 | `context.py` | `resolve_context(payload)` — tenant, channel, optional profile |
 | `run_openclaw_demo.py` | CLI demo |
+| `config.py` | Typed env config helpers — `get_config()`, `redacted_config_dict()` |
+| `run_config_demo.py` | Config demo — prints redacted config as JSON |
+| `auth.py` | API key auth placeholder — `extract_bearer_token()`, `validate_api_auth()` |
+
+## Container Readiness (V3.5.5)
+
+OpenClaw can be built and run as a Docker container. This enables local container testing and prepares the path for future Cloud Run deployment.
+
+### Build
+
+```bash
+cd ~/kaiju
+docker build -f docker/openclaw.Dockerfile -t kaiju-openclaw .
+```
+
+### Run
+
+```bash
+docker run --rm -p 8100:8100 \
+  -e PORT=8100 \
+  -e OPENCLAW_ENV=local \
+  kaiju-openclaw
+```
+
+### Health check
+
+```bash
+curl http://localhost:8100/openclaw/health
+```
+
+### Docker Compose (local)
+
+```bash
+cd ~/kaiju
+docker compose -f docker/docker-compose.openclaw.yml up --build
+docker compose -f docker/docker-compose.openclaw.yml down
+```
+
+Compose mounts `memory/` and `openclaw/audit/` as volumes so runtime files persist on the host.
+
+> **Note:** This is local container readiness only. Production Cloud Run deployment is documented in [`docs/GCP_DEPLOYMENT_PLAN.md`](../docs/GCP_DEPLOYMENT_PLAN.md).
+
+### Further reading
+
+| Document | Description |
+|---|---|
+| [`docs/GCP_DEPLOYMENT_PLAN.md`](../docs/GCP_DEPLOYMENT_PLAN.md) | Cloud Run deployment path, Artifact Registry, Secret Manager, rollback strategy |
+| [`docs/ENVIRONMENT_VARIABLES.md`](../docs/ENVIRONMENT_VARIABLES.md) | Full env var reference — defaults, production guidance, secret flags |
+| [`.env.example`](../.env.example) | Local development template — copy to `.env`, never commit |
 
 ## Run the Demo
 
@@ -259,10 +308,190 @@ cd ~/kaiju
 
 The script uses an isolated temporary audit directory and cleans up on exit.
 
+## Configuration (V3.5.2)
+
+`openclaw/config.py` provides typed, safe helpers for all OpenClaw environment variables. It does **not** change runtime behavior — it is a read-only config loader used by future V3.5 modules (auth, CORS, Dockerfile).
+
+### Run the config demo
+
+```bash
+cd ~/kaiju/openclaw
+~/kaiju/.venv/bin/python3 run_config_demo.py
+
+# Production env override example
+OPENCLAW_ENV=production \
+OPENCLAW_API_AUTH_ENABLED=true \
+OPENCLAW_API_KEYS="key1,key2" \
+OPENCLAW_ALLOWED_ORIGINS="https://app.kaiju.digital" \
+PORT=9000 \
+~/kaiju/.venv/bin/python3 run_config_demo.py
+```
+
+API keys are **never printed** — the demo output shows count only:
+
+```json
+"api_keys": {
+  "configured": true,
+  "count": 2
+}
+```
+
+### Supported environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `OPENCLAW_ENV` | `local` | Runtime environment: `local`, `staging`, `production` |
+| `OPENCLAW_API_AUTH_ENABLED` | `false` | Enable API key enforcement (V3.5.3) |
+| `OPENCLAW_API_KEYS` | `` | Comma-separated Bearer tokens (placeholder) |
+| `OPENCLAW_ALLOWED_ORIGINS` | `*` | CORS allowed origins (V3.5.4) |
+| `OPENCLAW_DEFAULT_TENANT` | `demo-client` | Fallback tenant when none supplied |
+| `OPENCLAW_REQUIRE_TENANT_HEADER` | `false` | Reject requests without `X-Tenant-Id` |
+| `OPENCLAW_AUDIT_ENABLED` | `true` | Enable audit JSONL writes |
+| `OPENCLAW_AUDIT_ROOT` | `openclaw/audit` | Audit log directory |
+| `MEMORY_ENABLED` | `true` | Enable MemPalace reads/writes |
+| `MEMORY_ROOT` | `memory/client-memory` | MemPalace storage root |
+| `N8N_ADS_WEBHOOK_URL` | `None` | n8n webhook endpoint |
+| `N8N_WEBHOOK_TIMEOUT` | `15.0` | n8n request timeout in seconds |
+| `PORT` | `8100` | HTTP server port (Cloud Run sets this automatically) |
+
+Invalid values fall back to the default silently — no crash, no error log.
+
+## CORS Configuration (V3.5.4)
+
+OpenClaw applies `CORSMiddleware` to all endpoints. Origins are read from `OPENCLAW_ALLOWED_ORIGINS` at server startup.
+
+### Environment variable
+
+| Variable | Default | Description |
+|---|---|---|
+| `OPENCLAW_ALLOWED_ORIGINS` | `*` | Comma-separated list of allowed origins |
+
+### Local default — permissive
+
+```bash
+# Default (no env var set): allow all origins
+OPENCLAW_ALLOWED_ORIGINS="*"
+```
+
+`allow_credentials` is `False` when `*` is used (required by CORS spec — wildcard and credentials cannot coexist).
+
+### Production — explicit origins
+
+```bash
+OPENCLAW_ALLOWED_ORIGINS="https://app.kaiju.digital,https://admin.kaiju.digital"
+```
+
+`allow_credentials` is `True` when explicit origins are configured, allowing cookies and auth headers to be forwarded.
+
+### Behavior summary
+
+| `OPENCLAW_ALLOWED_ORIGINS` | `allow_credentials` | Effect |
+|---|---|---|
+| `*` (default) | `False` | All origins allowed, no credentials |
+| Explicit list | `True` | Only listed origins allowed, credentials permitted |
+
+### Preflight example
+
+```bash
+# Wildcard: returns access-control-allow-origin: *
+curl -i -X OPTIONS http://localhost:8100/openclaw/process \
+  -H "Origin: http://localhost:3000" \
+  -H "Access-Control-Request-Method: POST"
+
+# Explicit allowed origin: returns access-control-allow-origin: https://app.kaiju.digital
+OPENCLAW_ALLOWED_ORIGINS="https://app.kaiju.digital" \
+  uvicorn openclaw.server:app --port 8100
+curl -i -X OPTIONS http://localhost:8100/openclaw/process \
+  -H "Origin: https://app.kaiju.digital" \
+  -H "Access-Control-Request-Method: POST"
+```
+
+## API Key Auth Placeholder (V3.5.3)
+
+API key authentication is a **placeholder** for future OAuth/OIDC. It is **disabled by default** — local and demo usage requires no token.
+
+### Enable auth
+
+```bash
+export OPENCLAW_API_AUTH_ENABLED=true
+export OPENCLAW_API_KEYS="my-secret-key,another-key"
+```
+
+### HTTP Authorization header
+
+```
+Authorization: Bearer <token>
+```
+
+Token must appear in `OPENCLAW_API_KEYS`. Scheme is case-insensitive (`bearer` accepted).
+
+### Auth applies to HTTP server only
+
+`POST /openclaw/process` is protected when auth is enabled. Direct calls to `process_request()` (e.g. `run_openclaw_demo.py`) are not affected — the HTTP boundary is the enforcement point.
+
+### Error responses
+
+**Missing or malformed header:**
+```json
+{
+  "ok": false,
+  "errors": [{ "code": "unauthorized", "message": "Missing or malformed Authorization header...", "recoverable": true }]
+}
+```
+
+**Invalid token:**
+```json
+{
+  "ok": false,
+  "errors": [{ "code": "unauthorized", "message": "Invalid bearer token.", "recoverable": true }]
+}
+```
+
+**Auth enabled but no keys configured (misconfiguration):**
+```json
+{
+  "ok": false,
+  "errors": [{ "code": "auth_not_configured", "recoverable": false }]
+}
+```
+
+### curl examples
+
+```bash
+# Auth disabled (default) — no token needed
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}'
+
+# Auth enabled — valid token
+OPENCLAW_API_AUTH_ENABLED=true OPENCLAW_API_KEYS="my-key" \
+  uvicorn openclaw.server:app --port 8100
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer my-key" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}'
+
+# Auth enabled — missing token (401, code=unauthorized)
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}'
+
+# Auth enabled — invalid token (401, code=unauthorized)
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer wrong-key" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}'
+```
+
+### What this is NOT
+
+This is not OAuth, OIDC, or JWT validation. Tokens are plaintext strings in an env var. **Never use in production without replacing with a proper auth system.** API keys are never printed by `run_config_demo.py` — output shows count only.
+
 ## What OpenClaw Does Not Own
 
 - Agent execution (Router owns dispatch)
 - n8n workflow execution
 - MemPalace read/write (except optional profile read in context resolution)
-- Authentication (V3.5)
-- Billing (V3.5)
+- Authentication (V3.5.3)
+- CORS enforcement (V3.5.4)
+- Billing (V4+)
