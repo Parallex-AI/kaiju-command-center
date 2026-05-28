@@ -162,7 +162,7 @@ Goal: Add an orchestration layer (OpenClaw) above the Router for request normali
 - [x] **V3.3** — Tenant context enrichment: `channel`, `user_id`, `tenant_id` in envelope; HTTP header propagation (`X-Trace-Id`, `X-Request-Id`, `X-User-Id`, `X-Channel`, `X-Tenant-Id`); `request_id` external supply; headers win over body metadata
 - [x] **V3.4** — Audit log: append-only JSONL under `openclaw/audit/YYYY-MM-DD.jsonl`; non-fatal writes; `OPENCLAW_AUDIT_ENABLED` / `OPENCLAW_AUDIT_ROOT` env vars; audit files ignored by Git; dedicated smoke test (`scripts/smoke_test_v3_openclaw_audit.sh`)
 - [x] **V3.5.1** — SaaS/GCP readiness design doc + ROADMAP update — **[spec: docs/V3_5_SAAS_READINESS_DESIGN.md](V3_5_SAAS_READINESS_DESIGN.md)**
-- [ ] **V3.5.2** — `openclaw/config.py`: typed env config helpers
+- [x] **V3.5.2** — `openclaw/config.py`: typed env config helpers
 - [ ] **V3.5.3** — `openclaw/auth.py`: API key auth placeholder (disabled by default)
 - [ ] **V3.5.4** — CORS config in HTTP server (`OPENCLAW_ALLOWED_ORIGINS` env var)
 - [ ] **V3.5.5** — Dockerfile and local container run notes (`docker/openclaw.Dockerfile`)
@@ -223,7 +223,7 @@ Goal: Add configuration scaffolding, auth placeholder, CORS policy, Dockerfile, 
 ### Implementation phases
 
 - [x] **V3.5.1** — Design doc + ROADMAP update
-- [ ] **V3.5.2** — `openclaw/config.py`: typed env config helpers
+- [x] **V3.5.2** — `openclaw/config.py`: typed env config helpers
 - [ ] **V3.5.3** — `openclaw/auth.py`: API key auth placeholder (disabled by default)
 - [ ] **V3.5.4** — CORS config in HTTP server (`OPENCLAW_ALLOWED_ORIGINS`)
 - [ ] **V3.5.5** — `docker/openclaw.Dockerfile` + `docker-compose.openclaw.yml`

@@ -416,12 +416,18 @@ Auth, CORS, and config modules must be **additive only** — no existing call si
 - `docs/V3_5_SAAS_READINESS_DESIGN.md` created
 - `docs/ROADMAP.md` updated with V3.5 phases
 
-### V3.5.2 — Environment config module
+### V3.5.2 — Environment config module ✓ Complete
 
-- `openclaw/config.py` created
-- Typed helpers for all env vars in §6
-- No behavior changes to existing code
-- Smoke tests: all existing suites pass unchanged
+- `openclaw/config.py` created — stdlib only (`os`, `dataclasses`, `typing`)
+- `OpenClawConfig` dataclass with all 13 env vars
+- `parse_bool`, `parse_csv`, `parse_float`, `parse_int` helpers with safe fallbacks
+- `get_config()` — loads and returns typed config from environment
+- `config_to_dict()` — full serialization
+- `redacted_config_dict()` — API keys replaced with `{"configured": bool, "count": int}`
+- `openclaw/run_config_demo.py` — prints redacted config as JSON
+- Invalid env vars (bad OPENCLAW_ENV, non-boolean, negative float, non-integer) all fall back to defaults without crashing
+- No behavior changes to `server.py`, `openclaw.py`, `policy.py`, `context.py`
+- All existing smoke tests pass: V0 / V1 / V2 / V3 core / V3 HTTP / V3 audit
 
 ### V3.5.3 — Auth placeholder
 

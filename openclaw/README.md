@@ -179,6 +179,8 @@ The script starts and stops the server automatically. It refuses to run if port 
 | `policy.py` | `validate_request_policy(payload)` — agent/request validation |
 | `context.py` | `resolve_context(payload)` — tenant, channel, optional profile |
 | `run_openclaw_demo.py` | CLI demo |
+| `config.py` | Typed env config helpers — `get_config()`, `redacted_config_dict()` |
+| `run_config_demo.py` | Config demo — prints redacted config as JSON |
 
 ## Run the Demo
 
@@ -259,10 +261,59 @@ cd ~/kaiju
 
 The script uses an isolated temporary audit directory and cleans up on exit.
 
+## Configuration (V3.5.2)
+
+`openclaw/config.py` provides typed, safe helpers for all OpenClaw environment variables. It does **not** change runtime behavior — it is a read-only config loader used by future V3.5 modules (auth, CORS, Dockerfile).
+
+### Run the config demo
+
+```bash
+cd ~/kaiju/openclaw
+~/kaiju/.venv/bin/python3 run_config_demo.py
+
+# Production env override example
+OPENCLAW_ENV=production \
+OPENCLAW_API_AUTH_ENABLED=true \
+OPENCLAW_API_KEYS="key1,key2" \
+OPENCLAW_ALLOWED_ORIGINS="https://app.kaiju.digital" \
+PORT=9000 \
+~/kaiju/.venv/bin/python3 run_config_demo.py
+```
+
+API keys are **never printed** — the demo output shows count only:
+
+```json
+"api_keys": {
+  "configured": true,
+  "count": 2
+}
+```
+
+### Supported environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `OPENCLAW_ENV` | `local` | Runtime environment: `local`, `staging`, `production` |
+| `OPENCLAW_API_AUTH_ENABLED` | `false` | Enable API key enforcement (V3.5.3) |
+| `OPENCLAW_API_KEYS` | `` | Comma-separated Bearer tokens (placeholder) |
+| `OPENCLAW_ALLOWED_ORIGINS` | `*` | CORS allowed origins (V3.5.4) |
+| `OPENCLAW_DEFAULT_TENANT` | `demo-client` | Fallback tenant when none supplied |
+| `OPENCLAW_REQUIRE_TENANT_HEADER` | `false` | Reject requests without `X-Tenant-Id` |
+| `OPENCLAW_AUDIT_ENABLED` | `true` | Enable audit JSONL writes |
+| `OPENCLAW_AUDIT_ROOT` | `openclaw/audit` | Audit log directory |
+| `MEMORY_ENABLED` | `true` | Enable MemPalace reads/writes |
+| `MEMORY_ROOT` | `memory/client-memory` | MemPalace storage root |
+| `N8N_ADS_WEBHOOK_URL` | `None` | n8n webhook endpoint |
+| `N8N_WEBHOOK_TIMEOUT` | `15.0` | n8n request timeout in seconds |
+| `PORT` | `8100` | HTTP server port (Cloud Run sets this automatically) |
+
+Invalid values fall back to the default silently — no crash, no error log.
+
 ## What OpenClaw Does Not Own
 
 - Agent execution (Router owns dispatch)
 - n8n workflow execution
 - MemPalace read/write (except optional profile read in context resolution)
-- Authentication (V3.5)
-- Billing (V3.5)
+- Authentication (V3.5.3)
+- CORS enforcement (V3.5.4)
+- Billing (V4+)
