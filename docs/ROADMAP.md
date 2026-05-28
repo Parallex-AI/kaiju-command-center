@@ -164,7 +164,7 @@ Goal: Add an orchestration layer (OpenClaw) above the Router for request normali
 - [x] **V3.5.1** — SaaS/GCP readiness design doc + ROADMAP update — **[spec: docs/V3_5_SAAS_READINESS_DESIGN.md](V3_5_SAAS_READINESS_DESIGN.md)**
 - [x] **V3.5.2** — `openclaw/config.py`: typed env config helpers
 - [x] **V3.5.3** — `openclaw/auth.py`: API key auth placeholder (disabled by default)
-- [ ] **V3.5.4** — CORS config in HTTP server (`OPENCLAW_ALLOWED_ORIGINS` env var)
+- [x] **V3.5.4** — CORS config in HTTP server (`OPENCLAW_ALLOWED_ORIGINS` env var)
 - [ ] **V3.5.5** — Dockerfile and local container run notes (`docker/openclaw.Dockerfile`)
 - [ ] **V3.5.6** — GCP Cloud Run deployment plan doc + `.env.example` + `ENVIRONMENT_VARIABLES.md`
 
@@ -225,7 +225,7 @@ Goal: Add configuration scaffolding, auth placeholder, CORS policy, Dockerfile, 
 - [x] **V3.5.1** — Design doc + ROADMAP update
 - [x] **V3.5.2** — `openclaw/config.py`: typed env config helpers
 - [x] **V3.5.3** — `openclaw/auth.py`: API key auth placeholder (disabled by default)
-- [ ] **V3.5.4** — CORS config in HTTP server (`OPENCLAW_ALLOWED_ORIGINS`)
+- [x] **V3.5.4** — CORS config in HTTP server (`OPENCLAW_ALLOWED_ORIGINS`)
 - [ ] **V3.5.5** — `docker/openclaw.Dockerfile` + `docker-compose.openclaw.yml`
 - [ ] **V3.5.6** — `docs/GCP_DEPLOYMENT_PLAN.md` + `docs/ENVIRONMENT_VARIABLES.md` + `.env.example`
 

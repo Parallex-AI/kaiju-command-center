@@ -442,12 +442,16 @@ Auth, CORS, and config modules must be **additive only** — no existing call si
 - 5/5 HTTP auth scenarios passed (disabled/missing/invalid/valid/no-keys)
 - All existing smoke tests pass: V0 / V1 / V2 / V3 core / V3 HTTP / V3 audit
 
-### V3.5.4 — CORS config
+### V3.5.4 — CORS config ✓ Complete
 
-- `server.py` updated with `CORSMiddleware`
-- Origins read from `OPENCLAW_ALLOWED_ORIGINS` via `config.py`
-- Default `*` preserves local behavior
-- Smoke test: existing HTTP smoke test continues to pass
+- `server.py` updated with `CORSMiddleware` from `fastapi.middleware.cors`
+- Origins read from `config.allowed_origins` (via `get_config()`) at server startup
+- Wildcard default (`*`): `allow_credentials=False` — preserves local frictionless behavior
+- Explicit origins: `allow_credentials=True` — required for cookie/auth header forwarding
+- `allow_methods=["*"]`, `allow_headers=["*"]` in both modes
+- Preflight (OPTIONS) correctly reflects the configured origin policy
+- Disallowed origins receive no `access-control-allow-origin` header
+- All existing smoke tests pass: V0 / V1 / V2 / V3 core / V3 HTTP / V3 audit
 
 ### V3.5.5 — Dockerfile
 

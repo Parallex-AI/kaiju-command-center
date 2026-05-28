@@ -7,6 +7,7 @@ if _OPENCLAW_DIR not in _sys.path:
     _sys.path.insert(0, _OPENCLAW_DIR)
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from openclaw import process_request
@@ -19,6 +20,7 @@ from schemas import (
     make_openclaw_envelope,
 )
 from auth import validate_api_auth
+from config import get_config
 
 SERVICE_NAME = "kaiju-openclaw"
 
@@ -30,6 +32,17 @@ _META_HEADERS = {
 }
 
 app = FastAPI(title=SERVICE_NAME, version=OPENCLAW_VERSION, docs_url=None, redoc_url=None)
+
+# CORS (V3.5.4) — read origins from config at startup
+_cors_origins = get_config().allowed_origins
+_cors_credentials = "*" not in _cors_origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_credentials,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")

@@ -310,6 +310,56 @@ API keys are **never printed** — the demo output shows count only:
 
 Invalid values fall back to the default silently — no crash, no error log.
 
+## CORS Configuration (V3.5.4)
+
+OpenClaw applies `CORSMiddleware` to all endpoints. Origins are read from `OPENCLAW_ALLOWED_ORIGINS` at server startup.
+
+### Environment variable
+
+| Variable | Default | Description |
+|---|---|---|
+| `OPENCLAW_ALLOWED_ORIGINS` | `*` | Comma-separated list of allowed origins |
+
+### Local default — permissive
+
+```bash
+# Default (no env var set): allow all origins
+OPENCLAW_ALLOWED_ORIGINS="*"
+```
+
+`allow_credentials` is `False` when `*` is used (required by CORS spec — wildcard and credentials cannot coexist).
+
+### Production — explicit origins
+
+```bash
+OPENCLAW_ALLOWED_ORIGINS="https://app.kaiju.digital,https://admin.kaiju.digital"
+```
+
+`allow_credentials` is `True` when explicit origins are configured, allowing cookies and auth headers to be forwarded.
+
+### Behavior summary
+
+| `OPENCLAW_ALLOWED_ORIGINS` | `allow_credentials` | Effect |
+|---|---|---|
+| `*` (default) | `False` | All origins allowed, no credentials |
+| Explicit list | `True` | Only listed origins allowed, credentials permitted |
+
+### Preflight example
+
+```bash
+# Wildcard: returns access-control-allow-origin: *
+curl -i -X OPTIONS http://localhost:8100/openclaw/process \
+  -H "Origin: http://localhost:3000" \
+  -H "Access-Control-Request-Method: POST"
+
+# Explicit allowed origin: returns access-control-allow-origin: https://app.kaiju.digital
+OPENCLAW_ALLOWED_ORIGINS="https://app.kaiju.digital" \
+  uvicorn openclaw.server:app --port 8100
+curl -i -X OPTIONS http://localhost:8100/openclaw/process \
+  -H "Origin: https://app.kaiju.digital" \
+  -H "Access-Control-Request-Method: POST"
+```
+
 ## API Key Auth Placeholder (V3.5.3)
 
 API key authentication is a **placeholder** for future OAuth/OIDC. It is **disabled by default** — local and demo usage requires no token.
