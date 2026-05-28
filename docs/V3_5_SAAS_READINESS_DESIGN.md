@@ -464,13 +464,13 @@ Auth, CORS, and config modules must be **additive only** — no existing call si
 - Docker Compose up/down: service starts cleanly, health confirmed, teardown clean ✓
 - Local container does not deploy to GCP; Cloud Run plan is V3.5.6
 
-### V3.5.6 — GCP deployment plan
+### V3.5.6 — GCP deployment plan ✓ Complete
 
-- `docs/GCP_DEPLOYMENT_PLAN.md` created
-- `docs/ENVIRONMENT_VARIABLES.md` created
-- `.env.example` created
-- Cloud Run deployment steps documented
-- Secret Manager integration plan documented
+- `docs/GCP_DEPLOYMENT_PLAN.md` created — Artifact Registry push path, Cloud Run deploy command (placeholders only), Secret Manager setup, health/readiness endpoint config, production gaps table, phased deployment plan (5 phases), rollback strategy, post-deploy smoke tests
+- `docs/ENVIRONMENT_VARIABLES.md` created — all 16 env vars documented with purpose, default, local example, production guidance, and secret flag
+- `.env.example` created — safe placeholder values only, no real secrets or tokens, inline comments explaining each section and production guidance
+- No real GCP deployment executed; all commands use placeholder variables
+- Secret-safety check: no real `sk-`, tokens, passwords, or API keys present
 
 ---
 

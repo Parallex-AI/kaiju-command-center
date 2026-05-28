@@ -166,7 +166,7 @@ Goal: Add an orchestration layer (OpenClaw) above the Router for request normali
 - [x] **V3.5.3** — `openclaw/auth.py`: API key auth placeholder (disabled by default)
 - [x] **V3.5.4** — CORS config in HTTP server (`OPENCLAW_ALLOWED_ORIGINS` env var)
 - [x] **V3.5.5** — Dockerfile and local container run notes (`docker/openclaw.Dockerfile`)
-- [ ] **V3.5.6** — GCP Cloud Run deployment plan doc + `.env.example` + `ENVIRONMENT_VARIABLES.md`
+- [x] **V3.5.6** — GCP Cloud Run deployment plan doc + `.env.example` + `ENVIRONMENT_VARIABLES.md`
 
 ### V3.1 completed capabilities
 
@@ -214,7 +214,7 @@ Response
 
 ---
 
-## V3.5 — SaaS/GCP Readiness (In progress — branch: `v3.5-saas-readiness`)
+## V3.5 — SaaS/GCP Readiness (Beta complete — branch: `v3.5-saas-readiness`)
 
 Goal: Add configuration scaffolding, auth placeholder, CORS policy, Dockerfile, and GCP Cloud Run deployment plan to make OpenClaw production-shapeable without implementing real auth, billing, or database-backed tenants.
 
@@ -227,7 +227,7 @@ Goal: Add configuration scaffolding, auth placeholder, CORS policy, Dockerfile, 
 - [x] **V3.5.3** — `openclaw/auth.py`: API key auth placeholder (disabled by default)
 - [x] **V3.5.4** — CORS config in HTTP server (`OPENCLAW_ALLOWED_ORIGINS`)
 - [x] **V3.5.5** — `docker/openclaw.Dockerfile` + `docker-compose.openclaw.yml`
-- [ ] **V3.5.6** — `docs/GCP_DEPLOYMENT_PLAN.md` + `docs/ENVIRONMENT_VARIABLES.md` + `.env.example`
+- [x] **V3.5.6** — `docs/GCP_DEPLOYMENT_PLAN.md` + `docs/ENVIRONMENT_VARIABLES.md` + `.env.example`
 
 ### V3.5 non-goals
 

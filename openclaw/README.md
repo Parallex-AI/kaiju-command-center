@@ -219,7 +219,15 @@ docker compose -f docker/docker-compose.openclaw.yml down
 
 Compose mounts `memory/` and `openclaw/audit/` as volumes so runtime files persist on the host.
 
-> **Note:** This is local container readiness only. Production Cloud Run deployment is documented in `docs/GCP_DEPLOYMENT_PLAN.md` (V3.5.6).
+> **Note:** This is local container readiness only. Production Cloud Run deployment is documented in [`docs/GCP_DEPLOYMENT_PLAN.md`](../docs/GCP_DEPLOYMENT_PLAN.md).
+
+### Further reading
+
+| Document | Description |
+|---|---|
+| [`docs/GCP_DEPLOYMENT_PLAN.md`](../docs/GCP_DEPLOYMENT_PLAN.md) | Cloud Run deployment path, Artifact Registry, Secret Manager, rollback strategy |
+| [`docs/ENVIRONMENT_VARIABLES.md`](../docs/ENVIRONMENT_VARIABLES.md) | Full env var reference — defaults, production guidance, secret flags |
+| [`.env.example`](../.env.example) | Local development template — copy to `.env`, never commit |
 
 ## Run the Demo
 
