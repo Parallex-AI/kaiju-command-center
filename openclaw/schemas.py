@@ -40,23 +40,31 @@ def make_openclaw_envelope(
     started_at: str,
     finished_at: str,
     duration_ms: int,
+    channel: str = "local",
+    user_id: str = "local-user",
+    tenant_id: str = None,
     data: dict = None,
     errors: list = None,
     warnings: list = None,
 ) -> dict:
+    openclaw_block = {
+        "version": OPENCLAW_VERSION,
+        "request_id": request_id,
+        "trace_id": trace_id,
+        "tenant": tenant,
+        "agent": agent,
+        "execution_mode": execution_mode,
+        "channel": channel,
+        "user_id": user_id,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "duration_ms": duration_ms,
+    }
+    if tenant_id is not None:
+        openclaw_block["tenant_id"] = tenant_id
     return {
         "ok": ok,
-        "openclaw": {
-            "version": OPENCLAW_VERSION,
-            "request_id": request_id,
-            "trace_id": trace_id,
-            "tenant": tenant,
-            "agent": agent,
-            "execution_mode": execution_mode,
-            "started_at": started_at,
-            "finished_at": finished_at,
-            "duration_ms": duration_ms,
-        },
+        "openclaw": openclaw_block,
         "data": data if data is not None else {},
         "errors": errors if errors is not None else [],
         "warnings": warnings if warnings is not None else [],

@@ -21,6 +21,13 @@ from schemas import (
 
 SERVICE_NAME = "kaiju-openclaw"
 
+# Header → payload/metadata mapping for V3.3 context propagation
+_META_HEADERS = {
+    "x-trace-id": "trace_id",
+    "x-request-id": "request_id",
+    "x-tenant-id": "tenant_id",
+}
+
 app = FastAPI(title=SERVICE_NAME, version=OPENCLAW_VERSION, docs_url=None, redoc_url=None)
 
 
@@ -66,6 +73,23 @@ async def process(request: Request):
             warnings=[],
         )
         return JSONResponse(status_code=400, content=envelope)
+
+    headers = request.headers
+
+    # Inject trace_id, request_id, tenant_id from headers into metadata
+    # Headers win over body metadata
+    meta = dict(payload.get("metadata") or {})
+    for header, meta_key in _META_HEADERS.items():
+        val = headers.get(header)
+        if val:
+            meta[meta_key] = val
+    payload["metadata"] = meta
+
+    # user_id and channel go into payload top-level (highest precedence in context)
+    if headers.get("x-user-id"):
+        payload["user_id"] = headers.get("x-user-id")
+    if headers.get("x-channel"):
+        payload["channel"] = headers.get("x-channel")
 
     result = process_request(payload)
     return JSONResponse(status_code=200, content=result)

@@ -106,16 +106,42 @@ The server delegates all request processing to `process_request()` — no logic 
 | `GET` | `/openclaw/health` | Health check |
 | `POST` | `/openclaw/process` | Process an agent request |
 
+### HTTP Header Propagation (V3.3)
+
+The server reads the following optional headers and injects them into the request context. **Headers win over body metadata** for `trace_id` and `request_id`.
+
+| Header | Maps to | Description |
+|---|---|---|
+| `X-Trace-Id` | `openclaw.trace_id` | Pin trace ID across systems |
+| `X-Request-Id` | `openclaw.request_id` | Supply an external request ID |
+| `X-User-Id` | `openclaw.user_id` | Caller identity |
+| `X-Channel` | `openclaw.channel` | Call channel (e.g. `http`, `cli`, `web`) |
+| `X-Tenant-Id` | `openclaw.tenant` / `openclaw.tenant_id` | Override tenant (future multi-tenancy) |
+
+All headers are optional. Missing headers fall back to payload metadata or context defaults.
+
+**Precedence:** HTTP headers > payload `metadata` > payload top-level fields > defaults
+
 ### curl examples
 
 ```bash
 # Health
 curl http://localhost:8100/openclaw/health
 
-# Summary request with trace_id
+# Summary request with trace_id in body
 curl -X POST http://localhost:8100/openclaw/process \
   -H "Content-Type: application/json" \
   -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary","metadata":{"trace_id":"my-trace-id"}}'
+
+# Full header propagation (V3.3)
+curl -X POST http://localhost:8100/openclaw/process \
+  -H "Content-Type: application/json" \
+  -H "X-Trace-Id: my-trace-id" \
+  -H "X-Request-Id: my-request-id" \
+  -H "X-User-Id: user-123" \
+  -H "X-Channel: http" \
+  -H "X-Tenant-Id: tenant-abc" \
+  -d '{"client_id":"demo-client","agent":"ads-agent","request":"summary"}'
 
 # Unsupported request (ok=false, code=unsupported_request)
 curl -X POST http://localhost:8100/openclaw/process \

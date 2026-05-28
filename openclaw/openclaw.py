@@ -28,11 +28,16 @@ def process_request(payload: dict) -> dict:
     t0 = time.monotonic()
     request_id = generate_request_id()
     trace_id = generate_trace_id()
-    # Allow caller to supply a trace_id via metadata for propagation
+
+    # Allow caller to supply request_id / trace_id via metadata
     if isinstance(payload, dict):
-        _meta_trace = (payload.get("metadata") or {}).get("trace_id")
+        _meta = payload.get("metadata") or {}
+        _meta_trace = _meta.get("trace_id")
         if _meta_trace and isinstance(_meta_trace, str):
             trace_id = _meta_trace
+        _meta_req = _meta.get("request_id")
+        if _meta_req and isinstance(_meta_req, str):
+            request_id = _meta_req
 
     context = resolve_context(payload if isinstance(payload, dict) else {})
     context_warnings = context.get("warnings", [])
@@ -40,6 +45,10 @@ def process_request(payload: dict) -> dict:
     agent = payload.get("agent", "ads-agent") if isinstance(payload, dict) else "ads-agent"
     request_type = payload.get("request", "summary") if isinstance(payload, dict) else "summary"
     client_id = context["client_id"]
+    tenant = context["tenant"]
+    tenant_id = context.get("tenant_id")
+    channel = context.get("channel", "local")
+    user_id = context.get("user_id", "local-user")
 
     normalized = {
         "client_id": client_id,
@@ -56,12 +65,15 @@ def process_request(payload: dict) -> dict:
             ok=False,
             request_id=request_id,
             trace_id=trace_id,
-            tenant=client_id,
+            tenant=tenant,
             agent=agent,
             execution_mode="none",
             started_at=started_at,
             finished_at=finished_at,
             duration_ms=duration_ms,
+            channel=channel,
+            user_id=user_id,
+            tenant_id=tenant_id,
             data={},
             errors=policy_errors,
             warnings=context_warnings,
@@ -69,19 +81,22 @@ def process_request(payload: dict) -> dict:
 
     try:
         router_response = route_request(normalized)
-    except Exception as exc:
+    except Exception:
         finished_at = utc_now_iso()
         duration_ms = int((time.monotonic() - t0) * 1000)
         return make_openclaw_envelope(
             ok=False,
             request_id=request_id,
             trace_id=trace_id,
-            tenant=client_id,
+            tenant=tenant,
             agent=agent,
             execution_mode="unknown",
             started_at=started_at,
             finished_at=finished_at,
             duration_ms=duration_ms,
+            channel=channel,
+            user_id=user_id,
+            tenant_id=tenant_id,
             data={},
             errors=[make_error("internal_error", "An internal error occurred.", source="openclaw")],
             warnings=context_warnings,
@@ -105,12 +120,15 @@ def process_request(payload: dict) -> dict:
         ok=ok,
         request_id=request_id,
         trace_id=trace_id,
-        tenant=client_id,
+        tenant=tenant,
         agent=agent,
         execution_mode=execution_mode,
         started_at=started_at,
         finished_at=finished_at,
         duration_ms=duration_ms,
+        channel=channel,
+        user_id=user_id,
+        tenant_id=tenant_id,
         data={"router_response": router_response},
         errors=errors,
         warnings=context_warnings,

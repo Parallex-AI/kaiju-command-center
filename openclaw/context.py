@@ -16,18 +16,29 @@ def _try_load_profile(client_id: str) -> tuple:
 
 def resolve_context(payload: dict) -> dict:
     client_id = payload.get("client_id") or "demo-client"
-    channel = payload.get("channel") or "local"
-    user_id = payload.get("user_id") or "local-user"
-    metadata = payload.get("metadata") or {}
+    metadata = dict(payload.get("metadata") or {})
+
+    # channel: payload > metadata > default
+    channel = payload.get("channel") or metadata.get("channel") or "local"
+
+    # user_id: payload > metadata > default
+    user_id = payload.get("user_id") or metadata.get("user_id") or "local-user"
+
+    # tenant: metadata.tenant_id overrides client_id if present
+    tenant_id = metadata.get("tenant_id") or None
+    tenant = tenant_id if tenant_id else client_id
 
     profile, warnings = _try_load_profile(client_id)
+    profile_loaded = profile is not None
 
     return {
         "client_id": client_id,
-        "tenant": client_id,
+        "tenant": tenant,
+        "tenant_id": tenant_id,
         "channel": channel,
         "user_id": user_id,
         "metadata": metadata,
         "profile": profile,
+        "profile_loaded": profile_loaded,
         "warnings": warnings,
     }
