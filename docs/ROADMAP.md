@@ -149,7 +149,7 @@ Goal: Add a persistent memory layer so agents have context across sessions and c
 
 ---
 
-## V3 — OpenClaw + SaaS (In progress — branch: `v3-openclaw`)
+## V3 — OpenClaw + SaaS (Alpha complete — tag: `v3.0.0-alpha`)
 
 Goal: Add an orchestration layer (OpenClaw) above the Router for request normalization, tenant context, agent registry, policy enforcement, and structured response envelopes — laying the foundation for a production-ready multi-tenant SaaS platform.
 
