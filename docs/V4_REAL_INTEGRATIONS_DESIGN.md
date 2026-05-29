@@ -1,8 +1,20 @@
 # V4 Real Integrations — Design Document
 
 **Branch:** `v4-real-integrations`
-**Status:** Design only — no implementation yet
+**Status:** V4.1 complete (design); V4.2 complete (resolver + mock fixture)
 **Roadmap:** [docs/ROADMAP.md](ROADMAP.md)
+
+### V4.2 Implementation Notes
+
+- `agents/ads-agent/integrations/` package created: `__init__.py`, `schemas.py`, `resolver.py`, `mock_fixture_adapter.py`
+- `agents/ads-agent/fixtures/google_ads_summary_fixture.json` — realistic fixture data, no secrets
+- `agents/ads-agent/run_integration_demo.py` — standalone demo; tests all four `ADS_DATA_SOURCE` modes
+- `ADS_DATA_SOURCE` env var governs adapter selection; defaults to `n8n_demo`
+- `normalize_metrics()` derives `ctr`, `cpc`, `cpa`, `conversion_rate` from base fields
+- `google_ads` mode returns structured `google_ads_not_implemented` error — no crash, recoverable
+- Invalid `ADS_DATA_SOURCE` falls back silently to `n8n_demo`
+- **Graph not modified** — `ads_graph.py` untouched; graph integration deferred to V4.3
+- **All V0–V3 smoke suites pass unchanged**
 
 ---
 

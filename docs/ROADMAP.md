@@ -252,7 +252,7 @@ Goal: Replace demo-only campaign data with real data source adapters, beginning 
 ### Implementation phases
 
 - [x] **V4.1** — Design doc + ROADMAP update
-- [ ] **V4.2** — Integration resolver (`resolver.py`) · `ADS_DATA_SOURCE` config · mock fixture adapter · canonical metrics schema
+- [x] **V4.2** — Integration resolver (`resolver.py`) · `ADS_DATA_SOURCE` config · mock fixture adapter · canonical metrics schema
 - [ ] **V4.3** — Graph uses resolver instead of hardcoded n8n call · `n8n_demo` adapter wraps existing n8n client · all existing smoke tests pass
 - [ ] **V4.4** — Google Ads adapter skeleton: credential loading and validation only · `GOOGLE_ADS_LIVE_ENABLED=false` by default · no live calls
 - [ ] **V4.5** — Optional live Google Ads fetch behind `GOOGLE_ADS_LIVE_ENABLED=true`

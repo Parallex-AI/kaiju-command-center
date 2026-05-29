@@ -229,3 +229,78 @@ V2 beta complete (branch: `v2-mempalace`). Memory utility module, graph integrat
 cd ~/kaiju
 ./scripts/smoke_test_v2_memory.sh
 ```
+
+---
+
+## V4.2 Integration Resolver
+
+V4.2 adds a data source resolver layer that decouples the Ads Agent from the n8n webhook. The graph is **not yet modified** — the resolver is standalone in V4.2 and will be wired into the graph in V4.3.
+
+### ADS_DATA_SOURCE
+
+| Value | Behavior |
+|---|---|
+| `n8n_demo` | Current n8n webhook path — **default** |
+| `mock_fixture` | Local JSON fixture (`fixtures/google_ads_summary_fixture.json`) — no network, no credentials |
+| `google_ads` | Real Google Ads API — **not implemented yet** (returns structured error) |
+
+The default is `n8n_demo`. No behavior change unless `ADS_DATA_SOURCE` is explicitly set.
+
+### Run the integration resolver demo
+
+```bash
+cd ~/kaiju/agents/ads-agent
+
+# Default (n8n_demo)
+~/kaiju/.venv/bin/python3 run_integration_demo.py summary
+
+# Mock fixture — no network, no credentials
+ADS_DATA_SOURCE=mock_fixture ~/kaiju/.venv/bin/python3 run_integration_demo.py summary
+ADS_DATA_SOURCE=mock_fixture ~/kaiju/.venv/bin/python3 run_integration_demo.py cpa
+ADS_DATA_SOURCE=mock_fixture ~/kaiju/.venv/bin/python3 run_integration_demo.py conversions
+ADS_DATA_SOURCE=mock_fixture ~/kaiju/.venv/bin/python3 run_integration_demo.py raw
+
+# Google Ads (not implemented — returns structured error, no crash)
+ADS_DATA_SOURCE=google_ads ~/kaiju/.venv/bin/python3 run_integration_demo.py summary
+
+# Invalid source — falls back to n8n_demo silently
+ADS_DATA_SOURCE=bad ~/kaiju/.venv/bin/python3 run_integration_demo.py summary
+```
+
+### Integration package
+
+```
+agents/ads-agent/integrations/
+  __init__.py               # re-exports resolve_ads_data, get_ads_data_source, normalize_metrics
+  schemas.py                # VALID_DATA_SOURCES, get_ads_data_source(), normalize_metrics(), make_integration_error()
+  resolver.py               # resolve_ads_data(client_id, request_type) — routes by ADS_DATA_SOURCE
+  mock_fixture_adapter.py   # load_mock_fixture() — loads fixtures/google_ads_summary_fixture.json
+
+agents/ads-agent/fixtures/
+  google_ads_summary_fixture.json   # realistic sample metrics, no secrets
+```
+
+### Canonical metrics schema
+
+All adapters return a normalized dict:
+
+```json
+{
+  "source": "mock_fixture",
+  "client": "demo-client",
+  "campaign": "...",
+  "date_range": { "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" },
+  "currency": "ARS",
+  "spend": 150000.0,
+  "conversions": 75,
+  "clicks": 4200,
+  "impressions": 95000,
+  "ctr": 0.0442,
+  "cpc": 35.71,
+  "cpa": 2000.0,
+  "conversion_rate": 0.0179,
+  "raw_source": "mock_fixture"
+}
+```
+
+Derived metrics (`ctr`, `cpc`, `cpa`, `conversion_rate`) are computed from base fields; `null` when base values are zero.

@@ -1,0 +1,14 @@
+{
+  "source": "mock_fixture",
+  "client": "fixture-client",
+  "campaign": "Fixture Google Ads Campaign",
+  "date_range": {
+    "start_date": "2026-05-01",
+    "end_date": "2026-05-31"
+  },
+  "currency": "ARS",
+  "spend": 150000,
+  "conversions": 75,
+  "clicks": 4200,
+  "impressions": 95000
+}
