@@ -6,7 +6,8 @@ from typing import TypedDict
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from langgraph.graph import StateGraph, START, END
-from n8n_client import fetch_ads_data_from_n8n, VALID_REQUEST_TYPES
+from n8n_client import VALID_REQUEST_TYPES
+from integrations.resolver import resolve_ads_data
 import mempalace
 
 
@@ -17,6 +18,7 @@ import mempalace
 class AdsAgentState(TypedDict):
     client_id: str
     request_type: str
+    data_source: str
     raw_metrics: dict
     normalized_metrics: dict
     analysis: dict
@@ -447,17 +449,40 @@ def load_client_memory(state: AdsAgentState) -> dict:
     }
 
 
-def fetch_metrics_from_n8n(state: AdsAgentState) -> dict:
+def fetch_metrics(state: AdsAgentState) -> dict:
+    client_id = state["client_id"]
+    request_type = state["request_type"]
+
     try:
-        raw = fetch_ads_data_from_n8n(
-            client_id=state["client_id"],
-            request_type=state["request_type"],
-        )
-        return {"raw_metrics": raw}
-    except (RuntimeError, ValueError) as error:
+        result = resolve_ads_data(client_id, request_type)
+    except Exception as error:
         errors = list(state.get("errors") or [])
-        errors.append(str(error))
+        errors.append(f"Integration resolver error: {error}")
         return {"errors": errors}
+
+    if not result.get("ok"):
+        errors = list(state.get("errors") or [])
+        err = result.get("error") or {}
+        err_code = err.get("code", "integration_error")
+        err_msg = err.get("message", str(result))
+        errors.append(f"[{err_code}] {err_msg}")
+        return {"errors": errors, "data_source": result.get("data_source", "")}
+
+    data_source = result.get("data_source", "n8n_demo")
+
+    # For n8n_demo preserve the original n8n response shape so the existing
+    # normalize_metrics node continues to work exactly as before.
+    # For other sources (mock_fixture, future google_ads) the canonical metrics
+    # dict has the same field names the normalize_metrics node expects.
+    if data_source == "n8n_demo":
+        raw_metrics = result.get("raw_data") or result.get("data") or {}
+    else:
+        raw_metrics = result.get("data") or {}
+
+    return {
+        "raw_metrics": raw_metrics,
+        "data_source": data_source,
+    }
 
 
 def normalize_metrics(state: AdsAgentState) -> dict:
@@ -800,6 +825,7 @@ def generate_recommendations(state: AdsAgentState) -> dict:
 def format_response(state: AdsAgentState) -> dict:
     client_id = state.get("client_id", "")
     request_type = state.get("request_type", "")
+    data_source = state.get("data_source") or "n8n_demo"
     errors = state.get("errors") or []
 
     if errors:
@@ -810,6 +836,7 @@ def format_response(state: AdsAgentState) -> dict:
                 "execution_mode": "graph",
                 "client_id": client_id,
                 "request": request_type,
+                "data_source": data_source,
                 "errors": errors,
             }
         }
@@ -871,6 +898,7 @@ def format_response(state: AdsAgentState) -> dict:
             "execution_mode": "graph",
             "client_id": client_id,
             "request": request_type,
+            "data_source": data_source,
             "data": data,
         }
     }
@@ -1027,7 +1055,7 @@ def _build_graph() -> object:
 
     graph.add_node("validate_input",           validate_input)
     graph.add_node("load_client_memory",       load_client_memory)
-    graph.add_node("fetch_metrics_from_n8n",   fetch_metrics_from_n8n)
+    graph.add_node("fetch_metrics",            fetch_metrics)
     graph.add_node("normalize_metrics",        normalize_metrics)
     graph.add_node("compare_with_history",     compare_with_history)
     graph.add_node("analyze_performance",      analyze_performance)
@@ -1036,10 +1064,10 @@ def _build_graph() -> object:
     graph.add_node("write_memory",             write_memory)
 
     graph.add_edge(START, "validate_input")
-    graph.add_conditional_edges("validate_input",           _route_after_validate)
-    graph.add_edge("load_client_memory", "fetch_metrics_from_n8n")
-    graph.add_conditional_edges("fetch_metrics_from_n8n",   _route_after_fetch)
-    graph.add_conditional_edges("normalize_metrics",        _route_after_normalize)
+    graph.add_conditional_edges("validate_input",     _route_after_validate)
+    graph.add_edge("load_client_memory", "fetch_metrics")
+    graph.add_conditional_edges("fetch_metrics",      _route_after_fetch)
+    graph.add_conditional_edges("normalize_metrics",  _route_after_normalize)
     graph.add_edge("compare_with_history", "analyze_performance")
     graph.add_conditional_edges("analyze_performance",      _route_after_analyze)
     graph.add_edge("generate_recommendations", "format_response")
@@ -1060,6 +1088,7 @@ def run_ads_graph(client_id: str = "demo-client", request_type: str = "summary")
     initial_state: AdsAgentState = {
         "client_id":             client_id,
         "request_type":          request_type,
+        "data_source":           "",
         "raw_metrics":           {},
         "normalized_metrics":    {},
         "analysis":              {},

@@ -280,6 +280,57 @@ agents/ads-agent/fixtures/
   google_ads_summary_fixture.json   # realistic sample metrics, no secrets
 ```
 
+---
+
+## V4.3 Graph Integration
+
+As of V4.3, the Ads Agent Graph uses the integration resolver as its data fetch layer. The `fetch_metrics_from_n8n` node has been replaced by `fetch_metrics`, which calls `resolve_ads_data()` to select the correct adapter based on `ADS_DATA_SOURCE`.
+
+The default remains `n8n_demo` — **no behavior change for existing callers**.
+
+### Graph data source behavior
+
+| `ADS_DATA_SOURCE` | Graph behavior |
+|---|---|
+| `n8n_demo` (default) | Fetches from n8n webhook; analysis/recommendations/memory unchanged |
+| `mock_fixture` | Loads fixture JSON; full analysis and recommendations generated from fixture metrics |
+| `google_ads` | Returns controlled `ok=false` with `google_ads_not_implemented` error; no traceback |
+
+### `data_source` in graph response
+
+All graph responses now include `data_source` at the top level:
+
+```json
+{
+  "ok": true,
+  "agent": "ads-agent",
+  "execution_mode": "graph",
+  "data_source": "n8n_demo",
+  "data": { ... }
+}
+```
+
+This field is additive — existing response fields are unchanged.
+
+### Run the graph with mock fixture
+
+```bash
+cd ~/kaiju/agents/ads-agent
+
+# Full analysis from fixture data (spend 150000, conversions 75, cpa 2000)
+ADS_DATA_SOURCE=mock_fixture ~/kaiju/.venv/bin/python3 run_graph_demo.py summary
+ADS_DATA_SOURCE=mock_fixture ~/kaiju/.venv/bin/python3 run_graph_demo.py cpa
+ADS_DATA_SOURCE=mock_fixture ~/kaiju/.venv/bin/python3 run_graph_demo.py conversions
+ADS_DATA_SOURCE=mock_fixture ~/kaiju/.venv/bin/python3 run_graph_demo.py raw
+```
+
+### Run the graph with google_ads (not implemented)
+
+```bash
+ADS_DATA_SOURCE=google_ads ~/kaiju/.venv/bin/python3 run_graph_demo.py summary
+# Returns: ok=false, errors: [google_ads_not_implemented] ...
+```
+
 ### Canonical metrics schema
 
 All adapters return a normalized dict:

@@ -1,8 +1,18 @@
 # V4 Real Integrations — Design Document
 
 **Branch:** `v4-real-integrations`
-**Status:** V4.1 complete (design); V4.2 complete (resolver + mock fixture)
+**Status:** V4.1 complete (design); V4.2 complete (resolver + mock fixture); V4.3 complete (graph integration)
 **Roadmap:** [docs/ROADMAP.md](ROADMAP.md)
+
+### V4.3 Implementation Notes
+
+- `ads_graph.py` fetch node renamed `fetch_metrics`; calls `resolve_ads_data()` instead of `fetch_ads_data_from_n8n()` directly
+- `n8n_demo` path: resolver returns original n8n response as `raw_data`; graph normalize_metrics node consumes it exactly as before — zero behavior change
+- `mock_fixture` path: resolver returns canonical metrics; graph normalize_metrics node re-derives CPM and unavailable_metrics as usual; full analysis/recommendations/executive_summary generated
+- `google_ads` path: resolver returns `ok=false`; graph routes to `format_response` with controlled error — no traceback
+- `data_source` field added to `AdsAgentState` TypedDict and surfaced in graph response (additive only)
+- `n8n_client.py` **not modified**; `fetch_ads_data_from_n8n` still called via resolver, not removed
+- All V0–V3 smoke suites pass with no `ADS_DATA_SOURCE` set (default n8n_demo)
 
 ### V4.2 Implementation Notes
 
