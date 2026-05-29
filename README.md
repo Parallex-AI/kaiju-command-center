@@ -4,9 +4,9 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V3 OpenClaw alpha complete** — tag `v3.0.0-alpha`
+**V3.5 SaaS readiness beta complete** — tag `v3.5.0-beta`
 
-V3.1–V3.4 are implemented and tested: OpenClaw local orchestrator, FastAPI HTTP server (port 8100), tenant context enrichment with HTTP header propagation, and an append-only JSONL audit log. Three dedicated smoke test suites (core, HTTP, audit). V3.5 SaaS and GCP production are next.
+OpenClaw gateway (V3) is fully operational: FastAPI HTTP server (port 8100), tenant context and header propagation, append-only JSONL audit log. V3.5 adds typed config module, API key auth placeholder, CORS policy, Dockerfile, and GCP Cloud Run deployment plan. V4 Real Integrations is now in progress on branch `v4-real-integrations`.
 
 ## Architecture
 
@@ -60,6 +60,8 @@ cd ~/kaiju/projects/demo-client
 | Version | Focus | Status |
 |---|---|---|
 | V0 | Ads Agent · Router · n8n · Demo Client | **Complete** — `v0.0.1` |
-| V1 | LangGraph · stateful analysis | **Complete** — `v1.4.1-n8n-resilience` |
-| V2 | MemPalace · persistent client memory | **Beta complete** — `v2-mempalace` |
-| V3 | OpenClaw · SaaS · multi-tenant · GCP production | **Alpha complete** — `v3.0.0-alpha` |
+| V1 | LangGraph · stateful analysis | **Complete** — `v1.4.1` |
+| V2 | MemPalace · persistent client memory | **Beta complete** — `v2.0.0-beta` |
+| V3 | OpenClaw · HTTP API · tenant context · audit log | **Alpha complete** — `v3.0.0-alpha` |
+| V3.5 | Config · auth placeholder · CORS · Docker · GCP plan | **Beta complete** — `v3.5.0-beta` |
+| V4 | Real integrations · Google Ads API · data source resolver | **In progress** — `v4-real-integrations` |

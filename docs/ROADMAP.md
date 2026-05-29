@@ -240,3 +240,43 @@ V3.5 does not implement: real user login, OAuth, billing, database-backed tenant
 - Auth, CORS, and config are additive — no existing call site changes until features are enabled
 - No secrets committed; production secrets from GCP Secret Manager
 - All existing smoke suites (V0/V1/V2/V3) pass at every phase
+
+---
+
+## V4 — Real Integrations (In progress — branch: `v4-real-integrations`)
+
+Goal: Replace demo-only campaign data with real data source adapters, beginning with the Google Ads API. All real integrations are additive and feature-flagged. The n8n demo path remains available as a fallback and default.
+
+**Design document:** [docs/V4_REAL_INTEGRATIONS_DESIGN.md](V4_REAL_INTEGRATIONS_DESIGN.md)
+
+### Implementation phases
+
+- [x] **V4.1** — Design doc + ROADMAP update
+- [ ] **V4.2** — Integration resolver (`resolver.py`) · `ADS_DATA_SOURCE` config · mock fixture adapter · canonical metrics schema
+- [ ] **V4.3** — Graph uses resolver instead of hardcoded n8n call · `n8n_demo` adapter wraps existing n8n client · all existing smoke tests pass
+- [ ] **V4.4** — Google Ads adapter skeleton: credential loading and validation only · `GOOGLE_ADS_LIVE_ENABLED=false` by default · no live calls
+- [ ] **V4.5** — Optional live Google Ads fetch behind `GOOGLE_ADS_LIVE_ENABLED=true`
+- [ ] **V4.6** — V4 smoke test suite (`scripts/smoke_test_v4_integration.sh`) · mock fixture and resolver tests · no live network required
+- [ ] **V4.7** — `docs/GOOGLE_ADS_INTEGRATION_PLAN.md` live integration runbook · env var reference update
+
+### New env vars (added in V4.2)
+
+| Variable | Default | Secret | Purpose |
+|---|---|---|---|
+| `ADS_DATA_SOURCE` | `n8n_demo` | No | Data source adapter selection |
+| `GOOGLE_ADS_LIVE_ENABLED` | `false` | No | Gate for live Google Ads API calls |
+| `GOOGLE_ADS_DEVELOPER_TOKEN` | `` | **Yes** | Google Ads API developer token |
+| `GOOGLE_ADS_CLIENT_ID` | `` | **Yes** | OAuth2 client ID |
+| `GOOGLE_ADS_CLIENT_SECRET` | `` | **Yes** | OAuth2 client secret |
+| `GOOGLE_ADS_REFRESH_TOKEN` | `` | **Yes** | OAuth2 refresh token |
+| `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | `` | **Yes** | MCC/manager account ID |
+| `GOOGLE_ADS_CUSTOMER_ID` | `` | **Yes** | Target advertising account ID |
+
+### V4 design principles
+
+- `ADS_DATA_SOURCE=n8n_demo` is the default — no behavior change unless explicitly configured
+- Real integrations are additive: new code paths live behind env var flags
+- All smoke suites (V0–V3) remain green at every phase
+- No credentials committed; production credentials from GCP Secret Manager
+- Google Ads errors are normalized — no tokens or secrets in logs, audit, or MemPalace
+- OpenClaw remains the sole external API entry point
