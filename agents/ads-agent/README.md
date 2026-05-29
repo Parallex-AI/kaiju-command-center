@@ -309,6 +309,9 @@ V4.4 adds a Google Ads adapter with credential loading and validation. No live A
 
 Never commit credential values. Use `.env` locally (gitignored). In production, source from GCP Secret Manager.
 
+**Full credential setup, OAuth2 refresh token acquisition, GAQL query, and manual test steps:**
+→ [docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md](../../docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md)
+
 ### Run the adapter demo
 
 ```bash

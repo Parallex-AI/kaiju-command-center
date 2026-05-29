@@ -1,8 +1,15 @@
 # V4 Real Integrations — Design Document
 
 **Branch:** `v4-real-integrations`
-**Status:** V4.1 complete (design); V4.2 complete (resolver + mock fixture); V4.3 complete (graph integration); V4.4 complete (Google Ads adapter skeleton)
+**Status:** V4.1 complete; V4.2 complete; V4.3 complete; V4.4 complete; V4.5.0 complete (runbook)
 **Roadmap:** [docs/ROADMAP.md](ROADMAP.md)
+
+### V4.5 Implementation Notes
+
+- `docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md` created — full manual test plan before live code
+- V4.5.0 (this runbook) documents: required credentials, OAuth2 refresh token acquisition, local `.env` setup, secret safety rules, proposed V4.5.1 implementation approach, GAQL query, manual test commands, expected success/failure shapes, testing policy, production implications
+- V4.5.1 (live fetch) deferred — `google-ads` library not yet added; no live API calls made
+- Runbook marks all V4.5.0 acceptance criteria as complete; V4.5.1 criteria remain pending
 
 ### V4.4 Implementation Notes
 
