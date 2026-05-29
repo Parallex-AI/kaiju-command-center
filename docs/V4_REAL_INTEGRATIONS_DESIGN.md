@@ -1,8 +1,21 @@
 # V4 Real Integrations — Design Document
 
 **Branch:** `v4-real-integrations`
-**Status:** V4.1 complete (design); V4.2 complete (resolver + mock fixture); V4.3 complete (graph integration)
+**Status:** V4.1 complete (design); V4.2 complete (resolver + mock fixture); V4.3 complete (graph integration); V4.4 complete (Google Ads adapter skeleton)
 **Roadmap:** [docs/ROADMAP.md](ROADMAP.md)
+
+### V4.4 Implementation Notes
+
+- `agents/ads-agent/integrations/google_ads_adapter.py` created — standard library only, no `google-ads` package
+- `GoogleAdsCredentials` dataclass: 6 fields (`developer_token`, `client_id`, `client_secret`, `refresh_token`, `login_customer_id`, `customer_id`)
+- `is_google_ads_live_enabled()` — parses `GOOGLE_ADS_LIVE_ENABLED`; defaults `false`
+- `load_google_ads_credentials()` — reads env vars; empty strings become `None`; no values printed
+- `validate_google_ads_credentials()` — checks 5 required fields; returns `(True, [])` or `(False, [credentials_missing error])`; lists missing field *names*, never values
+- `redacted_google_ads_credentials()` — returns `{"field": {"configured": bool}}` for all 6 fields; values never exposed
+- `fetch_google_ads_metrics()` — three-tier logic: live disabled → `google_ads_live_disabled`; credentials missing → `credentials_missing`; credentials valid → `google_ads_live_not_implemented`; no real API call at any tier
+- `resolver.py` updated: `google_ads` path now calls `fetch_google_ads_metrics()` instead of returning a static not-implemented error
+- `run_google_ads_adapter_demo.py` — prints redacted credentials, validation result, and fetch result; never prints secret values
+- `docs/ENVIRONMENT_VARIABLES.md` and `.env.example` updated with all 8 new V4 env vars
 
 ### V4.3 Implementation Notes
 

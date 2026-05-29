@@ -5,6 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from integrations.schemas import get_ads_data_source, make_integration_error, normalize_metrics
 from integrations.mock_fixture_adapter import load_mock_fixture
+from integrations.google_ads_adapter import fetch_google_ads_metrics
 
 
 def resolve_ads_data(client_id: str, request_type: str) -> dict:
@@ -17,16 +18,7 @@ def resolve_ads_data(client_id: str, request_type: str) -> dict:
         return load_mock_fixture(client_id, request_type)
 
     if data_source == "google_ads":
-        return {
-            "ok": False,
-            "data_source": "google_ads",
-            "error": make_integration_error(
-                "google_ads_not_implemented",
-                "Google Ads integration is not implemented yet. Use ADS_DATA_SOURCE=n8n_demo or mock_fixture.",
-                recoverable=True,
-                source="google_ads",
-            ),
-        }
+        return fetch_google_ads_metrics(client_id, request_type)
 
     # Defensive: get_ads_data_source() always returns a valid value, but guard anyway.
     return {

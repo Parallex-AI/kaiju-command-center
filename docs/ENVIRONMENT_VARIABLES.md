@@ -220,6 +220,116 @@ All Kaiju Command Center / OpenClaw configuration is read from environment varia
 
 ---
 
+## Google Ads Integration Variables (V4.4+)
+
+### `ADS_DATA_SOURCE`
+
+| Field | Value |
+|---|---|
+| Purpose | Select data source adapter for the Ads Agent |
+| Default | `n8n_demo` |
+| Allowed values | `n8n_demo`, `mock_fixture`, `google_ads` |
+| Invalid value | Falls back to `n8n_demo` |
+| Local example | `ADS_DATA_SOURCE=n8n_demo` |
+| Production | `ADS_DATA_SOURCE=google_ads` when real integration is active |
+| Secret | No |
+| Notes | `google_ads` requires `GOOGLE_ADS_LIVE_ENABLED=true` and all credential vars |
+
+---
+
+### `GOOGLE_ADS_LIVE_ENABLED`
+
+| Field | Value |
+|---|---|
+| Purpose | Gate for live Google Ads API calls |
+| Default | `false` |
+| Accepted true values | `true`, `1`, `yes`, `on` |
+| Accepted false values | anything else |
+| Local example | `GOOGLE_ADS_LIVE_ENABLED=false` |
+| Production | `GOOGLE_ADS_LIVE_ENABLED=true` when real integration is active |
+| Secret | No |
+| Notes | When `false`, `ADS_DATA_SOURCE=google_ads` returns `google_ads_live_disabled` error without loading credentials |
+
+---
+
+### `GOOGLE_ADS_DEVELOPER_TOKEN`
+
+| Field | Value |
+|---|---|
+| Purpose | Google Ads API developer token |
+| Default | Empty |
+| Local example | Do not commit; set in local `.env` only |
+| Production | Sourced from GCP Secret Manager |
+| Secret | **Yes** |
+| Notes | Required when `GOOGLE_ADS_LIVE_ENABLED=true` |
+
+---
+
+### `GOOGLE_ADS_CLIENT_ID`
+
+| Field | Value |
+|---|---|
+| Purpose | OAuth2 client ID for Google Ads API access |
+| Default | Empty |
+| Local example | Do not commit; set in local `.env` only |
+| Production | Sourced from GCP Secret Manager |
+| Secret | **Yes** (treat as sensitive) |
+| Notes | Required when `GOOGLE_ADS_LIVE_ENABLED=true` |
+
+---
+
+### `GOOGLE_ADS_CLIENT_SECRET`
+
+| Field | Value |
+|---|---|
+| Purpose | OAuth2 client secret |
+| Default | Empty |
+| Local example | Do not commit; set in local `.env` only |
+| Production | Sourced from GCP Secret Manager |
+| Secret | **Yes** |
+| Notes | Required when `GOOGLE_ADS_LIVE_ENABLED=true` |
+
+---
+
+### `GOOGLE_ADS_REFRESH_TOKEN`
+
+| Field | Value |
+|---|---|
+| Purpose | Long-lived OAuth2 refresh token for Google Ads API |
+| Default | Empty |
+| Local example | Do not commit; set in local `.env` only |
+| Production | Sourced from GCP Secret Manager |
+| Secret | **Yes** |
+| Notes | Required when `GOOGLE_ADS_LIVE_ENABLED=true` |
+
+---
+
+### `GOOGLE_ADS_LOGIN_CUSTOMER_ID`
+
+| Field | Value |
+|---|---|
+| Purpose | MCC / manager account ID (used when accessing sub-accounts) |
+| Default | Empty |
+| Local example | `GOOGLE_ADS_LOGIN_CUSTOMER_ID=9876543210` |
+| Production | Tenant-specific; not a secret but sensitive |
+| Secret | No (but tenant-sensitive — do not log) |
+| Notes | Optional — omit if not using an MCC hierarchy |
+
+---
+
+### `GOOGLE_ADS_CUSTOMER_ID`
+
+| Field | Value |
+|---|---|
+| Purpose | Target Google Ads advertising account ID |
+| Default | Empty |
+| Local example | `GOOGLE_ADS_CUSTOMER_ID=1234567890` |
+| Production | Tenant-specific; sourced from tenant config |
+| Secret | No (but tenant-sensitive — do not log) |
+| Notes | Required when `GOOGLE_ADS_LIVE_ENABLED=true` |
+
+---
+
 ## Summary Table
 
 | Variable | Default | Secret | Required in Production |
@@ -240,3 +350,11 @@ All Kaiju Command Center / OpenClaw configuration is read from environment varia
 | `N8N_ADS_WEBHOOK_URL` | `None` | **Yes** | Yes |
 | `N8N_WEBHOOK_TIMEOUT` | `15.0` | No | No |
 | `ADS_AGENT_EXECUTION_MODE` | `graph` | No | No |
+| `ADS_DATA_SOURCE` | `n8n_demo` | No | `google_ads` when live |
+| `GOOGLE_ADS_LIVE_ENABLED` | `false` | No | `true` when live |
+| `GOOGLE_ADS_DEVELOPER_TOKEN` | `` | **Yes** | Yes (live only) |
+| `GOOGLE_ADS_CLIENT_ID` | `` | **Yes** | Yes (live only) |
+| `GOOGLE_ADS_CLIENT_SECRET` | `` | **Yes** | Yes (live only) |
+| `GOOGLE_ADS_REFRESH_TOKEN` | `` | **Yes** | Yes (live only) |
+| `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | `` | No | Optional |
+| `GOOGLE_ADS_CUSTOMER_ID` | `` | No | Yes (live only) |

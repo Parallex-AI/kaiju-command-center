@@ -282,6 +282,60 @@ agents/ads-agent/fixtures/
 
 ---
 
+## V4.4 Google Ads Adapter Skeleton
+
+V4.4 adds a Google Ads adapter with credential loading and validation. No live API calls are made. `GOOGLE_ADS_LIVE_ENABLED` defaults to `false`.
+
+### Error progression
+
+| Condition | Error code |
+|---|---|
+| `GOOGLE_ADS_LIVE_ENABLED=false` (default) | `google_ads_live_disabled` |
+| Live enabled, credentials missing | `credentials_missing` (lists missing field *names*, never values) |
+| Live enabled, credentials present | `google_ads_live_not_implemented` (V4.5 will add real fetch) |
+
+### Google Ads environment variables
+
+| Variable | Default | Secret |
+|---|---|---|
+| `ADS_DATA_SOURCE` | `n8n_demo` | No |
+| `GOOGLE_ADS_LIVE_ENABLED` | `false` | No |
+| `GOOGLE_ADS_DEVELOPER_TOKEN` | `` | **Yes** |
+| `GOOGLE_ADS_CLIENT_ID` | `` | **Yes** |
+| `GOOGLE_ADS_CLIENT_SECRET` | `` | **Yes** |
+| `GOOGLE_ADS_REFRESH_TOKEN` | `` | **Yes** |
+| `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | `` | No |
+| `GOOGLE_ADS_CUSTOMER_ID` | `` | No |
+
+Never commit credential values. Use `.env` locally (gitignored). In production, source from GCP Secret Manager.
+
+### Run the adapter demo
+
+```bash
+cd ~/kaiju/agents/ads-agent
+
+# Default — live disabled
+~/kaiju/.venv/bin/python3 run_google_ads_adapter_demo.py
+
+# Live enabled, credentials missing
+GOOGLE_ADS_LIVE_ENABLED=true ADS_DATA_SOURCE=google_ads \
+  ~/kaiju/.venv/bin/python3 run_integration_demo.py summary
+
+# Live enabled, fake credentials — returns google_ads_live_not_implemented
+GOOGLE_ADS_LIVE_ENABLED=true \
+  GOOGLE_ADS_DEVELOPER_TOKEN=... \
+  GOOGLE_ADS_CLIENT_ID=... \
+  GOOGLE_ADS_CLIENT_SECRET=... \
+  GOOGLE_ADS_REFRESH_TOKEN=... \
+  GOOGLE_ADS_CUSTOMER_ID=... \
+  ADS_DATA_SOURCE=google_ads \
+  ~/kaiju/.venv/bin/python3 run_integration_demo.py summary
+```
+
+The demo **never prints secret values** — only `{"configured": true/false}` per field.
+
+---
+
 ## V4.3 Graph Integration
 
 As of V4.3, the Ads Agent Graph uses the integration resolver as its data fetch layer. The `fetch_metrics_from_n8n` node has been replaced by `fetch_metrics`, which calls `resolve_ads_data()` to select the correct adapter based on `ADS_DATA_SOURCE`.
