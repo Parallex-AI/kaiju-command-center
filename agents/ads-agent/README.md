@@ -480,3 +480,66 @@ GOOGLE_ADS_LIVE_ENABLED=true \
 ```
 
 See [docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md](../../docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md) for credential setup, OAuth2 steps, and secret safety rules.
+
+---
+
+## V5.2 Credential Reference Model
+
+V5.2 introduces the `credentials/` package — a metadata-only model for tenant/client credential references. No secret values are stored, returned, or passed through this layer.
+
+### Package location
+
+```
+agents/ads-agent/credentials/
+  __init__.py    — public re-exports
+  models.py      — dataclass, enums, helpers
+```
+
+### CredentialStatus values
+
+| Status | Meaning |
+|---|---|
+| `missing` | No credentials configured yet |
+| `configured` | Credentials stored, not yet validated |
+| `invalid` | Credentials stored but failed shape or API validation |
+| `validation_failed` | Live API validation returned an error |
+| `active` | Credentials validated and working |
+| `revoked` | Credentials explicitly revoked |
+
+`configured: true` is returned when status is `configured` or `active`.
+
+### CredentialReference fields
+
+| Field | Type | Secret | Notes |
+|---|---|---|---|
+| `tenant_id` | str | No | Sanitized on creation |
+| `client_id` | str | No | Sanitized on creation |
+| `integration_type` | str | No | Must be a valid `IntegrationType` value |
+| `credential_ref` | str | No | Opaque pointer to secret backend (SHA-256 prefix) |
+| `customer_id` | str or None | No | Google Ads account ID |
+| `login_customer_id` | str or None | No | MCC manager account ID |
+| `status` | str | No | One of `CredentialStatus` values |
+| `last_validated_at` | str or None | No | UTC ISO timestamp |
+| `created_at` | str or None | No | UTC ISO timestamp |
+| `updated_at` | str or None | No | UTC ISO timestamp |
+| `metadata` | dict or None | No | Safe keys only — secret-like keys filtered |
+
+The dataclass never contains `developer_token`, `client_secret`, `refresh_token`, `access_token`, or OAuth codes.
+
+### Metadata filtering
+
+`filter_safe_metadata()` drops any metadata key whose name (case-insensitive) contains:
+`token`, `secret`, `password`, `credential`, `authorization`, `auth_header`, `oauth_code`, `refresh`, `access`
+
+### Redacted response
+
+`credential_reference_to_redacted_response()` returns an API-safe dict including `configured: bool`. This shape is safe to return from any endpoint — no secret values are present.
+
+### Run the credentials model demo
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_credentials_model_demo.py
+```
+
+The demo creates a `CredentialReference`, shows metadata filtering, prints full dict and redacted response, runs validation checks, and asserts no secret values appear in any output. All assertions pass without network access or real credentials.

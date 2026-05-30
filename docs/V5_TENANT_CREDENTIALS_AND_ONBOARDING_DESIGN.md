@@ -1,6 +1,6 @@
 # V5 — Tenant Credentials & Secure Onboarding — Design Document
 
-**Status:** Planned — not started  
+**Status:** In progress — V5.2 complete  
 **Milestone tag:** `v5.0.0` (target)  
 **Depends on:** V4 beta (`v4.5.1-alpha`)
 
@@ -432,16 +432,61 @@ The following are explicitly out of scope until explicitly promoted:
 
 The following must be true before V5.1 is considered complete:
 
-- [ ] This design document exists at `docs/V5_TENANT_CREDENTIALS_AND_ONBOARDING_DESIGN.md`
-- [ ] `docs/ROADMAP.md` includes V5 as a planned milestone
-- [ ] Security principles are documented explicitly (Section 5)
-- [ ] Both onboarding modes are documented (Section 4)
-- [ ] Secret Manager is identified as the production target (Section 10)
-- [ ] Audit and memory policies are explicit (Section 12)
-- [ ] Threat model is documented (Section 13)
-- [ ] No source code files are modified
-- [ ] No secrets are added to any file
-- [ ] No commits are created until the user confirms
+- [x] This design document exists at `docs/V5_TENANT_CREDENTIALS_AND_ONBOARDING_DESIGN.md`
+- [x] `docs/ROADMAP.md` includes V5 as a planned milestone
+- [x] Security principles are documented explicitly (Section 5)
+- [x] Both onboarding modes are documented (Section 4)
+- [x] Secret Manager is identified as the production target (Section 10)
+- [x] Audit and memory policies are explicit (Section 12)
+- [x] Threat model is documented (Section 13)
+- [x] No source code files are modified
+- [x] No secrets are added to any file
+
+---
+
+## 17. V5.2 Implementation Notes
+
+**Branch:** `v5-tenant-credentials`
+
+**Files added:**
+
+```
+agents/ads-agent/credentials/
+  __init__.py       — public re-exports
+  models.py         — CredentialReference dataclass, enums, all helpers
+
+agents/ads-agent/run_credentials_model_demo.py   — standalone demo, 10 assertions
+```
+
+**What was implemented:**
+
+- `CredentialStatus` enum: `missing`, `configured`, `invalid`, `validation_failed`, `active`, `revoked`
+- `IntegrationType` enum: `google_ads`
+- `CredentialReference` dataclass: tenant/client/integration metadata only; no secret fields
+- `now_utc_iso()` — UTC ISO timestamp ending with `Z`
+- `sanitize_identifier()` — lowercase, strip, replace unsafe chars, collapse hyphens
+- `make_credential_ref()` — deterministic SHA-256-based opaque reference (`cred_google_ads_<12hex>`)
+- `filter_safe_metadata()` — drops keys matching 9 secret-related substrings (case-insensitive)
+- `create_credential_reference()` — creates sanitized, timestamped CredentialReference; filters metadata
+- `credential_reference_to_dict()` — safe full dict, no secrets possible
+- `credential_reference_to_redacted_response()` — API-safe response with `configured: bool`
+- `validate_credential_reference()` — checks required fields, valid status, valid integration type, safe metadata
+- `update_credential_status()` — returns new CredentialReference with updated status + timestamps; raises `ValueError` for invalid status
+
+**What was NOT implemented (deferred to V5.3+):**
+
+- Secret storage of any kind
+- Endpoint creation
+- Adapter integration
+- Google Ads adapter changes
+- OpenClaw changes
+
+**Security validation:**
+
+- Secret-safety grep over all new files: no output (clean)
+- Metadata filtering verified: `refresh_token`, `client_secret`, `authorization`, `oauth_code`, `access_level` all dropped
+- Redacted response verified: no secret values present in any output
+- All existing smoke tests (V0–V4, 7 suites) pass with no changes
 
 The following must be true before V5 is considered feature-complete (end of V5.10):
 

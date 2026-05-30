@@ -284,7 +284,7 @@ Goal: Replace demo-only campaign data with real data source adapters, beginning 
 
 ---
 
-## V5 — Tenant Credentials & Secure Onboarding (Planned)
+## V5 — Tenant Credentials & Secure Onboarding (In progress — branch: `v5-tenant-credentials`)
 
 Goal: Allow clients to connect their Google Ads accounts through a secure onboarding flow — without exposing credentials to logs, audit records, MemPalace, or Git at any point. Introduce a tenant credential store, a secret store abstraction, and OpenClaw admin endpoints for credential management.
 
@@ -292,8 +292,8 @@ Goal: Allow clients to connect their Google Ads accounts through a secure onboar
 
 ### Implementation phases
 
-- [ ] **V5.1** — Design doc + ROADMAP update
-- [ ] **V5.2** — `CredentialReference` data model · status enum · metadata helpers · no secret storage yet
+- [x] **V5.1** — Design doc + ROADMAP update
+- [x] **V5.2** — `CredentialReference` data model · `CredentialStatus` enum · `IntegrationType` enum · metadata filtering · redacted response contract · validation helper · `credentials/` package · demo · all existing smoke tests pass
 - [ ] **V5.3** — `CredentialStore` abstraction interface · `EnvCredentialStore` transitional implementation
 - [ ] **V5.4** — `LocalFileCredentialStore` · ignored local encrypted file · credential smoke test
 - [ ] **V5.5** — OpenClaw admin credential status endpoint (`GET .../status`) · auth placeholder
