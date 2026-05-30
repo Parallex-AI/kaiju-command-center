@@ -4,9 +4,9 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V3.5 SaaS readiness beta complete** — tag `v3.5.0-beta`
+**V4 beta — Real Integrations Foundation** — tag pending: `v4.0.0-beta`
 
-OpenClaw gateway (V3) is fully operational: FastAPI HTTP server (port 8100), tenant context and header propagation, append-only JSONL audit log. V3.5 adds typed config module, API key auth placeholder, CORS policy, Dockerfile, and GCP Cloud Run deployment plan. V4 Real Integrations is now in progress on branch `v4-real-integrations`.
+OpenClaw now supports real integration architecture through a data source resolver, mock fixture adapter, Google Ads adapter skeleton, and smoke-tested data source switching. The Ads Agent Graph is wired to the resolver; `ADS_DATA_SOURCE` selects the active adapter. Default behavior (`n8n_demo`) is unchanged. Live Google Ads fetch is not yet implemented — deferred to branch `v4.5.1-google-ads-live-fetch`.
 
 ## Architecture
 
@@ -64,4 +64,4 @@ cd ~/kaiju/projects/demo-client
 | V2 | MemPalace · persistent client memory | **Beta complete** — `v2.0.0-beta` |
 | V3 | OpenClaw · HTTP API · tenant context · audit log | **Alpha complete** — `v3.0.0-alpha` |
 | V3.5 | Config · auth placeholder · CORS · Docker · GCP plan | **Beta complete** — `v3.5.0-beta` |
-| V4 | Real integrations · Google Ads API · data source resolver | **In progress** — `v4-real-integrations` |
+| V4 | Real integrations · Google Ads API · data source resolver | **Beta complete** — tag pending `v4.0.0-beta` |

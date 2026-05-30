@@ -1,8 +1,20 @@
 # V4 Real Integrations — Design Document
 
 **Branch:** `v4-real-integrations`
-**Status:** V4.1 complete; V4.2 complete; V4.3 complete; V4.4 complete; V4.5.0 complete (runbook); V4.6 complete (smoke test)
+**Status:** V4.1 complete; V4.2 complete; V4.3 complete; V4.4 complete; V4.5.0 complete (runbook); V4.6 complete (smoke test); V4.7 complete (final docs) — **V4 beta complete**
+**Tag pending:** `v4.0.0-beta`
 **Roadmap:** [docs/ROADMAP.md](ROADMAP.md)
+**Release notes:** [docs/V4_BETA_RELEASE_NOTES.md](V4_BETA_RELEASE_NOTES.md)
+
+### V4.7 Implementation Notes
+
+- `docs/V4_BETA_RELEASE_NOTES.md` created — full beta release notes covering scope, included/excluded features, safety behavior, test coverage, release risks, and recommended next steps
+- `docs/ROADMAP.md` updated — V4.7 [x], V4.5.1 deferred to `v4.5.1-google-ads-live-fetch` branch, V4 beta marked complete
+- `docs/V4_REAL_INTEGRATIONS_DESIGN.md` (this file) status updated to V4 beta complete
+- `README.md` current milestone updated to V4 beta
+- `agents/ads-agent/README.md` V4 beta summary added with live Google Ads warning
+- No source code modified; documentation only
+- All V0–V4 smoke suites pass
 
 ### V4.6 Implementation Notes
 

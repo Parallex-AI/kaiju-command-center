@@ -243,7 +243,7 @@ V3.5 does not implement: real user login, OAuth, billing, database-backed tenant
 
 ---
 
-## V4 — Real Integrations (In progress — branch: `v4-real-integrations`)
+## V4 — Real Integrations (Beta complete — branch: `v4-real-integrations` · tag pending: `v4.0.0-beta`)
 
 Goal: Replace demo-only campaign data with real data source adapters, beginning with the Google Ads API. All real integrations are additive and feature-flagged. The n8n demo path remains available as a fallback and default.
 
@@ -256,9 +256,9 @@ Goal: Replace demo-only campaign data with real data source adapters, beginning 
 - [x] **V4.3** — Graph uses resolver instead of hardcoded n8n call · `n8n_demo` adapter wraps existing n8n client · all existing smoke tests pass
 - [x] **V4.4** — Google Ads adapter skeleton: credential loading and validation only · `GOOGLE_ADS_LIVE_ENABLED=false` by default · no live calls
 - [x] **V4.5.0** — Live integration runbook: `docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md` · OAuth2 steps · GAQL query · secret safety rules · manual test plan · production implications
-- [ ] **V4.5.1** — Optional live Google Ads fetch behind `GOOGLE_ADS_LIVE_ENABLED=true` · `google-ads` library · GAQL query implementation · canonical metrics from real API
+- [ ] **V4.5.1** — Live Google Ads fetch · `google-ads` library · GAQL query · canonical metrics from real API · **deferred → branch `v4.5.1-google-ads-live-fetch`**
 - [x] **V4.6** — V4 smoke test suite (`scripts/smoke_test_v4_integrations.sh`) · 37 assertions · mock fixture, resolver, Google Ads safety gates, graph integration · no live network required
-- [ ] **V4.7** — env var reference update · final V4 documentation pass
+- [x] **V4.7** — Release notes (`docs/V4_BETA_RELEASE_NOTES.md`) · final documentation pass · V4 beta complete
 
 ### New env vars (added in V4.2)
 

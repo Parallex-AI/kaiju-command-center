@@ -1,5 +1,9 @@
 # Ads Agent
 
+**V4 beta — Real Integrations Foundation** — branch `v4-real-integrations` · tag pending `v4.0.0-beta`
+
+> **Note:** Live Google Ads API fetch is **not yet implemented**. `ADS_DATA_SOURCE=google_ads` returns a structured `google_ads_live_not_implemented` error. Use `ADS_DATA_SOURCE=mock_fixture` for local development without network access. See [docs/V4_BETA_RELEASE_NOTES.md](../../docs/V4_BETA_RELEASE_NOTES.md) for full release scope and [docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md](../../docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md) for the live integration plan.
+
 The Ads Agent is responsible for analyzing Google Ads performance data and generating actionable recommendations for clients.
 
 ## Responsibilities
