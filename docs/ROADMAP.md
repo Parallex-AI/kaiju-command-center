@@ -281,3 +281,49 @@ Goal: Replace demo-only campaign data with real data source adapters, beginning 
 - No credentials committed; production credentials from GCP Secret Manager
 - Google Ads errors are normalized — no tokens or secrets in logs, audit, or MemPalace
 - OpenClaw remains the sole external API entry point
+
+---
+
+## V5 — Tenant Credentials & Secure Onboarding (Planned)
+
+Goal: Allow clients to connect their Google Ads accounts through a secure onboarding flow — without exposing credentials to logs, audit records, MemPalace, or Git at any point. Introduce a tenant credential store, a secret store abstraction, and OpenClaw admin endpoints for credential management.
+
+**Design document:** [docs/V5_TENANT_CREDENTIALS_AND_ONBOARDING_DESIGN.md](V5_TENANT_CREDENTIALS_AND_ONBOARDING_DESIGN.md)
+
+### Implementation phases
+
+- [ ] **V5.1** — Design doc + ROADMAP update
+- [ ] **V5.2** — `CredentialReference` data model · status enum · metadata helpers · no secret storage yet
+- [ ] **V5.3** — `CredentialStore` abstraction interface · `EnvCredentialStore` transitional implementation
+- [ ] **V5.4** — `LocalFileCredentialStore` · ignored local encrypted file · credential smoke test
+- [ ] **V5.5** — OpenClaw admin credential status endpoint (`GET .../status`) · auth placeholder
+- [ ] **V5.6** — Manual credential upload endpoint · shape validation · secret store write · redacted responses only
+- [ ] **V5.7** — Google Ads adapter reads credentials through credential resolver instead of `os.getenv()`
+- [ ] **V5.8** — OAuth flow skeleton · `POST /oauth/google-ads/start` · `GET /oauth/google-ads/callback` stub
+- [ ] **V5.9** — `GCPSecretManagerStore` production implementation · IAM guidance · Cloud Run integration
+- [ ] **V5.10** — Front-end onboarding integration · status page · validation result display
+
+### V5 capabilities (planned)
+
+- Secure tenant credential store: secret material in secret backend; only `credential_ref` in metadata store
+- Two onboarding modes: manual entry (internal/beta) and OAuth connect flow (SaaS/professional)
+- OpenClaw admin API for credential submission, status check, live validation, and deletion
+- `CredentialStore` abstraction with `EnvCredentialStore` (local/transitional) and `GCPSecretManagerStore` (production)
+- Google Ads adapter retrieves credentials from credential resolver — never from request payloads or graph state
+- Credential redaction: secret values never appear in API responses, logs, audit JSONL, or MemPalace
+- Audit policy: tenant/client/status metadata only; no developer tokens, client secrets, refresh tokens, or OAuth codes
+- GCP Secret Manager as production secret backend; IAM scoped to the secrets the service account needs
+- Front-end onboarding UX: write-only credential submission; status page shows only metadata
+
+### V5 security principles
+
+- Credentials never stored in Git, MemPalace, audit logs, or API responses
+- All secret values redacted before any observable output
+- Credentials encrypted at rest in the secret backend
+- Least-privilege OAuth scope (`adwords` read-only)
+- Tenant isolation enforced at credential resolver level
+- Admin endpoints require authentication before any credential write
+
+### V5 non-goals (early phases)
+
+Billing, full user management, public self-serve onboarding, production OAuth consent screen, multi-region secrets, write access to Google Ads.

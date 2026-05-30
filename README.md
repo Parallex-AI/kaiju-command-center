@@ -4,9 +4,9 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V4 beta — Real Integrations Foundation** — tag pending: `v4.0.0-beta`
+**V4.5.1 alpha — Live Google Ads Read-Only Fetch** — tag: `v4.5.1-alpha`
 
-OpenClaw now supports real integration architecture through a data source resolver, mock fixture adapter, Google Ads adapter skeleton, and smoke-tested data source switching. The Ads Agent Graph is wired to the resolver; `ADS_DATA_SOURCE` selects the active adapter. Default behavior (`n8n_demo`) is unchanged. Live Google Ads fetch is not yet implemented — deferred to branch `v4.5.1-google-ads-live-fetch`.
+The Google Ads adapter now performs a live LAST_30_DAYS GAQL query behind `GOOGLE_ADS_LIVE_ENABLED=true`. Credentials are loaded from environment variables. The three-tier safety gate (`live_disabled` → `credentials_missing` → live fetch) is fully tested. Default behavior (`ADS_DATA_SOURCE=n8n_demo`) is unchanged. Planning is underway for V5 — Tenant Credentials & Secure Onboarding.
 
 ## Architecture
 
@@ -64,4 +64,6 @@ cd ~/kaiju/projects/demo-client
 | V2 | MemPalace · persistent client memory | **Beta complete** — `v2.0.0-beta` |
 | V3 | OpenClaw · HTTP API · tenant context · audit log | **Alpha complete** — `v3.0.0-alpha` |
 | V3.5 | Config · auth placeholder · CORS · Docker · GCP plan | **Beta complete** — `v3.5.0-beta` |
-| V4 | Real integrations · Google Ads API · data source resolver | **Beta complete** — tag pending `v4.0.0-beta` |
+| V4 | Real integrations · Google Ads API · data source resolver | **Beta complete** — `v4.0.0-beta` |
+| V4.5.1 | Live Google Ads read-only fetch · GAQL · credential safety gates | **Alpha** — `v4.5.1-alpha` |
+| V5 | Tenant credentials · secure onboarding · secret store · OAuth | **Planned** |
