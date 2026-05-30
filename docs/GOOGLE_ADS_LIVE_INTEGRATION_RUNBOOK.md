@@ -1,8 +1,7 @@
 # Google Ads Live Integration Runbook
 
-**Status:** Runbook only — no live API code implemented yet (V4.5.0)
-**Implements:** V4.5 preparation — live fetch will be implemented in V4.5.1
-**Branch:** `v4-real-integrations`
+**Status:** V4.5.1 complete — live read-only fetch implemented behind `GOOGLE_ADS_LIVE_ENABLED=true`
+**Branch:** `v4.5.1-google-ads-live-fetch`
 **Related:** [docs/V4_REAL_INTEGRATIONS_DESIGN.md](V4_REAL_INTEGRATIONS_DESIGN.md) · [docs/ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 
 ---
@@ -11,31 +10,38 @@
 
 This runbook documents the exact manual steps, environment requirements, and safety rules needed before enabling real Google Ads API calls in Kaiju Command Center.
 
-V4.4 implemented the adapter skeleton: credential loading, validation, and the `GOOGLE_ADS_LIVE_ENABLED` guard. No live API calls are made yet. This runbook prepares V4.5.1 (live fetch implementation) without writing that code.
+V4.4 implemented the adapter skeleton: credential loading, validation, and the `GOOGLE_ADS_LIVE_ENABLED` guard. V4.5.1 completes the implementation: `fetch_google_ads_metrics()` now performs a real GAQL query when `GOOGLE_ADS_LIVE_ENABLED=true` and all credentials are present. The guard and default behavior are unchanged.
 
 ---
 
 ## 2. Current State
 
-As of V4.4:
+As of V4.5.1:
 
 | Component | Status |
 |---|---|
-| `google_ads_adapter.py` | Exists — credential loading + validation only |
-| `GOOGLE_ADS_LIVE_ENABLED` | Defaults `false` — no live calls |
-| `ADS_DATA_SOURCE=google_ads` | Returns controlled error, no crash |
+| `google_ads_adapter.py` | Live GAQL fetch implemented — `_do_live_fetch()` |
+| `GOOGLE_ADS_LIVE_ENABLED` | Defaults `false` — live calls opt-in only |
+| `ADS_DATA_SOURCE=google_ads` | Returns `google_ads_live_disabled` by default; fetches when enabled + credentials present |
 | `n8n_demo` path | Unchanged — default behavior |
 | `mock_fixture` path | Functional — no network, no credentials |
-| `google-ads` Python library | Not yet installed |
-| Real Google Ads API calls | Not yet implemented |
+| `google-ads` Python library | `google-ads>=23.1.0` added to `requirements.txt`; `31.0.0` installed |
+| Real Google Ads API calls | Implemented behind `GOOGLE_ADS_LIVE_ENABLED=true` |
+| `GOOGLE_ADS_CURRENCY` | Optional env var (default `ARS`) for currency code in normalized output |
 
-### Current error progression (`ADS_DATA_SOURCE=google_ads`)
+### Error progression (`ADS_DATA_SOURCE=google_ads`)
 
 | Condition | Error code | Meaning |
 |---|---|---|
 | `GOOGLE_ADS_LIVE_ENABLED=false` (default) | `google_ads_live_disabled` | Live calls intentionally blocked |
 | Live enabled, credentials missing | `credentials_missing` | Lists missing field names, never values |
-| Live enabled, all credentials present | `google_ads_live_not_implemented` | Placeholder until V4.5.1 |
+| Live enabled, credentials valid, API auth fails | `google_ads_api_error` | OAuth or developer token rejected |
+| Live enabled, credentials valid, API error | `google_ads_api_error` | Google Ads API returned a non-success response |
+| Live enabled, credentials valid, no campaign rows | `no_data` | API returned zero rows for LAST_30_DAYS |
+| Live enabled, credentials valid, network timeout | `integration_timeout` | Request exceeded timeout |
+| `google-ads` library not installed | `google_ads_dependency_missing` | Library missing — run pip install |
+
+> **Note on smoke test compatibility:** V4.5.1 removes the `google_ads_live_not_implemented` placeholder. The V4.6 smoke test (`smoke_test_v4_integrations.sh` line 304) asserts this code for fake credentials; after V4.5.1, fake credentials return `google_ads_api_error` instead (the library attempts OAuth with fake creds). The smoke test assertion must be updated to accept `google_ads_api_error`, or the fake-live-credentials test case removed entirely (preferred, since it now makes a network call). All other V4 smoke test assertions (36/37) continue to pass.
 
 ---
 
@@ -397,15 +403,15 @@ Before enabling live Google Ads calls in production:
 - [x] No secrets committed
 - [x] All existing smoke tests pass
 
-### V4.5.1 (live fetch — not yet implemented) — complete when:
+### V4.5.1 (live fetch — implemented) — complete when:
 
-- [ ] `google-ads` library added to `agents/ads-agent/requirements.txt`
-- [ ] `fetch_google_ads_metrics()` implements real GAQL query behind `GOOGLE_ADS_LIVE_ENABLED=true`
-- [ ] Canonical metrics returned from live data
-- [ ] All normalized error codes handled
-- [ ] No credential values in logs, audit, or MemPalace
-- [ ] Manual live test confirmed against real account
-- [ ] All automated smoke tests still pass (still use `n8n_demo` / `mock_fixture`)
+- [x] `google-ads` library added to `agents/ads-agent/requirements.txt` (`google-ads>=23.1.0`)
+- [x] `fetch_google_ads_metrics()` implements real GAQL query behind `GOOGLE_ADS_LIVE_ENABLED=true`
+- [x] Canonical metrics returned from live data via `normalize_metrics(..., source="google_ads")`
+- [x] All normalized error codes handled: `google_ads_live_disabled`, `credentials_missing`, `google_ads_dependency_missing`, `google_ads_api_error`, `no_data`, `integration_timeout`
+- [x] No credential values in logs, audit, or MemPalace — `_sanitize_message()` strips values before surfacing
+- [ ] Manual live test confirmed against real account *(requires real credentials — see §9)*
+- [ ] `smoke_test_v4_integrations.sh` line 304 updated: change `google_ads_live_not_implemented` assertion to `google_ads_api_error`, or remove the fake-live-credentials test case *(network call now made with fake creds)*
 
 ---
 

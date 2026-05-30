@@ -1,10 +1,26 @@
 # V4 Real Integrations — Design Document
 
-**Branch:** `v4-real-integrations`
-**Status:** V4.1 complete; V4.2 complete; V4.3 complete; V4.4 complete; V4.5.0 complete (runbook); V4.6 complete (smoke test); V4.7 complete (final docs) — **V4 beta complete**
-**Tag pending:** `v4.0.0-beta`
+**Branch:** `v4.5.1-google-ads-live-fetch` (current) · `v4-real-integrations` (base)
+**Status:** V4.1–V4.7 complete (V4 beta); V4.5.1 complete (live fetch)
+**Tag:** `v4.0.0-beta` (on master)
 **Roadmap:** [docs/ROADMAP.md](ROADMAP.md)
 **Release notes:** [docs/V4_BETA_RELEASE_NOTES.md](V4_BETA_RELEASE_NOTES.md)
+
+### V4.5.1 Implementation Notes
+
+- `google-ads>=23.1.0` added to `agents/ads-agent/requirements.txt`; `google-ads 31.0.0` installed
+- `integrations/google_ads_adapter.py` updated:
+  - `_GAQL_LAST_30_DAYS` constant — read-only LAST_30_DAYS campaign metrics query
+  - `normalize_customer_id()` — strips whitespace and hyphens from customer ID; `None` on empty
+  - `build_google_ads_client_config()` — builds config dict for `GoogleAdsClient.load_from_dict`; never printed
+  - `_sanitize_message()` — removes credential values from error messages before surfacing
+  - `_do_live_fetch()` — actual GAQL fetch: imports library, builds client, runs `search_stream`, aggregates rows, normalizes to canonical metrics
+  - `fetch_google_ads_metrics()` — unchanged three-tier guard structure; third tier now calls `_do_live_fetch()` instead of returning placeholder
+- `GOOGLE_ADS_CURRENCY` env var (default `ARS`) controls currency code in canonical output
+- `raw_data.campaign_count` and `raw_data.query` included in success response; no raw API response exposed
+- Import of `google-ads` library is lazy (inside `_do_live_fetch`) — `google_ads_dependency_missing` returned if library absent
+- All credential sanitization in `_sanitize_message()` — credential values stripped before any error message reaches caller
+- Smoke test note: `smoke_test_v4_integrations.sh` line 304 asserts `google_ads_live_not_implemented` (V4.4 placeholder). V4.5.1 replaces this with a live attempt; fake credentials return `google_ads_api_error`. The assertion must be updated before the V4 smoke test fully passes (36/37 assertions pass as-is; the fake-credentials test makes a network call and returns the correct V4.5.1 error code)
 
 ### V4.7 Implementation Notes
 

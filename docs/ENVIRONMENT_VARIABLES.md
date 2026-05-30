@@ -330,6 +330,20 @@ All Kaiju Command Center / OpenClaw configuration is read from environment varia
 
 ---
 
+### `GOOGLE_ADS_CURRENCY`
+
+| Field | Value |
+|---|---|
+| Purpose | Currency code for canonical metrics output from live Google Ads fetch |
+| Default | `ARS` |
+| Allowed values | Any ISO 4217 currency code (e.g. `ARS`, `USD`, `EUR`) |
+| Local example | `GOOGLE_ADS_CURRENCY=ARS` |
+| Production | Set per tenant to match their Google Ads account currency |
+| Secret | No |
+| Notes | Applies only when `ADS_DATA_SOURCE=google_ads` and `GOOGLE_ADS_LIVE_ENABLED=true` |
+
+---
+
 ## Summary Table
 
 | Variable | Default | Secret | Required in Production |
@@ -358,3 +372,4 @@ All Kaiju Command Center / OpenClaw configuration is read from environment varia
 | `GOOGLE_ADS_REFRESH_TOKEN` | `` | **Yes** | Yes (live only) |
 | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | `` | No | Optional |
 | `GOOGLE_ADS_CUSTOMER_ID` | `` | No | Yes (live only) |
+| `GOOGLE_ADS_CURRENCY` | `ARS` | No | Set per tenant |

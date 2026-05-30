@@ -1,8 +1,8 @@
 # Ads Agent
 
-**V4 beta — Real Integrations Foundation** — branch `v4-real-integrations` · tag pending `v4.0.0-beta`
+**V4.5.1 — Live Google Ads Fetch** — branch `v4.5.1-google-ads-live-fetch` · base tag `v4.0.0-beta`
 
-> **Note:** Live Google Ads API fetch is **not yet implemented**. `ADS_DATA_SOURCE=google_ads` returns a structured `google_ads_live_not_implemented` error. Use `ADS_DATA_SOURCE=mock_fixture` for local development without network access. See [docs/V4_BETA_RELEASE_NOTES.md](../../docs/V4_BETA_RELEASE_NOTES.md) for full release scope and [docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md](../../docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md) for the live integration plan.
+> **Live Google Ads fetch is implemented** behind `GOOGLE_ADS_LIVE_ENABLED=true`. Default behavior (`n8n_demo`) is unchanged. Use `ADS_DATA_SOURCE=mock_fixture` for credential-free local development. For credentials setup and OAuth2 steps see [docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md](../../docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md). For V4 full scope see [docs/V4_BETA_RELEASE_NOTES.md](../../docs/V4_BETA_RELEASE_NOTES.md).
 
 The Ads Agent is responsible for analyzing Google Ads performance data and generating actionable recommendations for clients.
 
@@ -436,3 +436,47 @@ Derived metrics (`ctr`, `cpc`, `cpa`, `conversion_rate`) are computed from base 
 cd ~/kaiju
 ./scripts/smoke_test_v4_integrations.sh
 ```
+
+> **V4.5.1 note:** The smoke test assertion on line 304 (`google_ads_live_not_implemented`) was written for the V4.4 placeholder. After V4.5.1, fake credentials return `google_ads_api_error` (the library attempts OAuth). This assertion must be updated before the test fully passes (36/37 pass as-is).
+
+---
+
+## V4.5.1 Live Google Ads Fetch
+
+Live read-only Google Ads API fetch is implemented in `integrations/google_ads_adapter.py` behind `GOOGLE_ADS_LIVE_ENABLED=true`.
+
+**Dependency:** `google-ads>=23.1.0` — install via:
+```bash
+~/kaiju/.venv/bin/pip install -r ~/kaiju/agents/ads-agent/requirements.txt
+```
+
+**GAQL query:** LAST_30_DAYS campaign-level metrics (impressions, clicks, cost_micros, conversions) aggregated across up to 20 enabled campaigns.
+
+**Error behavior:**
+
+| Condition | Error code |
+|---|---|
+| `GOOGLE_ADS_LIVE_ENABLED=false` (default) | `google_ads_live_disabled` |
+| Credentials missing | `credentials_missing` |
+| `google-ads` library not installed | `google_ads_dependency_missing` |
+| API auth / network error | `google_ads_api_error` |
+| No campaign rows returned | `no_data` |
+| Request timeout | `integration_timeout` |
+
+**Currency:** Controlled by `GOOGLE_ADS_CURRENCY` env var (default `ARS`).
+
+**Run the adapter demo (live disabled — safe default):**
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_google_ads_adapter_demo.py
+```
+
+**Manual live test (requires real credentials):**
+```bash
+cd ~/kaiju/agents/ads-agent
+ADS_DATA_SOURCE=google_ads \
+GOOGLE_ADS_LIVE_ENABLED=true \
+~/kaiju/.venv/bin/python3 run_integration_demo.py summary
+```
+
+See [docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md](../../docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md) for credential setup, OAuth2 steps, and secret safety rules.

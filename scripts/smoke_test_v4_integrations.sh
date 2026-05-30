@@ -287,29 +287,47 @@ assert result["ok"] is False
 assert result["error"]["code"] == "credentials_missing", f"code: {result['error']['code']}"
 PYEOF
 
-py_pass_env "resolver google_ads LIVE_ENABLED=true fake credentials: google_ads_live_not_implemented" \
-    "ADS_DATA_SOURCE=google_ads" \
-    "GOOGLE_ADS_LIVE_ENABLED=true" \
+py_pass_env "fake credentials validate offline without live API call" \
     "GOOGLE_ADS_DEVELOPER_TOKEN=fake-dev-token" \
     "GOOGLE_ADS_CLIENT_ID=fake-client-id" \
     "GOOGLE_ADS_CLIENT_SECRET=fake-client-secret" \
     "GOOGLE_ADS_REFRESH_TOKEN=fake-refresh-token" \
     "GOOGLE_ADS_CUSTOMER_ID=1234567890" <<'PYEOF'
 import importlib
-import integrations.schemas as s; importlib.reload(s)
 import integrations.google_ads_adapter as ga; importlib.reload(ga)
-import integrations.resolver as r; importlib.reload(r)
-result = r.resolve_ads_data("integration-smoke-client", "summary")
-assert result["ok"] is False
-assert result["error"]["code"] == "google_ads_live_not_implemented", f"code: {result['error']['code']}"
+# Credential loading and validation — no network call
+creds = ga.load_google_ads_credentials()
+valid, errors = ga.validate_google_ads_credentials(creds)
+assert valid is True, f"validation failed: {errors}"
+assert errors == [],  f"unexpected errors: {errors}"
+# Redaction: all required fields show configured=True
+redacted = ga.redacted_google_ads_credentials(creds)
+assert redacted["developer_token"]["configured"] is True, "developer_token not configured"
+assert redacted["client_id"]["configured"]        is True, "client_id not configured"
+assert redacted["client_secret"]["configured"]    is True, "client_secret not configured"
+assert redacted["refresh_token"]["configured"]    is True, "refresh_token not configured"
+assert redacted["customer_id"]["configured"]      is True, "customer_id not configured"
+# Client config dict has required keys; values are never printed
+config = ga.build_google_ads_client_config(creds)
+assert "developer_token" in config, "developer_token missing from config"
+assert "client_id"        in config, "client_id missing from config"
+assert "client_secret"    in config, "client_secret missing from config"
+assert "refresh_token"    in config, "refresh_token missing from config"
+assert config.get("use_proto_plus") is True, "use_proto_plus must be True"
+# Customer ID normalization — offline, no network
+assert ga.normalize_customer_id("123-456-7890") == "1234567890"
+assert ga.normalize_customer_id("  1234567890  ") == "1234567890"
+assert ga.normalize_customer_id("") is None
+assert ga.normalize_customer_id(None) is None
 PYEOF
 
-# Redaction: fake credential values must not appear in adapter demo output
+# Redaction: fake credential values must not appear in adapter demo output.
+# GOOGLE_ADS_LIVE_ENABLED=false — loads/redacts credentials without making any network call.
 _DEMO_OUTPUT=$(
     cd "$AGENT_DIR" && \
     PYTHONPATH="$AGENT_DIR" \
     ADS_DATA_SOURCE=google_ads \
-    GOOGLE_ADS_LIVE_ENABLED=true \
+    GOOGLE_ADS_LIVE_ENABLED=false \
     GOOGLE_ADS_DEVELOPER_TOKEN=fake-dev-token \
     GOOGLE_ADS_CLIENT_ID=fake-client-id \
     GOOGLE_ADS_CLIENT_SECRET=fake-client-secret \

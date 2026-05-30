@@ -256,7 +256,7 @@ Goal: Replace demo-only campaign data with real data source adapters, beginning 
 - [x] **V4.3** — Graph uses resolver instead of hardcoded n8n call · `n8n_demo` adapter wraps existing n8n client · all existing smoke tests pass
 - [x] **V4.4** — Google Ads adapter skeleton: credential loading and validation only · `GOOGLE_ADS_LIVE_ENABLED=false` by default · no live calls
 - [x] **V4.5.0** — Live integration runbook: `docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md` · OAuth2 steps · GAQL query · secret safety rules · manual test plan · production implications
-- [ ] **V4.5.1** — Live Google Ads fetch · `google-ads` library · GAQL query · canonical metrics from real API · **deferred → branch `v4.5.1-google-ads-live-fetch`**
+- [x] **V4.5.1** — Live Google Ads fetch · `google-ads>=23.1.0` · GAQL LAST_30_DAYS query · canonical metrics · `google_ads_api_error` / `no_data` / `integration_timeout` error codes · credential sanitization · branch `v4.5.1-google-ads-live-fetch`
 - [x] **V4.6** — V4 smoke test suite (`scripts/smoke_test_v4_integrations.sh`) · 37 assertions · mock fixture, resolver, Google Ads safety gates, graph integration · no live network required
 - [x] **V4.7** — Release notes (`docs/V4_BETA_RELEASE_NOTES.md`) · final documentation pass · V4 beta complete
 
