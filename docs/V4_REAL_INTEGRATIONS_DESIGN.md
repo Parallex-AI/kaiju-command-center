@@ -1,8 +1,22 @@
 # V4 Real Integrations — Design Document
 
 **Branch:** `v4-real-integrations`
-**Status:** V4.1 complete; V4.2 complete; V4.3 complete; V4.4 complete; V4.5.0 complete (runbook)
+**Status:** V4.1 complete; V4.2 complete; V4.3 complete; V4.4 complete; V4.5.0 complete (runbook); V4.6 complete (smoke test)
 **Roadmap:** [docs/ROADMAP.md](ROADMAP.md)
+
+### V4.6 Implementation Notes
+
+- `scripts/smoke_test_v4_integrations.sh` created — 37 assertions across 6 sections
+- Section 1: environment and import checks (5 assertions)
+- Section 2: `ADS_DATA_SOURCE` resolution — valid values, invalid fallback, whitespace/case handling (5 assertions)
+- Section 3: canonical metrics normalization — derived fields, empty payload, client/campaign preservation, error schema (4 assertions)
+- Section 4: mock fixture adapter — ok flag, data_source, source, client override, base metrics, derived metrics (6 assertions)
+- Section 5: Google Ads safety gates — three-tier error progression via resolver, credential redaction (9 assertions)
+- Section 6: graph integration with mock_fixture — all four request types, performance_score, executive_summary, cpa_level (13 assertions)
+- Final: runtime file git status check (1 assertion)
+- No live network, no credentials required; `ADS_DATA_SOURCE=mock_fixture` used for all graph tests
+- `PYTHONPATH="$AGENT_DIR"` set in all helper invocations (required: Python resolves imports from CWD, not temp script dir)
+- All V0–V3 smoke suites pass with no `ADS_DATA_SOURCE` set
 
 ### V4.5 Implementation Notes
 

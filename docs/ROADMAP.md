@@ -257,7 +257,7 @@ Goal: Replace demo-only campaign data with real data source adapters, beginning 
 - [x] **V4.4** — Google Ads adapter skeleton: credential loading and validation only · `GOOGLE_ADS_LIVE_ENABLED=false` by default · no live calls
 - [x] **V4.5.0** — Live integration runbook: `docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md` · OAuth2 steps · GAQL query · secret safety rules · manual test plan · production implications
 - [ ] **V4.5.1** — Optional live Google Ads fetch behind `GOOGLE_ADS_LIVE_ENABLED=true` · `google-ads` library · GAQL query implementation · canonical metrics from real API
-- [ ] **V4.6** — V4 smoke test suite (`scripts/smoke_test_v4_integration.sh`) · mock fixture and resolver tests · no live network required
+- [x] **V4.6** — V4 smoke test suite (`scripts/smoke_test_v4_integrations.sh`) · 37 assertions · mock fixture, resolver, Google Ads safety gates, graph integration · no live network required
 - [ ] **V4.7** — env var reference update · final V4 documentation pass
 
 ### New env vars (added in V4.2)

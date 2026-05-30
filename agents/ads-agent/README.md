@@ -412,3 +412,23 @@ All adapters return a normalized dict:
 ```
 
 Derived metrics (`ctr`, `cpc`, `cpa`, `conversion_rate`) are computed from base fields; `null` when base values are zero.
+
+---
+
+## V4.6 Integration Resolver Smoke Test
+
+`scripts/smoke_test_v4_integrations.sh` — 37 assertions across 6 sections. No live network, no credentials required.
+
+| Section | Coverage |
+|---|---|
+| Environment | Imports for all integration modules |
+| `ADS_DATA_SOURCE` resolution | Valid values, invalid fallback, whitespace/case |
+| Canonical metrics normalization | Derived fields, empty payload, client/campaign, error schema |
+| Mock fixture adapter | ok flag, data_source, source, client override, base and derived metrics |
+| Google Ads safety gates | Three-tier error progression, credential redaction (4 secret values) |
+| Graph integration | All four request types with mock_fixture; performance_score, executive_summary, cpa_level |
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v4_integrations.sh
+```
