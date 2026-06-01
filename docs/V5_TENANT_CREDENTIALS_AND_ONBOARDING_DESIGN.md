@@ -500,6 +500,50 @@ The following must be true before V5 is considered feature-complete (end of V5.1
 
 ---
 
+## 18. V5.3 Implementation Notes
+
+**Branch:** `v5-tenant-credentials`
+
+**Files added or modified:**
+
+```
+agents/ads-agent/credentials/
+  store.py          — CredentialStore ABC, InMemoryCredentialStore, helpers (new)
+  __init__.py       — re-exports updated to include store symbols
+
+agents/ads-agent/run_credentials_store_demo.py   — standalone demo, 15 sections, all assertions pass
+```
+
+**What was implemented:**
+
+- `make_store_key(tenant_id, client_id, integration_type)` — deterministic composite key `"tenant/client/type"`
+- `missing_credential_status(tenant_id, client_id, integration_type)` — redacted status shape with `credential_ref: null`, `configured: false`
+- `assert_no_secret_material(payload)` — recursive key-name scanner; returns `(True, [])` or `(False, [offending paths])`; checks 7 forbidden substrings: `token`, `secret`, `password`, `authorization`, `oauth_code`, `refresh`, `access`
+- `CredentialStore` — abstract base class with 6 methods: `put_reference`, `get_reference`, `get_status`, `update_status`, `delete_reference`, `list_references`
+- `InMemoryCredentialStore` — in-memory dict-backed implementation; stores `CredentialReference` copies only; all returned objects are deep copies
+
+**Naming note:**
+
+The term `CredentialStore` in V5.3 refers to the **credential reference metadata store** — it holds `CredentialReference` objects (tenant/client metadata pointers). This is the "Credential Reference Store" layer from the Section 3 architecture diagram. The **secret store** (the layer that holds raw secret values and will be implemented as `GCPSecretManagerStore` in V5.9) is a separate interface not yet defined. The `EnvCredentialStore` and `LocalFileCredentialStore` mentioned in Sections 3 and 10 are implementations of the secret store abstraction, deferred to V5.4+.
+
+**What was NOT implemented (deferred to V5.4+):**
+
+- Secret store abstraction (`EnvCredentialStore`, `GCPSecretManagerStore`)
+- Disk persistence of any kind
+- OpenClaw admin endpoints
+- Google Ads adapter integration
+- Frontend or onboarding UI
+
+**Security validation:**
+
+- Secret-safety grep over all new files: no output (clean)
+- `put_reference` rejects any `CredentialReference` whose `metadata` contains secret-like keys (validated by both `validate_credential_reference` and `assert_no_secret_material`)
+- All returned objects are `copy.deepcopy` copies — callers cannot mutate store state through returned values
+- `missing_credential_status` always returns `credential_ref: null` and `configured: false` — no accidental data leakage for unconfigured tenants
+- All existing smoke tests (V0–V4, 7 suites) pass with no changes
+
+---
+
 ## Related Documents
 
 - [V4 Real Integrations Design](V4_REAL_INTEGRATIONS_DESIGN.md)

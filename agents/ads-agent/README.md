@@ -543,3 +543,51 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo creates a `CredentialReference`, shows metadata filtering, prints full dict and redacted response, runs validation checks, and asserts no secret values appear in any output. All assertions pass without network access or real credentials.
+
+---
+
+## V5.3 CredentialStore Abstraction
+
+V5.3 adds the `CredentialStore` interface and `InMemoryCredentialStore` — a reference-only in-memory credential metadata store for development and testing. No secret material is stored anywhere.
+
+### Package location
+
+```
+agents/ads-agent/credentials/
+  store.py    — CredentialStore ABC, InMemoryCredentialStore, helpers
+```
+
+### What is stored
+
+`CredentialStore` stores `CredentialReference` metadata only. Secret values (developer tokens, client secrets, refresh tokens, OAuth codes) are never accepted, stored, or returned.
+
+### What is rejected
+
+`put_reference` raises `ValueError` if:
+- The `CredentialReference` fails `validate_credential_reference` (missing fields, invalid status, unknown integration type)
+- The `metadata` dict contains any key whose name includes: `token`, `secret`, `password`, `authorization`, `oauth_code`, `refresh`, or `access`
+
+### `get_status` behavior
+
+| State | `status` | `configured` | `credential_ref` |
+|---|---|---|---|
+| Reference in store, `status=missing` | `missing` | `false` | present |
+| Reference in store, `status=configured` or `active` | value | `true` | present |
+| Reference not in store | `missing` | `false` | `null` |
+
+### Helpers
+
+| Helper | Purpose |
+|---|---|
+| `make_store_key(tenant_id, client_id, integration_type)` | Deterministic composite key (`tenant/client/type`) |
+| `missing_credential_status(tenant_id, client_id, integration_type)` | Redacted status shape when no credential is configured |
+| `assert_no_secret_material(payload)` | Recursively scans dict keys for secret-like names; returns `(True, [])` or `(False, [offending paths])` |
+
+### Run the credentials store demo
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_credentials_store_demo.py
+```
+
+The demo covers 15 sections: put/get/update/list/delete, missing status after delete, secret-metadata rejection, `assert_no_secret_material` with nested detection, and unit-style checks for all operations. All assertions pass without network access or real credentials.

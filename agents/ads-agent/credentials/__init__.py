@@ -12,16 +12,28 @@ from credentials.models import (
     update_credential_status,
     validate_credential_reference,
 )
+from credentials.store import (
+    CredentialStore,
+    InMemoryCredentialStore,
+    assert_no_secret_material,
+    make_store_key,
+    missing_credential_status,
+)
 
 __all__ = [
     "CredentialReference",
     "CredentialStatus",
+    "CredentialStore",
+    "InMemoryCredentialStore",
     "IntegrationType",
+    "assert_no_secret_material",
     "create_credential_reference",
     "credential_reference_to_dict",
     "credential_reference_to_redacted_response",
     "filter_safe_metadata",
     "make_credential_ref",
+    "make_store_key",
+    "missing_credential_status",
     "now_utc_iso",
     "sanitize_identifier",
     "update_credential_status",
