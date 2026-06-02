@@ -487,6 +487,96 @@ curl -X POST http://localhost:8100/openclaw/process \
 
 This is not OAuth, OIDC, or JWT validation. Tokens are plaintext strings in an env var. **Never use in production without replacing with a proper auth system.** API keys are never printed by `run_config_demo.py` — output shows count only.
 
+## V5.5 Admin Credential Status Endpoint
+
+V5.5 adds a read-only admin endpoint for checking the credential reference status of a tenant/client Google Ads integration.
+
+> **Read-only.** This endpoint accepts no secret material and performs no writes. It returns redacted credential reference metadata only. The credential write endpoint is deferred to V5.6.
+
+### Endpoint
+
+```
+GET /openclaw/admin/tenants/{tenant_id}/clients/{client_id}/credentials/google-ads/status
+```
+
+### Path parameters
+
+| Parameter | Description |
+|---|---|
+| `tenant_id` | Sanitized tenant identifier |
+| `client_id` | Client identifier within the tenant |
+
+### Response (200 — no credential configured)
+
+```json
+{
+  "ok": true,
+  "request_id": "req_...",
+  "trace_id": "trace_...",
+  "tenant_id": "demo-tenant",
+  "client_id": "demo-client",
+  "integration_type": "google_ads",
+  "credential_status": {
+    "tenant_id": "demo-tenant",
+    "client_id": "demo-client",
+    "integration_type": "google_ads",
+    "credential_ref": null,
+    "customer_id": null,
+    "login_customer_id": null,
+    "status": "missing",
+    "configured": false,
+    "last_validated_at": null,
+    "created_at": null,
+    "updated_at": null,
+    "metadata": {}
+  },
+  "errors": []
+}
+```
+
+`credential_ref`, `customer_id`, `status`, and `configured` reflect whatever is in the credential reference store. No secret values are ever present.
+
+### Auth
+
+Auth applies when `OPENCLAW_API_AUTH_ENABLED=true`. Without a valid `Authorization: Bearer <token>` header, the endpoint returns HTTP 401:
+
+```json
+{
+  "ok": false,
+  "errors": [{ "code": "unauthorized", "message": "...", "recoverable": true, "source": "openclaw" }]
+}
+```
+
+### curl examples
+
+```bash
+# No auth (default local dev)
+curl http://localhost:8100/openclaw/admin/tenants/demo-tenant/clients/demo-client/credentials/google-ads/status
+
+# With Bearer token (when auth enabled)
+curl http://localhost:8100/openclaw/admin/tenants/demo-tenant/clients/demo-client/credentials/google-ads/status \
+  -H "Authorization: Bearer my-key"
+
+# Confirm no write endpoint exists (returns 405)
+curl -X POST http://localhost:8100/openclaw/admin/tenants/demo-tenant/clients/demo-client/credentials/google-ads/status
+```
+
+### Implementation
+
+| File | Role |
+|---|---|
+| `admin.py` | `get_google_ads_credential_status(tenant_id, client_id)` — calls `LocalFileCredentialReferenceStore.get_status()` |
+| `server.py` | Registers `GET` route, applies auth, adds `request_id`/`trace_id` |
+
+### Run the admin demo (no HTTP server)
+
+```bash
+cd ~/kaiju/openclaw
+~/kaiju/.venv/bin/python3 run_admin_credentials_demo.py
+```
+
+---
+
 ## What OpenClaw Does Not Own
 
 - Agent execution (Router owns dispatch)

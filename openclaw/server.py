@@ -21,6 +21,7 @@ from schemas import (
 )
 from auth import validate_api_auth
 from config import get_config
+from admin import get_google_ads_credential_status
 
 SERVICE_NAME = "kaiju-openclaw"
 
@@ -63,6 +64,46 @@ def health():
         "version": OPENCLAW_VERSION,
         "status": "healthy",
     }
+
+
+@app.get(
+    "/openclaw/admin/tenants/{tenant_id}/clients/{client_id}/credentials/google-ads/status"
+)
+async def admin_google_ads_credential_status(
+    tenant_id: str,
+    client_id: str,
+    request: Request,
+):
+    """
+    V5.5 — Read-only credential status for a tenant/client Google Ads integration.
+
+    Returns the redacted CredentialReference status. Never returns secret values.
+    Accepts no request body. Only path params: tenant_id, client_id.
+    Auth applies when OPENCLAW_API_AUTH_ENABLED=true.
+    """
+    request_id = request.headers.get("x-request-id") or generate_request_id()
+    trace_id = request.headers.get("x-trace-id") or generate_trace_id()
+
+    auth_ok, auth_errors = validate_api_auth(headers=dict(request.headers))
+    if not auth_ok:
+        return JSONResponse(
+            status_code=401,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "credential_status": None,
+                "errors": auth_errors,
+            },
+        )
+
+    result = get_google_ads_credential_status(tenant_id, client_id)
+    result["request_id"] = request_id
+    result["trace_id"] = trace_id
+    return JSONResponse(status_code=200, content=result)
 
 
 @app.post("/openclaw/process")

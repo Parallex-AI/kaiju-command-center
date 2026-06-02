@@ -544,6 +544,56 @@ The term `CredentialStore` in V5.3 refers to the **credential reference metadata
 
 ---
 
+## 20. V5.5 Implementation Notes
+
+**Branch:** `v5-tenant-credentials`
+
+**Files added or modified:**
+
+```
+openclaw/
+  admin.py                        — get_google_ads_credential_status helper (new)
+  server.py                       — GET admin credential status endpoint added
+  run_admin_credentials_demo.py   — standalone demo, 3 sections (new)
+  README.md                       — V5.5 admin endpoint section added
+```
+
+**What was implemented:**
+
+- `admin.py`: `get_google_ads_credential_status(tenant_id, client_id)` — creates a `LocalFileCredentialReferenceStore`, calls `get_status()`, wraps result in a structured envelope. On store failure, returns `ok=false` with a safe `credential_status_failed` error; the original exception is suppressed to avoid leaking internal paths or messages.
+- `server.py`: `GET /openclaw/admin/tenants/{tenant_id}/clients/{client_id}/credentials/google-ads/status` — applies `validate_api_auth` (consistent with existing process endpoint), adds `request_id` and `trace_id` to the response. Returns HTTP 200 for all credential states (including `missing`). Returns HTTP 401 for auth failure.
+- `run_admin_credentials_demo.py`: demonstrates the missing-credential path, secret-safety assertion, and multi-tenant call.
+
+**Endpoint behavior:**
+
+| Case | HTTP status | `ok` | Notes |
+|---|---|---|---|
+| Auth disabled (default) | 200 | `true` | Missing credential returns `status: missing, configured: false` |
+| Auth enabled, valid token | 200 | `true` | Same response |
+| Auth enabled, missing/invalid token | 401 | `false` | `code: unauthorized` |
+| Store I/O error | 200 | `false` | `code: credential_status_failed` |
+| POST to same path | 405 | — | FastAPI rejects non-GET methods |
+
+**Security validation:**
+
+- No secret material is accepted (endpoint has no request body; path params are tenant/client IDs only)
+- No secret material is returned (response is `credential_reference_to_redacted_response` shape)
+- Auth placeholder applies identically to the `/openclaw/process` endpoint
+- `get_google_ads_credential_status` catches all exceptions and returns a generic safe message — internal file paths never reach callers
+- Secret-safety grep over all changed files: no output (clean)
+- All existing smoke tests (V0–V4, 7 suites) pass with no changes
+
+**What was NOT implemented (deferred):**
+
+- Credential write / upload endpoint (V5.6)
+- DELETE credential endpoint (V5.6)
+- Live validation endpoint (V5.6)
+- Google Ads adapter integration (V5.7)
+- GCP Secret Manager secret store (V5.9)
+- Frontend (V5.10)
+
+---
+
 ## 19. V5.4 Implementation Notes
 
 **Branch:** `v5-tenant-credentials`
