@@ -591,3 +591,74 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo covers 15 sections: put/get/update/list/delete, missing status after delete, secret-metadata rejection, `assert_no_secret_material` with nested detection, and unit-style checks for all operations. All assertions pass without network access or real credentials.
+
+---
+
+## V5.4 LocalFileCredentialReferenceStore
+
+V5.4 adds `LocalFileCredentialReferenceStore` — a file-backed implementation of `CredentialStore` that persists credential reference metadata to a local JSON file.
+
+> **This is not a secret store.** Secret values (developer tokens, client secrets, refresh tokens, OAuth codes) are never written to this file. This stores reference metadata only. The secret store (GCP Secret Manager) is a separate V5.9 concern.
+
+### Package location
+
+```
+agents/ads-agent/credentials/
+  local_file_store.py    — LocalFileCredentialReferenceStore, helpers
+```
+
+### Store file location
+
+Controlled by `CREDENTIAL_REFERENCE_STORE_PATH` environment variable.
+
+| Setting | Path used |
+|---|---|
+| `CREDENTIAL_REFERENCE_STORE_PATH` set | Value of env var |
+| Not set (default) | `runtime/credential-references/credential_references.json` (repo-root relative) |
+
+The default path is ignored by Git (`runtime/credential-references/` in `.gitignore`).
+
+### JSON file shape
+
+```json
+{
+  "version": 1,
+  "references": {
+    "tenant-id/client-id/google_ads": {
+      "tenant_id": "...",
+      "client_id": "...",
+      "integration_type": "google_ads",
+      "credential_ref": "cred_google_ads_...",
+      "customer_id": "...",
+      "status": "...",
+      "created_at": "...",
+      "updated_at": "...",
+      "metadata": {}
+    }
+  }
+}
+```
+
+No secret fields appear in this file. The `credential_ref` value is an opaque hash-based pointer, not a raw secret value.
+
+### Helpers
+
+| Helper | Purpose |
+|---|---|
+| `get_default_credential_reference_store_path()` | Reads env var or returns repo-root default |
+| `load_reference_store_file(path)` | Loads JSON; missing file → empty store; invalid JSON → `ValueError` |
+| `write_reference_store_file(payload, path)` | Atomic write via tempfile + `os.replace`; creates parent dir |
+| `dict_to_credential_reference(payload)` | Deserializes stored dict to validated `CredentialReference`; rejects unsafe metadata |
+
+### Atomic writes
+
+All mutations use `tempfile.mkstemp` + `os.replace` — the store file is never in a partial-write state even if the process crashes mid-write.
+
+### Run the local file store demo
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_credentials_local_file_store_demo.py
+```
+
+The demo uses `/tmp/kaiju-credential-reference-store-demo.json` as a safe temp path. It covers 14 sections: file creation, put/get/update/list/delete, JSON structure verification (no secret-like keys), unsafe-metadata rejection, unit-style checks including invalid-JSON error handling, env-var path override, and cleanup. All assertions pass without network access or real credentials. The temp file is removed at the end.

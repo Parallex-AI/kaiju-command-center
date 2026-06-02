@@ -19,6 +19,13 @@ from credentials.store import (
     make_store_key,
     missing_credential_status,
 )
+from credentials.local_file_store import (
+    LocalFileCredentialReferenceStore,
+    dict_to_credential_reference,
+    get_default_credential_reference_store_path,
+    load_reference_store_file,
+    write_reference_store_file,
+)
 
 __all__ = [
     "CredentialReference",
@@ -26,11 +33,15 @@ __all__ = [
     "CredentialStore",
     "InMemoryCredentialStore",
     "IntegrationType",
+    "LocalFileCredentialReferenceStore",
     "assert_no_secret_material",
     "create_credential_reference",
     "credential_reference_to_dict",
     "credential_reference_to_redacted_response",
+    "dict_to_credential_reference",
     "filter_safe_metadata",
+    "get_default_credential_reference_store_path",
+    "load_reference_store_file",
     "make_credential_ref",
     "make_store_key",
     "missing_credential_status",
@@ -38,4 +49,5 @@ __all__ = [
     "sanitize_identifier",
     "update_credential_status",
     "validate_credential_reference",
+    "write_reference_store_file",
 ]

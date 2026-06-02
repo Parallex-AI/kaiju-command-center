@@ -21,5 +21,8 @@ memory/client-memory/
 # OpenClaw runtime audit log (runtime output — not committed)
 openclaw/audit/
 
+# Credential reference runtime store (reference metadata only — not secrets, but not committed)
+runtime/credential-references/
+
 # macOS
 .DS_Store

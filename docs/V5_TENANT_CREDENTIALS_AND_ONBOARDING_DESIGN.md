@@ -544,6 +544,75 @@ The term `CredentialStore` in V5.3 refers to the **credential reference metadata
 
 ---
 
+## 19. V5.4 Implementation Notes
+
+**Branch:** `v5-tenant-credentials`
+
+**Files added or modified:**
+
+```
+agents/ads-agent/credentials/
+  local_file_store.py         — LocalFileCredentialReferenceStore and helpers (new)
+  __init__.py                 — re-exports updated to include local_file_store symbols
+
+agents/ads-agent/run_credentials_local_file_store_demo.py   — standalone demo, 14 sections
+
+.gitignore                    — runtime/credential-references/ added
+```
+
+**What was implemented:**
+
+- `get_default_credential_reference_store_path()` — reads `CREDENTIAL_REFERENCE_STORE_PATH` env var; falls back to `runtime/credential-references/credential_references.json` anchored at repo root
+- `load_reference_store_file(path)` — loads JSON store; missing file returns `{"version": 1, "references": {}}`; invalid JSON raises `ValueError` with safe message; never logs file contents
+- `write_reference_store_file(payload, path)` — atomic write using `tempfile.mkstemp` + `os.replace`; creates parent directory with `mkdir(parents=True, exist_ok=True)`; raises `ValueError` on I/O failure with safe message
+- `dict_to_credential_reference(payload)` — deserializes a stored dict to a validated `CredentialReference`; calls `validate_credential_reference`; rejects unsafe metadata via `assert_no_secret_material`
+- `LocalFileCredentialReferenceStore` — implements all 6 `CredentialStore` methods; each mutation reads the current file, applies the change, and writes atomically
+
+**JSON file schema:**
+
+```
+{
+  "version": 1,
+  "references": {
+    "<tenant_id>/<client_id>/<integration_type>": {
+      "tenant_id": ...,
+      "client_id": ...,
+      "integration_type": ...,
+      "credential_ref": ...,     ← opaque hash pointer, NOT a raw secret
+      "customer_id": ...,
+      "login_customer_id": ...,
+      "status": ...,
+      "last_validated_at": ...,
+      "created_at": ...,
+      "updated_at": ...,
+      "metadata": { safe keys only }
+    }
+  }
+}
+```
+
+**What was NOT implemented (deferred):**
+
+- Secret material storage of any kind — raw secret values are never written to this file
+- `EnvCredentialStore`, `LocalFileSecretStore`, `GCPSecretManagerStore` — secret store implementations remain deferred to V5.9
+- Encryption at rest — the reference store file is plain JSON; it contains no secret values, so encryption is not required at this layer
+- Concurrent access locking — not suitable for multi-process production use
+- Admin endpoints
+- Frontend
+- Google Ads adapter integration
+
+**Security validation:**
+
+- JSON store file verified to contain no secret-like key names in any stored reference dict
+- `put_reference` rejects metadata with secret-like keys (via `validate_credential_reference` and `assert_no_secret_material`)
+- `dict_to_credential_reference` validates on deserialization — corrupt or tampered file entries are rejected
+- `write_reference_store_file` uses atomic write — no partial-write state exposed
+- `.gitignore` entry added: `runtime/credential-references/` — the default store path is never committed
+- Secret-safety grep over all new files: no output (clean)
+- All existing smoke tests (V0–V4, 7 suites) pass with no changes
+
+---
+
 ## Related Documents
 
 - [V4 Real Integrations Design](V4_REAL_INTEGRATIONS_DESIGN.md)

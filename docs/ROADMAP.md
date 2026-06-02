@@ -295,7 +295,7 @@ Goal: Allow clients to connect their Google Ads accounts through a secure onboar
 - [x] **V5.1** — Design doc + ROADMAP update
 - [x] **V5.2** — `CredentialReference` data model · `CredentialStatus` enum · `IntegrationType` enum · metadata filtering · redacted response contract · validation helper · `credentials/` package · demo · all existing smoke tests pass
 - [x] **V5.3** — `CredentialStore` abstraction interface · `InMemoryCredentialStore` mock implementation · `make_store_key` / `missing_credential_status` / `assert_no_secret_material` helpers · demo · all existing smoke tests pass
-- [ ] **V5.4** — `LocalFileCredentialStore` · ignored local encrypted file · credential smoke test
+- [x] **V5.4** — `LocalFileCredentialReferenceStore` · atomic JSON writes · `CREDENTIAL_REFERENCE_STORE_PATH` env var · ignored runtime path · `load_reference_store_file` / `write_reference_store_file` / `dict_to_credential_reference` helpers · demo · all existing smoke tests pass
 - [ ] **V5.5** — OpenClaw admin credential status endpoint (`GET .../status`) · auth placeholder
 - [ ] **V5.6** — Manual credential upload endpoint · shape validation · secret store write · redacted responses only
 - [ ] **V5.7** — Google Ads adapter reads credentials through credential resolver instead of `os.getenv()`
