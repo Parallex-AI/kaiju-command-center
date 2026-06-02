@@ -21,7 +21,7 @@ from schemas import (
 )
 from auth import validate_api_auth
 from config import get_config
-from admin import get_google_ads_credential_status
+from admin import get_google_ads_credential_status, upsert_google_ads_credential_reference
 
 SERVICE_NAME = "kaiju-openclaw"
 
@@ -104,6 +104,77 @@ async def admin_google_ads_credential_status(
     result["request_id"] = request_id
     result["trace_id"] = trace_id
     return JSONResponse(status_code=200, content=result)
+
+
+@app.post(
+    "/openclaw/admin/tenants/{tenant_id}/clients/{client_id}/credentials/google-ads"
+)
+async def admin_upsert_google_ads_credential_reference(
+    tenant_id: str,
+    client_id: str,
+    request: Request,
+):
+    """
+    V5.6 — Create or update a CredentialReference for a tenant/client Google Ads integration.
+
+    Accepts only safe metadata fields: customer_id, login_customer_id, status, metadata.
+    Rejects any payload containing secret-like key names.
+    Never accepts or stores developer_token, client_secret, refresh_token, access_token,
+    oauth_code, or any other secret material.
+    Auth applies when OPENCLAW_API_AUTH_ENABLED=true.
+    """
+    request_id = request.headers.get("x-request-id") or generate_request_id()
+    trace_id = request.headers.get("x-trace-id") or generate_trace_id()
+
+    auth_ok, auth_errors = validate_api_auth(headers=dict(request.headers))
+    if not auth_ok:
+        return JSONResponse(
+            status_code=401,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "credential_status": None,
+                "errors": auth_errors,
+            },
+        )
+
+    try:
+        body = await request.body()
+        if not body:
+            payload = None
+        else:
+            payload = json.loads(body)
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "credential_status": None,
+                "errors": [
+                    {
+                        "code": "invalid_json",
+                        "message": "Request body is not valid JSON.",
+                        "recoverable": False,
+                        "source": "openclaw_admin",
+                    }
+                ],
+            },
+        )
+
+    result = upsert_google_ads_credential_reference(tenant_id, client_id, payload)
+    result["request_id"] = request_id
+    result["trace_id"] = trace_id
+    status_code = 200 if result.get("ok") else 400
+    return JSONResponse(status_code=status_code, content=result)
 
 
 @app.post("/openclaw/process")

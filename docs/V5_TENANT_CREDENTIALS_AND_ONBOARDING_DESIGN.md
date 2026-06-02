@@ -594,6 +594,62 @@ openclaw/
 
 ---
 
+## 21. V5.6 Implementation Notes
+
+**Branch:** `v5-tenant-credentials`
+
+**Files added or modified:**
+
+```
+openclaw/
+  admin.py                              — upsert_google_ads_credential_reference helper added (V5.6)
+  server.py                             — POST admin credential reference endpoint added
+  run_admin_credentials_write_demo.py   — standalone write demo, 7 sections (new)
+  README.md                             — V5.6 admin write endpoint section added
+
+agents/ads-agent/credentials/
+  local_file_store.py                   — empty-file edge case fixed (treat as missing)
+```
+
+**What was implemented:**
+
+- `admin.py`: `upsert_google_ads_credential_reference(tenant_id, client_id, payload)` — validates payload (no secret fields, valid status), upserts a `CredentialReference` in `LocalFileCredentialReferenceStore`, returns the redacted credential status envelope. Uses `_check_no_forbidden_write_fields` (recursive, extended forbidden list adds `auth_header` to store.py's set). Upsert preserves `created_at` and `credential_ref` on update using `dataclasses.replace`.
+- `server.py`: `POST /openclaw/admin/tenants/{tenant_id}/clients/{client_id}/credentials/google-ads` — parses JSON body safely (malformed JSON → `invalid_json` 400 before auth check completes), applies `validate_api_auth`, delegates to `upsert_google_ads_credential_reference`. Returns HTTP 200 for success, 400 for client errors, 401 for auth failure.
+- `run_admin_credentials_write_demo.py`: demonstrates create, update, GET-after-write, forbidden field rejection (6 variants), empty payload rejection, invalid status rejection, and secret-safety assertion on all success responses.
+- `local_file_store.py`: fixed edge case where an empty file (from `tempfile.NamedTemporaryFile`) would raise `ValueError` instead of being treated as an uninitialized store.
+
+**Endpoint behavior:**
+
+| Case | HTTP status | `ok` | `errors[0].code` |
+|---|---|---|---|
+| Valid payload, create | 200 | `true` | — |
+| Valid payload, update | 200 | `true` | — |
+| Empty body / None | 400 | `false` | `invalid_request` |
+| Secret-like field in body | 400 | `false` | `secret_material_rejected` |
+| Invalid status value | 400 | `false` | `invalid_status` |
+| Malformed JSON | 400 | `false` | `invalid_json` |
+| Auth enabled, missing/invalid token | 401 | `false` | `unauthorized` |
+| Store I/O error | 400 | `false` | `credential_write_failed` |
+
+**Security validation:**
+
+- Forbidden write substrings: `token`, `secret`, `password`, `authorization`, `auth_header`, `oauth_code`, `refresh`, `access` (case-insensitive, recursive through nested dicts)
+- Allowed request body fields: `customer_id`, `login_customer_id`, `status`, `metadata` (further filtered by `filter_safe_metadata` from models)
+- No secret values echoed in error responses — offending field names are not included in error messages
+- No secret values present in any success response — verified by secret-safety grep and demo assertion
+- `upsert_google_ads_credential_reference` catches all exceptions and returns safe error messages — internal file paths never reach callers
+- All existing smoke tests (V0–V4, 7 suites) pass with no changes
+
+**Deferred:**
+
+- DELETE credential endpoint
+- Live validation endpoint
+- Google Ads adapter integration (V5.7)
+- GCP Secret Manager secret store (V5.9)
+- Frontend (V5.10)
+
+---
+
 ## 19. V5.4 Implementation Notes
 
 **Branch:** `v5-tenant-credentials`

@@ -75,6 +75,8 @@ def load_reference_store_file(path: Union[str, Path, None] = None) -> dict:
         raise ValueError(
             f"Failed to read credential reference store: {exc.strerror}"
         ) from exc
+    if not text.strip():
+        return _empty_store()
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:

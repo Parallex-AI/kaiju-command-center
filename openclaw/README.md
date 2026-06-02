@@ -577,6 +577,126 @@ cd ~/kaiju/openclaw
 
 ---
 
+## V5.6 Admin Credential Reference Write Endpoint
+
+V5.6 adds a write endpoint for creating or updating a credential reference for a tenant/client Google Ads integration.
+
+> **No secrets accepted.** This endpoint accepts only safe metadata fields. It rejects any payload containing secret-like key names (token, secret, password, authorization, oauth_code, refresh, access, auth_header — case-insensitive, recursive). No raw secrets are ever stored.
+
+### Endpoint
+
+```
+POST /openclaw/admin/tenants/{tenant_id}/clients/{client_id}/credentials/google-ads
+```
+
+### Path parameters
+
+| Parameter | Description |
+|---|---|
+| `tenant_id` | Sanitized tenant identifier |
+| `client_id` | Client identifier within the tenant |
+
+### Request body (allowed fields only)
+
+| Field | Type | Description |
+|---|---|---|
+| `customer_id` | string | Google Ads customer ID (e.g. `"123-456-7890"`) |
+| `login_customer_id` | string | MCC/manager account customer ID |
+| `status` | string | One of: `missing`, `configured`, `invalid`, `validation_failed`, `active`, `revoked` |
+| `metadata` | object | Additional safe key/value metadata |
+
+All fields are optional. `customer_id` is strongly recommended on create. Secret-like key names anywhere in the body (including nested under `metadata`) are rejected.
+
+### Upsert semantics
+
+- **Create**: if no reference exists for this tenant/client/google_ads, creates a new one. Default status is `configured`.
+- **Update**: if a reference already exists, updates only the fields present in the body. Preserves `created_at` and `credential_ref`.
+
+### Response (200 — success)
+
+```json
+{
+  "ok": true,
+  "request_id": "req_...",
+  "trace_id": "trace_...",
+  "tenant_id": "acme",
+  "client_id": "c1",
+  "integration_type": "google_ads",
+  "credential_status": {
+    "credential_ref": "cred_google_ads_2ba563c9b835",
+    "customer_id": "111-222-3333",
+    "status": "configured",
+    "configured": true,
+    "created_at": "2026-06-02T15:13:06Z",
+    "updated_at": "2026-06-02T15:13:06Z"
+  },
+  "errors": []
+}
+```
+
+### Response (400 — secret field rejected)
+
+```json
+{
+  "ok": false,
+  "errors": [{ "code": "secret_material_rejected", "message": "Request contains forbidden secret-like fields.", "recoverable": false, "source": "openclaw_admin" }]
+}
+```
+
+### Response (400 — empty body)
+
+```json
+{
+  "ok": false,
+  "errors": [{ "code": "invalid_request", "message": "Request body is required. Provide customer_id at minimum.", "recoverable": false, "source": "openclaw_admin" }]
+}
+```
+
+### Auth
+
+Same as V5.5: applies when `OPENCLAW_API_AUTH_ENABLED=true`.
+
+### curl examples
+
+```bash
+# Create a credential reference
+curl -X POST http://localhost:8100/openclaw/admin/tenants/acme/clients/c1/credentials/google-ads \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": "111-222-3333", "login_customer_id": "000-000-0001"}'
+
+# Update status only
+curl -X POST http://localhost:8100/openclaw/admin/tenants/acme/clients/c1/credentials/google-ads \
+  -H "Content-Type: application/json" \
+  -d '{"status": "active"}'
+
+# This will be rejected (secret field):
+curl -X POST http://localhost:8100/openclaw/admin/tenants/acme/clients/c1/credentials/google-ads \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": "123", "developer_token": "should-fail"}'
+
+# With Bearer token (when auth enabled)
+curl -X POST http://localhost:8100/openclaw/admin/tenants/acme/clients/c1/credentials/google-ads \
+  -H "Authorization: Bearer my-key" \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": "111-222-3333"}'
+```
+
+### Implementation
+
+| File | Role |
+|---|---|
+| `admin.py` | `upsert_google_ads_credential_reference(tenant_id, client_id, payload)` — validates, upserts, returns redacted status |
+| `server.py` | Registers `POST` route, parses JSON body safely, applies auth, adds `request_id`/`trace_id` |
+
+### Run the write demo (no HTTP server)
+
+```bash
+cd ~/kaiju/openclaw
+~/kaiju/.venv/bin/python3 run_admin_credentials_write_demo.py
+```
+
+---
+
 ## What OpenClaw Does Not Own
 
 - Agent execution (Router owns dispatch)
