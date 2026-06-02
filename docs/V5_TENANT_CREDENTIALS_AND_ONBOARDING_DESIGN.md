@@ -719,6 +719,64 @@ agents/ads-agent/run_credentials_local_file_store_demo.py   — standalone demo,
 
 ---
 
+## 22. V5.7 Implementation Notes
+
+**Branch:** `v5-tenant-credentials`
+
+**Files added or modified:**
+
+```
+agents/ads-agent/credentials/
+  resolver.py       — ResolvedCredentialReference dataclass, resolve_credential_reference,
+                      make_resolver_error, resolved_credential_reference_to_dict,
+                      assert_resolved_reference_has_no_secret_material (new)
+  __init__.py       — re-exports updated to include resolver symbols
+
+agents/ads-agent/
+  run_credentials_resolver_demo.py   — standalone resolver demo, 9 sections (new)
+  README.md                          — V5.7 Credential Resolver Bridge section added
+
+docs/
+  ROADMAP.md                         — V5.7 marked [x]
+  V5_TENANT_CREDENTIALS_AND_ONBOARDING_DESIGN.md — this section
+```
+
+**What was implemented:**
+
+- `credentials/resolver.py`: `ResolvedCredentialReference` dataclass — safe metadata only, no secret fields. `resolve_credential_reference(tenant_id, client_id, integration_type, store)` — reads from `LocalFileCredentialReferenceStore` by default, validates the stored reference, returns redacted metadata. Missing → `credentials_missing` (ok=false). Invalid → `credential_reference_invalid` (ok=false). Store unavailable → `credential_store_unavailable` (ok=false). Valid → ok=true with configured/status/customer_id/credential_ref.
+- `make_resolver_error(code, message, recoverable)` — standard safe error shape with `source: credential_resolver`.
+- `resolved_credential_reference_to_dict(resolved)` — safe dict serialization.
+- `assert_resolved_reference_has_no_secret_material(payload)` — recursive key-name scanner mirroring store-layer forbidden substrings.
+- `credentials/__init__.py` — all five resolver symbols re-exported.
+- `run_credentials_resolver_demo.py` — 9-section demo: missing, configured, active, multi-tenant isolation, dict shape, secret-scanner (clean + dirty), error shape, default-store resolution, and secret-safety assertion on all outputs.
+
+**Resolution outcomes:**
+
+| Condition | `ok` | `status` | `configured` | `errors[0].code` |
+|---|---|---|---|---|
+| No reference stored | `false` | `missing` | `false` | `credentials_missing` |
+| Reference found, valid | `true` | stored status | per status | — |
+| Reference found, invalid | `false` | — | `false` | `credential_reference_invalid` |
+| Store unavailable | `false` | — | `false` | `credential_store_unavailable` |
+
+**What was NOT implemented (deferred):**
+
+- Google Ads adapter integration — adapter still reads `os.getenv()` (V5.7 continuation or V5.8)
+- Secret resolution — developer token, client secret, refresh token require `SecretStore` (V5.9)
+- OAuth flow (V5.8)
+- GCP Secret Manager (V5.9)
+- Frontend (V5.10)
+
+**Security validation:**
+
+- `ResolvedCredentialReference` has no secret fields by design — no developer_token, client_secret, refresh_token, access_token, or oauth_code fields exist
+- `assert_resolved_reference_has_no_secret_material` scanner applied to all resolved dicts in demo — clean
+- Secret-safety grep over all new files: no output (clean)
+- All four credential demos pass
+- All existing smoke tests (V0–V4, 7 suites) pass with no changes
+
+---
+
 ## Related Documents
 
 - [V4 Real Integrations Design](V4_REAL_INTEGRATIONS_DESIGN.md)

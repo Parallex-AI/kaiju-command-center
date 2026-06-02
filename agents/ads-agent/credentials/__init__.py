@@ -26,6 +26,13 @@ from credentials.local_file_store import (
     load_reference_store_file,
     write_reference_store_file,
 )
+from credentials.resolver import (
+    ResolvedCredentialReference,
+    assert_resolved_reference_has_no_secret_material,
+    make_resolver_error,
+    resolve_credential_reference,
+    resolved_credential_reference_to_dict,
+)
 
 __all__ = [
     "CredentialReference",
@@ -50,4 +57,9 @@ __all__ = [
     "update_credential_status",
     "validate_credential_reference",
     "write_reference_store_file",
+    "ResolvedCredentialReference",
+    "assert_resolved_reference_has_no_secret_material",
+    "make_resolver_error",
+    "resolve_credential_reference",
+    "resolved_credential_reference_to_dict",
 ]

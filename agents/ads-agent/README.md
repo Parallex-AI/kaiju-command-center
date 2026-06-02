@@ -662,3 +662,87 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo uses `/tmp/kaiju-credential-reference-store-demo.json` as a safe temp path. It covers 14 sections: file creation, put/get/update/list/delete, JSON structure verification (no secret-like keys), unsafe-metadata rejection, unit-style checks including invalid-JSON error handling, env-var path override, and cleanup. All assertions pass without network access or real credentials. The temp file is removed at the end.
+
+---
+
+## V5.7 Credential Resolver Bridge
+
+V5.7 adds `credentials/resolver.py` — a bridge that resolves safe `CredentialReference` metadata from a `CredentialStore` by tenant/client/integration.
+
+> **This is not a secret resolver.** No developer tokens, client secrets, refresh tokens, access tokens, or OAuth codes are read, returned, or inspected. The resolver returns metadata only: `tenant_id`, `client_id`, `integration_type`, `status`, `configured`, `customer_id`, `login_customer_id`, and the opaque `credential_ref` pointer.
+
+### Package location
+
+```
+agents/ads-agent/credentials/
+  resolver.py    — ResolvedCredentialReference, resolve_credential_reference, helpers
+```
+
+### ResolvedCredentialReference
+
+```python
+@dataclass
+class ResolvedCredentialReference:
+    ok: bool
+    tenant_id: str
+    client_id: str
+    integration_type: str
+    credential_ref: Optional[str] = None
+    status: Optional[str] = None
+    configured: bool = False
+    customer_id: Optional[str] = None
+    login_customer_id: Optional[str] = None
+    metadata: Optional[dict] = None
+    errors: Optional[list[dict]] = None
+```
+
+No secret fields. `credential_ref` is an opaque hash-based pointer, not a raw secret value.
+
+### resolve_credential_reference
+
+```python
+from credentials.resolver import resolve_credential_reference
+
+result = resolve_credential_reference(
+    tenant_id="acme",
+    client_id="c1",
+    integration_type="google_ads",   # default
+    store=None,                      # default: LocalFileCredentialReferenceStore()
+)
+
+if result.ok:
+    print(result.customer_id)   # e.g. "111-222-3333"
+    print(result.configured)    # True when status is "configured" or "active"
+else:
+    print(result.errors[0]["code"])  # e.g. "credentials_missing"
+```
+
+### Resolution outcomes
+
+| Condition | `ok` | `status` | `errors[0].code` |
+|---|---|---|---|
+| No reference stored | `false` | `missing` | `credentials_missing` |
+| Reference found, valid | `true` | stored status | — |
+| Reference found, invalid | `false` | — | `credential_reference_invalid` |
+| Store unavailable | `false` | — | `credential_store_unavailable` |
+
+### Helpers
+
+| Helper | Purpose |
+|---|---|
+| `make_resolver_error(code, message, recoverable)` | Safe error dict with `source: credential_resolver` |
+| `resolved_credential_reference_to_dict(resolved)` | Convert to safe JSON-serializable dict |
+| `assert_resolved_reference_has_no_secret_material(payload)` | Recursive key-name scanner, same forbidden substrings as store layer |
+
+### Future adapter integration (V5.7+ continuation)
+
+The Google Ads adapter (`integrations/google_ads_adapter.py`) currently reads credentials from `os.getenv()`. The resolver bridge is the first step toward wiring the adapter to read `customer_id` and `login_customer_id` from the `CredentialReference` store. Secret resolution (developer token, client secret, refresh token) requires a `SecretStore` implementation (V5.9, GCP Secret Manager) and is not handled here.
+
+### Run the resolver demo
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_credentials_resolver_demo.py
+```
+
+The demo uses a temp file under `/tmp`. It covers 9 sections: missing reference, configured reference, active reference, multi-tenant isolation, dict shape check, secret-material scanner (clean and dirty cases), `make_resolver_error` shape, default-store resolution, and secret-safety assertion on all outputs. The temp file is removed at the end.
