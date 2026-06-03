@@ -941,3 +941,48 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo uses a temp `LocalFileCredentialReferenceStore` path and `InMemorySecretStore`. It covers 11 sections: missing reference, unconfigured reference (revoked), missing bundle, successful composition, internal credentials check (values not printed), `configured_fields` correctness, active reference, error shape, `repr` safety, output safety assertion on all printed outputs, and dirty payload detection. No credentials are stored on disk or printed. All assertions pass without network access or real credentials.
+
+---
+
+## V5.10 Google Ads Adapter — Credential Source Flag
+
+V5.10 wires the CredentialProvider into `fetch_google_ads_metrics()` behind the `GOOGLE_ADS_CREDENTIAL_SOURCE` feature flag.
+
+### Feature flag
+
+| `GOOGLE_ADS_CREDENTIAL_SOURCE` | Behaviour |
+|---|---|
+| `env` (default) | Load credentials from environment variables — existing path, unchanged |
+| `provider` | Load via `compose_google_ads_credentials()`; requires `tenant_id` at call time |
+| any other value | Falls back to `env` |
+
+The flag defaults to `env`. Existing callers (the integration resolver, demo scripts) pass only `(client_id, request_type)` and are unaffected.
+
+### Updated signature
+
+```python
+fetch_google_ads_metrics(
+    client_id: str,
+    request_type: str,
+    tenant_id: Optional[str] = None,   # required when GOOGLE_ADS_CREDENTIAL_SOURCE=provider
+    secret_store=None,                  # optional; uses in-memory store if None
+) -> dict
+```
+
+### New error codes
+
+| Code | Trigger |
+|---|---|
+| `tenant_id_required` | `provider` mode with no `tenant_id` supplied |
+| `credential_provider_failed` | Provider returned `ok=False` |
+| `credential_provider_unavailable` | Provider module import failed |
+| `unsupported_credential_source` | Flag resolved to an unsupported value |
+
+### Run the provider adapter demo
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_google_ads_adapter_provider_demo.py
+```
+
+The demo covers 6 sections without making any live Google Ads API calls: credential source flag resolution, live-disabled guard, missing `tenant_id` error, no-store provider failure, in-memory store with valid credential loading, and backward-compatible 2-arg call. All existing demos continue to run unchanged.

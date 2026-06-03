@@ -45,6 +45,20 @@ def is_google_ads_live_enabled() -> bool:
     return raw in ("true", "1", "yes", "on")
 
 
+def get_google_ads_credential_source() -> str:
+    """
+    Return the active credential loading strategy.
+
+    Reads GOOGLE_ADS_CREDENTIAL_SOURCE (case-insensitive).
+    Valid values: 'env' (default), 'provider'.
+    Any invalid or unrecognised value falls back to 'env'.
+    """
+    raw = os.getenv("GOOGLE_ADS_CREDENTIAL_SOURCE", "env").strip().lower()
+    if raw in ("env", "provider"):
+        return raw
+    return "env"
+
+
 def load_google_ads_credentials() -> GoogleAdsCredentials:
     def _env(key: str) -> Optional[str]:
         val = os.getenv(key, "").strip()
@@ -58,6 +72,59 @@ def load_google_ads_credentials() -> GoogleAdsCredentials:
         login_customer_id=_env("GOOGLE_ADS_LOGIN_CUSTOMER_ID"),
         customer_id=_env("GOOGLE_ADS_CUSTOMER_ID"),
     )
+
+
+def load_google_ads_credentials_from_provider(
+    tenant_id: str,
+    client_id: str,
+    secret_store=None,
+) -> Tuple[bool, Optional[GoogleAdsCredentials], List[dict]]:
+    """
+    Load Google Ads credentials via the CredentialProvider composition layer.
+
+    Lazily imports compose_google_ads_credentials to avoid circular imports and
+    to keep the provider dependency optional for callers using the env path.
+
+    Returns (True, GoogleAdsCredentials, []) on success.
+    Returns (False, None, [errors]) on any failure.
+    Raw credential values are never included in error messages.
+    """
+    try:
+        from credentials.google_ads_provider import compose_google_ads_credentials
+    except ImportError:
+        return False, None, [make_integration_error(
+            code="credential_provider_unavailable",
+            message="Credential provider module is not available.",
+            recoverable=False,
+            source="google_ads",
+        )]
+
+    result = compose_google_ads_credentials(
+        tenant_id,
+        client_id,
+        secret_store=secret_store,
+    )
+
+    if not result.ok:
+        errors = [
+            make_integration_error(
+                code=e.get("code", "credential_provider_failed"),
+                message=e.get("message", "Credential provider failed."),
+                recoverable=e.get("recoverable", True),
+                source="google_ads",
+            )
+            for e in (result.errors or [])
+        ]
+        if not errors:
+            errors = [make_integration_error(
+                code="credential_provider_failed",
+                message="Credential provider returned ok=false.",
+                recoverable=True,
+                source="google_ads",
+            )]
+        return False, None, errors
+
+    return True, result.credentials, []
 
 
 def validate_google_ads_credentials(
@@ -264,7 +331,12 @@ def _do_live_fetch(
     }
 
 
-def fetch_google_ads_metrics(client_id: str, request_type: str) -> dict:
+def fetch_google_ads_metrics(
+    client_id: str,
+    request_type: str,
+    tenant_id: Optional[str] = None,
+    secret_store=None,
+) -> dict:
     if not is_google_ads_live_enabled():
         return {
             "ok": False,
@@ -280,14 +352,57 @@ def fetch_google_ads_metrics(client_id: str, request_type: str) -> dict:
             ),
         }
 
-    credentials = load_google_ads_credentials()
-    valid, errors = validate_google_ads_credentials(credentials)
+    credential_source = get_google_ads_credential_source()
 
-    if not valid:
+    if credential_source == "provider":
+        if not tenant_id:
+            return {
+                "ok": False,
+                "data_source": "google_ads",
+                "error": make_integration_error(
+                    code="tenant_id_required",
+                    message="tenant_id is required when GOOGLE_ADS_CREDENTIAL_SOURCE=provider.",
+                    recoverable=True,
+                    source="google_ads",
+                ),
+            }
+        ok, credentials, errors = load_google_ads_credentials_from_provider(
+            tenant_id, client_id, secret_store=secret_store
+        )
+        if not ok:
+            return {
+                "ok": False,
+                "data_source": "google_ads",
+                "error": errors[0],
+            }
+        valid, val_errors = validate_google_ads_credentials(credentials)
+        if not valid:
+            return {
+                "ok": False,
+                "data_source": "google_ads",
+                "error": val_errors[0],
+            }
+    elif credential_source == "env":
+        credentials = load_google_ads_credentials()
+        valid, errors = validate_google_ads_credentials(credentials)
+        if not valid:
+            return {
+                "ok": False,
+                "data_source": "google_ads",
+                "error": errors[0],
+            }
+    else:
         return {
             "ok": False,
             "data_source": "google_ads",
-            "error": errors[0],
+            "error": make_integration_error(
+                code="unsupported_credential_source",
+                message=(
+                    f"GOOGLE_ADS_CREDENTIAL_SOURCE value '{credential_source}' is not supported."
+                ),
+                recoverable=False,
+                source="google_ads",
+            ),
         }
 
     return _do_live_fetch(credentials, client_id, request_type)

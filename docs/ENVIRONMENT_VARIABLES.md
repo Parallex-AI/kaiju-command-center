@@ -252,6 +252,20 @@ All Kaiju Command Center / OpenClaw configuration is read from environment varia
 
 ---
 
+### `GOOGLE_ADS_CREDENTIAL_SOURCE`
+
+| Field | Value |
+|---|---|
+| Purpose | Selects the credential loading strategy for the Google Ads adapter |
+| Default | `env` |
+| Accepted values | `env` — load credentials from environment variables (default); `provider` — load via CredentialProvider composition layer |
+| Local example | `GOOGLE_ADS_CREDENTIAL_SOURCE=env` |
+| Production | `GOOGLE_ADS_CREDENTIAL_SOURCE=provider` when tenant-level credentials are used |
+| Secret | No |
+| Notes | Any unrecognised value falls back to `env`. When set to `provider`, `tenant_id` must be supplied to the adapter call and a `SecretStore` must be reachable via the CredentialProvider. |
+
+---
+
 ### `GOOGLE_ADS_DEVELOPER_TOKEN`
 
 | Field | Value |

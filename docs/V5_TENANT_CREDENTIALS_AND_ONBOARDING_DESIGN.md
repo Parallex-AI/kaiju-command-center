@@ -902,6 +902,65 @@ docs/
 
 ---
 
+## 25. V5.10 Implementation Notes
+
+**Branch:** `v5-tenant-credentials`
+
+**Files added or modified:**
+
+```
+agents/ads-agent/integrations/
+  google_ads_adapter.py   — get_google_ads_credential_source(), load_google_ads_credentials_from_provider(),
+                            fetch_google_ads_metrics() extended with optional tenant_id / secret_store params
+
+agents/ads-agent/
+  run_google_ads_adapter_provider_demo.py   — 6-section provider demo, no live API calls (new)
+  README.md                                 — V5.10 credential source flag section added
+
+docs/
+  ENVIRONMENT_VARIABLES.md   — GOOGLE_ADS_CREDENTIAL_SOURCE entry added
+  ROADMAP.md                 — V5.10 marked [x]; V5.11 placeholder for frontend
+  V5_TENANT_CREDENTIALS_AND_ONBOARDING_DESIGN.md — this section
+
+.env.example   — GOOGLE_ADS_CREDENTIAL_SOURCE=env placeholder added
+```
+
+**What was implemented:**
+
+- `get_google_ads_credential_source()` — reads `GOOGLE_ADS_CREDENTIAL_SOURCE` env var. Valid values: `env` (default), `provider`. Any unrecognised value silently falls back to `env`.
+- `load_google_ads_credentials_from_provider(tenant_id, client_id, secret_store=None)` — lazy-imports `compose_google_ads_credentials` to avoid circular imports; returns `(ok: bool, credentials | None, errors: list)`.
+- `fetch_google_ads_metrics(client_id, request_type, tenant_id=None, secret_store=None)` — signature extended with two optional keyword-only-compatible parameters; all existing 2-arg callers (`resolver.py`, demo scripts) are unaffected.
+  - `GOOGLE_ADS_CREDENTIAL_SOURCE=env` (default): unchanged env-var path.
+  - `GOOGLE_ADS_CREDENTIAL_SOURCE=provider`: requires `tenant_id`; calls provider; validates result via `validate_google_ads_credentials()`.
+
+**New error codes:**
+
+| Code | Trigger |
+|---|---|
+| `tenant_id_required` | `provider` mode called without `tenant_id` |
+| `credential_provider_failed` | Provider returned `ok=False` |
+| `credential_provider_unavailable` | `credentials.google_ads_provider` import failed |
+| `unsupported_credential_source` | `GOOGLE_ADS_CREDENTIAL_SOURCE` resolved to an unsupported value (unreachable in practice due to fallback) |
+
+**What was NOT modified:**
+- `integrations/resolver.py` — calls `fetch_google_ads_metrics(client_id, request_type)` positionally; fully backward-compatible
+- `run_google_ads_adapter_demo.py` — 2-arg form unchanged
+- All other files listed in the spec as read-only
+
+**What was NOT implemented (deferred):**
+- GCP Secret Manager backend
+- OAuth flow
+- Frontend (V5.11)
+- Disk persistence — `InMemorySecretStore` is for dev/test only
+
+**Security notes:**
+- Default remains `env`; provider path requires explicit opt-in via env var and `tenant_id` argument
+- No secret values appear in error messages; `_sanitize_message` covers the live fetch path
+- `repr=False` on `GoogleAdsCredentialProviderResult.credentials` prevents logging via repr in the composition layer
+- `load_google_ads_credentials_from_provider` wraps all provider errors via `make_integration_error` before returning — raw provider error shapes never reach the caller
+
+---
+
 ## Related Documents
 
 - [V4 Real Integrations Design](V4_REAL_INTEGRATIONS_DESIGN.md)
