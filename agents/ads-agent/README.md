@@ -746,3 +746,94 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo uses a temp file under `/tmp`. It covers 9 sections: missing reference, configured reference, active reference, multi-tenant isolation, dict shape check, secret-material scanner (clean and dirty cases), `make_resolver_error` shape, default-store resolution, and secret-safety assertion on all outputs. The temp file is removed at the end.
+
+---
+
+## V5.8 SecretStore Abstraction
+
+V5.8 adds `credentials/secret_store.py` — the abstract contract and in-memory implementation for storing and retrieving secret bundles (developer_token, client_id, client_secret, refresh_token).
+
+> **In-memory only, dev/test only.** `InMemorySecretStore` does not write to disk. Secrets are lost on process restart. Production storage (GCP Secret Manager) is deferred to V5.9. The adapter is not yet wired to use this store — that integration is deferred.
+
+### What belongs here vs CredentialReference
+
+| Field | Where it lives |
+|---|---|
+| `developer_token` | SecretStore (secret) |
+| `client_id` | SecretStore (secret) |
+| `client_secret` | SecretStore (secret) |
+| `refresh_token` | SecretStore (secret) |
+| `customer_id` | CredentialReference (metadata) |
+| `login_customer_id` | CredentialReference (metadata) |
+
+### Package location
+
+```
+agents/ads-agent/credentials/
+  secret_store.py    — SecretRecord, SecretStore, InMemorySecretStore, helpers
+```
+
+### SecretRecord — redacted, no values
+
+```python
+@dataclass
+class SecretRecord:
+    credential_ref: str
+    integration_type: str
+    configured_fields: list[str]   # field names only, no values
+    created_at: Optional[str]
+    updated_at: Optional[str]
+    metadata: Optional[dict]
+```
+
+`configured_fields` is a list of which field names have been stored. Values are never exposed.
+
+### InMemorySecretStore usage
+
+```python
+from credentials.secret_store import InMemorySecretStore
+
+store = InMemorySecretStore()
+
+# Store bundle (values stay inside the store)
+record = store.put_secret_bundle(
+    credential_ref="cred_google_ads_abc123",
+    integration_type="google_ads",
+    secrets={
+        "developer_token": "...",
+        "client_id": "...",
+        "client_secret": "...",
+        "refresh_token": "...",
+    },
+)
+
+# Safe for logging or API responses
+status = store.get_secret_status("cred_google_ads_abc123", "google_ads")
+# {"configured": true, "configured_fields": {"developer_token": true, ...}}
+
+# Internal adapter use only — never log or return this
+bundle = store.get_secret_bundle("cred_google_ads_abc123", "google_ads")
+```
+
+### Forbidden fields
+
+`access_token`, `oauth_code`, `password`, `authorization`, `auth_header`, and any field not in the integration's allowed list are rejected by `put_secret_bundle`. Empty values are also rejected.
+
+### Helpers
+
+| Helper | Purpose |
+|---|---|
+| `GOOGLE_ADS_SECRET_FIELDS` | Tuple of 4 allowed secret field names |
+| `make_secret_store_key(ref, type)` | `"credential_ref/integration_type"` composite key |
+| `assert_allowed_secret_fields(secrets, type)` | Validate fields against allowed set |
+| `redact_secret_status(ref, type, configured_fields, metadata)` | Safe status dict for logging/API |
+| `assert_no_secret_values_in_payload(payload)` | Recursive value scanner for demo/test output safety |
+
+### Run the secret store demo
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_secret_store_demo.py
+```
+
+The demo uses `InMemorySecretStore` (no disk writes). It covers 14 sections: unconfigured status, put full bundle, configured status, internal retrieval (values asserted but not printed), list records, delete, post-delete status, forbidden field rejection (6 variants), empty value rejection, `assert_allowed_secret_fields` standalone, `redact_secret_status` with partial bundle, `make_secret_store_key`, and value-safety assertion on all printed outputs. All assertions pass without network access or real credentials.

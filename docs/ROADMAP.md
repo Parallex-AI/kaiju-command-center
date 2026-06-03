@@ -299,7 +299,7 @@ Goal: Allow clients to connect their Google Ads accounts through a secure onboar
 - [x] **V5.5** — `GET /openclaw/admin/tenants/{tenant_id}/clients/{client_id}/credentials/google-ads/status` · read-only · auth placeholder applies · redacted response · no secret material accepted or returned · `admin.py` helper · demo · all existing smoke tests pass
 - [x] **V5.6** — `POST /openclaw/admin/tenants/{tenant_id}/clients/{client_id}/credentials/google-ads` · upsert CredentialReference metadata only · recursive secret-key rejection · no raw secrets accepted or stored · auth placeholder applies · redacted response · `admin.py` helper · write demo · all existing smoke tests pass
 - [x] **V5.7** — `credentials/resolver.py` credential resolver bridge · `ResolvedCredentialReference` dataclass (no secret fields) · `resolve_credential_reference` resolves metadata only · missing/invalid/unavailable error codes · `assert_resolved_reference_has_no_secret_material` scanner · resolver demo · no adapter wiring yet (deferred) · all existing smoke tests pass
-- [ ] **V5.8** — OAuth flow skeleton · `POST /oauth/google-ads/start` · `GET /oauth/google-ads/callback` stub
+- [x] **V5.8** — `SecretStore` ABC · `InMemorySecretStore` (in-memory, no disk writes) · `SecretRecord` (redacted, no values) · `GOOGLE_ADS_SECRET_FIELDS` · `redact_secret_status` · `assert_allowed_secret_fields` · `assert_no_secret_values_in_payload` · secret store demo (14 sections) · no adapter wiring yet · all existing smoke tests pass
 - [ ] **V5.9** — `GCPSecretManagerStore` production implementation · IAM guidance · Cloud Run integration
 - [ ] **V5.10** — Front-end onboarding integration · status page · validation result display
 

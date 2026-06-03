@@ -33,6 +33,16 @@ from credentials.resolver import (
     resolve_credential_reference,
     resolved_credential_reference_to_dict,
 )
+from credentials.secret_store import (
+    GOOGLE_ADS_SECRET_FIELDS,
+    InMemorySecretStore,
+    SecretRecord,
+    SecretStore,
+    assert_allowed_secret_fields,
+    assert_no_secret_values_in_payload,
+    make_secret_store_key,
+    redact_secret_status,
+)
 
 __all__ = [
     "CredentialReference",
@@ -62,4 +72,12 @@ __all__ = [
     "make_resolver_error",
     "resolve_credential_reference",
     "resolved_credential_reference_to_dict",
+    "GOOGLE_ADS_SECRET_FIELDS",
+    "InMemorySecretStore",
+    "SecretRecord",
+    "SecretStore",
+    "assert_allowed_secret_fields",
+    "assert_no_secret_values_in_payload",
+    "make_secret_store_key",
+    "redact_secret_status",
 ]

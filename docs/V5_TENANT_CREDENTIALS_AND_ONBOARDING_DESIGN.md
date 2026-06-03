@@ -777,6 +777,74 @@ docs/
 
 ---
 
+## 23. V5.8 Implementation Notes
+
+**Branch:** `v5-tenant-credentials`
+
+**Files added or modified:**
+
+```
+agents/ads-agent/credentials/
+  secret_store.py   — SecretRecord, SecretStore ABC, InMemorySecretStore,
+                      GOOGLE_ADS_SECRET_FIELDS, make_secret_store_key,
+                      assert_allowed_secret_fields, redact_secret_status,
+                      assert_no_secret_values_in_payload (new)
+  __init__.py       — re-exports updated to include 8 secret_store symbols
+
+agents/ads-agent/
+  run_secret_store_demo.py   — 14-section secret store demo (new)
+  README.md                  — V5.8 SecretStore Abstraction section added
+
+docs/
+  ROADMAP.md                         — V5.8 marked [x]
+  V5_TENANT_CREDENTIALS_AND_ONBOARDING_DESIGN.md — this section
+```
+
+**What was implemented:**
+
+- `SecretRecord` dataclass: `credential_ref`, `integration_type`, `configured_fields` (list of names, no values), `created_at`, `updated_at`, `metadata`. Never holds actual secret values.
+- `SecretStore` ABC: 5 abstract methods — `put_secret_bundle`, `get_secret_bundle`, `get_secret_status`, `delete_secret_bundle`, `list_secret_records`. `get_secret_bundle` is the only method that returns raw values; it is marked for internal adapter use only.
+- `InMemorySecretStore`: dict-backed, deep-copy isolated. Never writes to disk. Validates fields and rejects empty values on put. `get_secret_status` and `list_secret_records` return only redacted data. Secrets are lost on process restart.
+- `GOOGLE_ADS_SECRET_FIELDS`: `("developer_token", "client_id", "client_secret", "refresh_token")`. Non-secret fields (`customer_id`, `login_customer_id`) are intentionally excluded — those live in `CredentialReference`.
+- `assert_allowed_secret_fields`: validates secrets dict against per-integration allowed set; rejects globally forbidden fields (`access_token`, `oauth_code`, `password`, `authorization`, `auth_header`) and unknown fields.
+- `redact_secret_status`: returns `{"configured": bool, "configured_fields": {name: bool, ...}}` — safe for any API or log path.
+- `assert_no_secret_values_in_payload`: recursive value scanner for demo/test output safety; detects `fake-dev-token`, `fake-client-secret`, `fake-refresh-token`, `ya29`, `sk-` in string values.
+
+**Redacted status shape:**
+
+```json
+{
+  "credential_ref": "cred_google_ads_...",
+  "integration_type": "google_ads",
+  "configured": true,
+  "configured_fields": {
+    "developer_token": true,
+    "client_id": true,
+    "client_secret": true,
+    "refresh_token": true
+  },
+  "metadata": null
+}
+```
+
+**What was NOT implemented (deferred):**
+
+- GCP Secret Manager backend (V5.9)
+- Google Ads adapter wiring to SecretStore (V5.9)
+- OAuth flow (V5.10)
+- Frontend (V5.10)
+- Disk persistence — InMemorySecretStore is for dev/test only
+
+**Security notes:**
+
+- `get_secret_bundle()` is the sole raw-value access point; it is never called in the demo's printed output paths
+- `assert_no_secret_values_in_payload` verified all 6 printed output dicts in the demo — clean
+- Fake fixture strings (`fake-dev-token`, etc.) appear only in demo source code as controlled test fixtures; they are absent from README, design doc, and ROADMAP
+- `ya29` and `sk-` markers have zero matches in documentation files
+- All 5 credential demos pass; all 7 smoke suites pass
+
+---
+
 ## Related Documents
 
 - [V4 Real Integrations Design](V4_REAL_INTEGRATIONS_DESIGN.md)
