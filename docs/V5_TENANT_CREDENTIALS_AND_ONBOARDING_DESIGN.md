@@ -961,6 +961,55 @@ docs/
 
 ---
 
+## 26. V5.11 Implementation Notes — Credential Chain Smoke Test & V5 Beta Closure
+
+**Branch:** `v5-tenant-credentials`
+
+**Files added or modified:**
+
+```
+scripts/
+  smoke_test_v5_credentials.sh   — 8-section V5 credential chain smoke test (new)
+
+docs/
+  V5_BETA_RELEASE_NOTES.md              — V5 beta release notes (new)
+  ROADMAP.md                             — V5.11 marked [x]; V5 beta complete
+  V5_TENANT_CREDENTIALS_AND_ONBOARDING_DESIGN.md — this section
+
+agents/ads-agent/README.md    — V5 smoke test command added
+openclaw/README.md            — V5 smoke test command added
+README.md                     — current milestone updated to V5 beta
+```
+
+**What was implemented:**
+
+`scripts/smoke_test_v5_credentials.sh` — 8-section end-to-end smoke test:
+
+| Section | Coverage |
+|---|---|
+| `[1/8]` | Import checks for all 7 credential modules + `openclaw.admin` |
+| `[2/8]` | `run_credentials_model_demo.py` — CredentialReference assertions |
+| `[3/8]` | `run_credentials_store_demo.py` + `run_credentials_local_file_store_demo.py` |
+| `[4/8]` | `run_credentials_resolver_demo.py` |
+| `[5/8]` | `run_secret_store_demo.py` + `run_google_ads_provider_demo.py` |
+| `[6/8]` | `run_google_ads_adapter_provider_demo.py`; provider/env branching; `tenant_id_required`; in-memory compose without live API call |
+| `[7/8]` | OpenClaw HTTP admin endpoints: POST safe ref, GET status, forbidden payload, malformed JSON, auth-disabled server, auth-enabled server with Bearer token |
+| `[8/8]` | Secret-safety grep (`ya29`, `sk-`, real credential assignments); runtime file git hygiene |
+
+**What was NOT implemented (deferred):**
+- Frontend onboarding UI — plan as `v5.12-frontend-onboarding`
+- GCP Secret Manager backend — plan as `v5.12-gcp-secret-manager`
+- OAuth flow
+- Production secret storage
+
+**Security notes:**
+- Smoke test uses `InMemorySecretStore` and a temp `LocalFileCredentialReferenceStore` file — no disk persistence between runs
+- Bearer token in smoke test (`smoke-test-key`) is passed via env var, never committed
+- All printed demo outputs use redacted helpers — no raw values in test output
+- Secret-safety grep uses `[A-Za-z0-9]` (not `[A-Za-z0-9_\-]`) to avoid matching bash line-continuation backslashes as alphanumeric
+
+---
+
 ## Related Documents
 
 - [V4 Real Integrations Design](V4_REAL_INTEGRATIONS_DESIGN.md)

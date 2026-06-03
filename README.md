@@ -4,9 +4,9 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V4.5.1 alpha — Live Google Ads Read-Only Fetch** — tag: `v4.5.1-alpha`
+**V5 beta — Tenant Credentials & Secure Onboarding Foundation** — tag: `v5.0.0-beta`
 
-The Google Ads adapter now performs a live LAST_30_DAYS GAQL query behind `GOOGLE_ADS_LIVE_ENABLED=true`. Credentials are loaded from environment variables. The three-tier safety gate (`live_disabled` → `credentials_missing` → live fetch) is fully tested. Default behavior (`ADS_DATA_SOURCE=n8n_demo`) is unchanged. Planning is underway for V5 — Tenant Credentials & Secure Onboarding.
+V5 establishes the full credential management foundation for multi-tenant Google Ads integrations. Included: `CredentialReference` model, `CredentialStore` abstraction, `LocalFileCredentialReferenceStore`, OpenClaw admin GET/POST credential endpoints, credential resolver bridge, `SecretStore` abstraction, Google Ads `CredentialProvider`, adapter `GOOGLE_ADS_CREDENTIAL_SOURCE` feature flag, and V5 credential chain smoke test. No credentials are stored in Git, returned in API responses, written to audit logs, or surfaced in MemPalace. Default adapter behavior (`ADS_DATA_SOURCE=n8n_demo`, `GOOGLE_ADS_LIVE_ENABLED=false`) is unchanged. Next: `v5.12-gcp-secret-manager` or `v5.12-frontend-onboarding`.
 
 ## Architecture
 
@@ -66,4 +66,4 @@ cd ~/kaiju/projects/demo-client
 | V3.5 | Config · auth placeholder · CORS · Docker · GCP plan | **Beta complete** — `v3.5.0-beta` |
 | V4 | Real integrations · Google Ads API · data source resolver | **Beta complete** — `v4.0.0-beta` |
 | V4.5.1 | Live Google Ads read-only fetch · GAQL · credential safety gates | **Alpha** — `v4.5.1-alpha` |
-| V5 | Tenant credentials · secure onboarding · secret store · OAuth | **Planned** |
+| V5 | Tenant credentials · secure onboarding · secret store · OAuth | **Beta complete** — `v5.0.0-beta` |

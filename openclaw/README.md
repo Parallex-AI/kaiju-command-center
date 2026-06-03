@@ -697,6 +697,24 @@ cd ~/kaiju/openclaw
 
 ---
 
+## V5 Credential Chain Smoke Test
+
+`scripts/smoke_test_v5_credentials.sh` covers the full V5 credential stack including OpenClaw admin endpoints. No real credentials required, no live API calls.
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v5_credentials.sh
+```
+
+Admin endpoint coverage in `[7/8]`:
+- `POST /credentials/google-ads` with safe metadata — `ok=true`
+- `GET /credentials/google-ads/status` — `ok=true`
+- `POST` with `developer_token` in payload — `secret_material_rejected`
+- `POST` malformed JSON — `invalid_json`
+- Auth-enabled server: missing token → 401; valid `Authorization: Bearer <key>` → 200
+
+---
+
 ## What OpenClaw Does Not Own
 
 - Agent execution (Router owns dispatch)

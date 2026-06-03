@@ -284,7 +284,7 @@ Goal: Replace demo-only campaign data with real data source adapters, beginning 
 
 ---
 
-## V5 — Tenant Credentials & Secure Onboarding (In progress — branch: `v5-tenant-credentials`)
+## V5 — Tenant Credentials & Secure Onboarding (Beta complete — branch: `v5-tenant-credentials` · tag: `v5.0.0-beta`)
 
 Goal: Allow clients to connect their Google Ads accounts through a secure onboarding flow — without exposing credentials to logs, audit records, MemPalace, or Git at any point. Introduce a tenant credential store, a secret store abstraction, and OpenClaw admin endpoints for credential management.
 
@@ -302,7 +302,13 @@ Goal: Allow clients to connect their Google Ads accounts through a secure onboar
 - [x] **V5.8** — `SecretStore` ABC · `InMemorySecretStore` (in-memory, no disk writes) · `SecretRecord` (redacted, no values) · `GOOGLE_ADS_SECRET_FIELDS` · `redact_secret_status` · `assert_allowed_secret_fields` · `assert_no_secret_values_in_payload` · secret store demo (14 sections) · no adapter wiring yet · all existing smoke tests pass
 - [x] **V5.9** — `GoogleAdsCredentialProviderResult` · `compose_google_ads_credentials` composition layer · resolves `CredentialReference` metadata + `SecretStore` bundle → `GoogleAdsCredentials` internally · redacted output only · `repr=False` on credentials field · provider demo (11 sections) · adapter wiring deferred · all existing smoke tests pass
 - [x] **V5.10** — `GOOGLE_ADS_CREDENTIAL_SOURCE` feature flag (`env` default / `provider` opt-in) · `get_google_ads_credential_source()` · `load_google_ads_credentials_from_provider()` · `fetch_google_ads_metrics()` extended with optional `tenant_id` / `secret_store` params · backward-compatible 2-arg callers unchanged · error codes `tenant_id_required` / `credential_provider_failed` / `unsupported_credential_source` · provider demo (6 sections, no live API calls) · all existing smoke tests pass
-- [ ] **V5.11** — Front-end onboarding integration · status page · validation result display
+- [x] **V5.11** — `scripts/smoke_test_v5_credentials.sh` (8-section credential chain smoke test) · full import checks · all credential demos · adapter provider non-live checks · OpenClaw admin endpoints (POST/GET/forbidden/malformed/auth) · secret-safety grep · git hygiene · all 8 smoke suites pass · `docs/V5_BETA_RELEASE_NOTES.md` · V5 beta closure
+
+> **V5 beta is complete.** Recommended tag: `v5.0.0-beta`
+>
+> Remaining V5 work is deferred to new branches:
+> - `v5.12-gcp-secret-manager` — production secret backend (GCP Secret Manager; IAM; Cloud Run integration)
+> - `v5.12-frontend-onboarding` — frontend credential submission UI; OAuth connect flow; status page
 
 ### V5 capabilities (planned)
 

@@ -419,6 +419,28 @@ Derived metrics (`ctr`, `cpc`, `cpa`, `conversion_rate`) are computed from base 
 
 ---
 
+## V5 Credential Chain Smoke Test
+
+`scripts/smoke_test_v5_credentials.sh` — 8-section end-to-end test covering the full V5 credential stack. No real credentials required, no live API calls.
+
+| Section | Coverage |
+|---|---|
+| `[1/8]` | Import checks: all 7 credential modules + `openclaw.admin` |
+| `[2/8]` | `CredentialReference` model demo (all assertions) |
+| `[3/8]` | `CredentialStore` + `LocalFileCredentialReferenceStore` demos |
+| `[4/8]` | Credential resolver demo |
+| `[5/8]` | `SecretStore` + Google Ads provider demos |
+| `[6/8]` | Adapter provider mode: non-live checks, feature flag branching, in-memory compose |
+| `[7/8]` | OpenClaw admin endpoints: POST/GET/forbidden/malformed/auth-disabled/auth-enabled |
+| `[8/8]` | Secret-safety grep + git hygiene |
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v5_credentials.sh
+```
+
+---
+
 ## V4.6 Integration Resolver Smoke Test
 
 `scripts/smoke_test_v4_integrations.sh` — 37 assertions across 6 sections. No live network, no credentials required.
