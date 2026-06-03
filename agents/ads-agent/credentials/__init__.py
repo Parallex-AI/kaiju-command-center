@@ -43,6 +43,13 @@ from credentials.secret_store import (
     make_secret_store_key,
     redact_secret_status,
 )
+from credentials.google_ads_provider import (
+    GoogleAdsCredentialProviderResult,
+    assert_provider_output_has_no_secret_values,
+    compose_google_ads_credentials,
+    google_ads_provider_result_to_redacted_dict,
+    make_provider_error,
+)
 
 __all__ = [
     "CredentialReference",
@@ -80,4 +87,9 @@ __all__ = [
     "assert_no_secret_values_in_payload",
     "make_secret_store_key",
     "redact_secret_status",
+    "GoogleAdsCredentialProviderResult",
+    "assert_provider_output_has_no_secret_values",
+    "compose_google_ads_credentials",
+    "google_ads_provider_result_to_redacted_dict",
+    "make_provider_error",
 ]

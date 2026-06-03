@@ -837,3 +837,107 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo uses `InMemorySecretStore` (no disk writes). It covers 14 sections: unconfigured status, put full bundle, configured status, internal retrieval (values asserted but not printed), list records, delete, post-delete status, forbidden field rejection (6 variants), empty value rejection, `assert_allowed_secret_fields` standalone, `redact_secret_status` with partial bundle, `make_secret_store_key`, and value-safety assertion on all printed outputs. All assertions pass without network access or real credentials.
+
+---
+
+## V5.9 Google Ads CredentialProvider
+
+V5.9 adds `credentials/google_ads_provider.py` — the composition layer that combines a `CredentialReference` (metadata) and a `SecretStore` bundle (secrets) into a `GoogleAdsCredentials` object for adapter use.
+
+> **Not wired into the live adapter yet.** The existing `fetch_google_ads_metrics()` path in `google_ads_adapter.py` continues to use `load_google_ads_credentials()` (env-var loading). The provider layer is a standalone bridge, ready for future wiring.
+
+### What it composes
+
+| Source | Fields |
+|---|---|
+| `CredentialReference` (metadata store) | `customer_id`, `login_customer_id` |
+| `SecretStore` bundle | `developer_token`, `client_id`, `client_secret`, `refresh_token` |
+| → `GoogleAdsCredentials` | all 6 fields |
+
+### Package location
+
+```
+agents/ads-agent/credentials/
+  google_ads_provider.py    — GoogleAdsCredentialProviderResult, compose_google_ads_credentials, helpers
+```
+
+### Usage
+
+```python
+from credentials.google_ads_provider import (
+    compose_google_ads_credentials,
+    google_ads_provider_result_to_redacted_dict,
+)
+from credentials.secret_store import InMemorySecretStore
+
+secret_store = InMemorySecretStore()
+secret_store.put_secret_bundle(
+    credential_ref="cred_google_ads_abc123",
+    integration_type="google_ads",
+    secrets={
+        "developer_token": "...",
+        "client_id": "...",
+        "client_secret": "...",
+        "refresh_token": "...",
+    },
+)
+
+result = compose_google_ads_credentials(
+    tenant_id="acme",
+    client_id="c1",
+    secret_store=secret_store,
+)
+
+if result.ok:
+    # Internal use only — never log or return result.credentials
+    creds = result.credentials
+else:
+    print(result.errors[0]["code"])
+
+# Safe for logging or API responses
+print(google_ads_provider_result_to_redacted_dict(result))
+```
+
+### Composition outcomes
+
+| Condition | `ok` | `errors[0].code` |
+|---|---|---|
+| No credential reference | `false` | `credentials_missing` |
+| Reference not configured/active | `false` | `credential_reference_not_configured` |
+| No secret bundle | `false` | `secret_bundle_missing` |
+| Bundle missing required fields | `false` | `secret_bundle_incomplete` |
+| Both present and valid | `true` | — |
+
+### Redacted output shape
+
+```json
+{
+  "ok": true,
+  "tenant_id": "acme",
+  "client_id": "c1",
+  "credential_ref": "cred_google_ads_...",
+  "source": "credential_provider",
+  "credentials_configured": true,
+  "configured_fields": {
+    "developer_token": true,
+    "client_id": true,
+    "client_secret": true,
+    "refresh_token": true,
+    "customer_id": true,
+    "login_customer_id": true
+  },
+  "metadata": null,
+  "errors": []
+}
+```
+
+Actual credential values are never included. `credentials_configured` and `configured_fields` show only presence (True/False).
+
+### Run the provider demo
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_google_ads_provider_demo.py
+```
+
+The demo uses a temp `LocalFileCredentialReferenceStore` path and `InMemorySecretStore`. It covers 11 sections: missing reference, unconfigured reference (revoked), missing bundle, successful composition, internal credentials check (values not printed), `configured_fields` correctness, active reference, error shape, `repr` safety, output safety assertion on all printed outputs, and dirty payload detection. No credentials are stored on disk or printed. All assertions pass without network access or real credentials.

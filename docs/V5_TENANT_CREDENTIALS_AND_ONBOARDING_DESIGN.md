@@ -845,6 +845,63 @@ docs/
 
 ---
 
+## 24. V5.9 Implementation Notes
+
+**Branch:** `v5-tenant-credentials`
+
+**Files added or modified:**
+
+```
+agents/ads-agent/credentials/
+  google_ads_provider.py   — GoogleAdsCredentialProviderResult, compose_google_ads_credentials,
+                             google_ads_provider_result_to_redacted_dict, make_provider_error,
+                             assert_provider_output_has_no_secret_values (new)
+  __init__.py              — re-exports updated to include 5 provider symbols
+
+agents/ads-agent/
+  run_google_ads_provider_demo.py   — 11-section provider demo (new)
+  README.md                         — V5.9 Google Ads CredentialProvider section added
+
+docs/
+  ROADMAP.md                         — V5.9 marked [x]
+  V5_TENANT_CREDENTIALS_AND_ONBOARDING_DESIGN.md — this section
+```
+
+**What was implemented:**
+
+- `GoogleAdsCredentialProviderResult` dataclass: `ok`, `tenant_id`, `client_id`, `credential_ref`, `credentials` (excluded from repr), `source`, `errors`, `metadata`. The `credentials` field holds a `GoogleAdsCredentials` object for internal adapter use; `field(repr=False)` prevents accidental logging via `repr()`.
+- `compose_google_ads_credentials(tenant_id, client_id, secret_store)`: resolves `CredentialReference` metadata via `resolve_credential_reference()`, checks `configured=True`, fetches secret bundle, validates required fields, composes `GoogleAdsCredentials`. Returns a controlled error code at each failure point.
+- `google_ads_provider_result_to_redacted_dict()` — `{ok, credentials_configured, configured_fields: {field: bool}}`, no actual values.
+- `make_provider_error()` — standard error dict with `source: google_ads_credential_provider`.
+- `assert_provider_output_has_no_secret_values()` — recursive value scanner for demo/test output safety.
+
+**Composition failure codes:**
+
+| Code | Trigger |
+|---|---|
+| `credentials_missing` | No `CredentialReference` in the store |
+| `credential_store_unavailable` | Store read failed |
+| `credential_reference_not_configured` | Reference found but `configured=False` |
+| `secret_bundle_missing` | Secret bundle not found for `credential_ref` |
+| `secret_bundle_incomplete` | Bundle missing required fields |
+
+**What was NOT modified:**
+- `integrations/google_ads_adapter.py` — unchanged; `load_google_ads_credentials()` and `fetch_google_ads_metrics()` continue to use env-var loading. Provider is a standalone layer.
+
+**What was NOT implemented (deferred):**
+- Wiring provider into live adapter path
+- GCP Secret Manager backend
+- OAuth flow
+- Frontend
+
+**Security notes:**
+- `credentials` field uses `field(repr=False)` — accidental `print(result)` cannot leak values
+- Redacted dict returns `configured_fields` booleans only, never values
+- `assert_provider_output_has_no_secret_values()` applied to all 5 printed output dicts in demo — clean
+- All 6 credential demos pass; all 7 smoke suites pass with no changes to existing behavior
+
+---
+
 ## Related Documents
 
 - [V4 Real Integrations Design](V4_REAL_INTEGRATIONS_DESIGN.md)
