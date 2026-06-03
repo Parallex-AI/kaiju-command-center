@@ -4,9 +4,9 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V5 beta — Tenant Credentials & Secure Onboarding Foundation** — tag: `v5.0.0-beta`
+**V5.12 — GCP Secret Manager Backend** (branch: `v5.12-gcp-secret-manager`)
 
-V5 establishes the full credential management foundation for multi-tenant Google Ads integrations. Included: `CredentialReference` model, `CredentialStore` abstraction, `LocalFileCredentialReferenceStore`, OpenClaw admin GET/POST credential endpoints, credential resolver bridge, `SecretStore` abstraction, Google Ads `CredentialProvider`, adapter `GOOGLE_ADS_CREDENTIAL_SOURCE` feature flag, and V5 credential chain smoke test. No credentials are stored in Git, returned in API responses, written to audit logs, or surfaced in MemPalace. Default adapter behavior (`ADS_DATA_SOURCE=n8n_demo`, `GOOGLE_ADS_LIVE_ENABLED=false`) is unchanged. Next: `v5.12-gcp-secret-manager` or `v5.12-frontend-onboarding`.
+V5 beta is complete (tag: `v5.0.0-beta`). Active branch is V5.12, which designs and will implement `GCPSecretManagerStore` — a production-grade `SecretStore` backend using GCP Secret Manager. V5.12.1 (design doc) is complete. Next: V5.12.2 — dependency + scaffold.
 
 ## Architecture
 
@@ -67,3 +67,4 @@ cd ~/kaiju/projects/demo-client
 | V4 | Real integrations · Google Ads API · data source resolver | **Beta complete** — `v4.0.0-beta` |
 | V4.5.1 | Live Google Ads read-only fetch · GAQL · credential safety gates | **Alpha** — `v4.5.1-alpha` |
 | V5 | Tenant credentials · secure onboarding · secret store · OAuth | **Beta complete** — `v5.0.0-beta` |
+| V5.12 | GCP Secret Manager backend · `GCPSecretManagerStore` · IAM · rotation | **In progress** — `v5.12-gcp-secret-manager` |

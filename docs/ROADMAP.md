@@ -334,3 +334,46 @@ Goal: Allow clients to connect their Google Ads accounts through a secure onboar
 ### V5 non-goals (early phases)
 
 Billing, full user management, public self-serve onboarding, production OAuth consent screen, multi-region secrets, write access to Google Ads.
+
+---
+
+## V5.12 — GCP Secret Manager Backend (Branch: `v5.12-gcp-secret-manager`)
+
+Goal: Replace `InMemorySecretStore` with a production-grade `GCPSecretManagerStore` implementation — enabling real tenant secrets to be stored, retrieved, and rotated in GCP Secret Manager without any secret material touching disk, logs, or API responses.
+
+**Design document:** [docs/V5_12_GCP_SECRET_MANAGER_DESIGN.md](V5_12_GCP_SECRET_MANAGER_DESIGN.md)
+
+### Implementation phases
+
+- [x] **V5.12.1** — Design doc (`docs/V5_12_GCP_SECRET_MANAGER_DESIGN.md`) · ROADMAP update · no code, no dependencies, no runtime changes
+- [ ] **V5.12.2** — Add `google-cloud-secret-manager>=2.20.0` dependency · lazy import guard · `GCPSecretManagerStore` class scaffold (no live calls) · unit tests with mocks
+- [ ] **V5.12.3** — `get_secret_bundle()` implementation · `put_secret_bundle()` implementation · `delete_secret()` implementation · integration tests against GCP emulator or real project (behind `GCP_SECRET_MANAGER_ENABLED=true`)
+- [ ] **V5.12.4** — `list_secrets()` and `secret_exists()` implementation · pagination support · filter by `credential_ref` prefix
+- [ ] **V5.12.5** — `SecretStoreFactory` — selects `InMemorySecretStore` vs `GCPSecretManagerStore` based on `GCP_SECRET_MANAGER_ENABLED` · wired into `compose_google_ads_credentials`
+- [ ] **V5.12.6** — OpenClaw admin credential write path wired to `GCPSecretManagerStore` · end-to-end credential submission smoke test (no live Google Ads call required)
+- [ ] **V5.12.7** — Cloud Run deployment guide update · IAM setup instructions · secret rotation runbook · `docs/GCP_SECRET_MANAGER_RUNBOOK.md`
+- [ ] **V5.12.8** — V5.12 smoke test suite · all existing smoke suites (V0–V5) pass · closure
+
+### New env vars (added in V5.12)
+
+| Variable | Default | Secret | Purpose |
+|---|---|---|---|
+| `GCP_PROJECT_ID` | `` | No | GCP project for Secret Manager API calls |
+| `GCP_SECRET_MANAGER_ENABLED` | `false` | No | Gate for live Secret Manager calls |
+| `GCP_SECRET_MANAGER_PREFIX` | `kaiju` | No | Secret name prefix (e.g. `kaiju-prod-google-ads-...`) |
+| `GCP_SECRET_MANAGER_ENV` | `local` | No | Env segment in secret names (`local`, `dev`, `staging`, `prod`) |
+| `GCP_SECRET_MANAGER_LOCATION` | `global` | No | Secret Manager location |
+
+### V5.12 design principles
+
+- `GCP_SECRET_MANAGER_ENABLED=false` by default — no live calls without explicit opt-in
+- `InMemorySecretStore` remains default for local dev and all existing smoke tests
+- Secret naming: `{prefix}-{env}-{integration_type}-{credential_ref}` (e.g. `kaiju-prod-google-ads-cred_google_ads_abcd1234ef56`)
+- Secret payload: `developer_token`, `client_id` (OAuth), `client_secret`, `refresh_token` only — no `customer_id`, no access tokens
+- IAM: `secretAccessor` for read paths; `secretVersionAdder`+`secretCreator` for write paths; per-prefix conditions
+- Lazy import: `google-cloud-secret-manager` imported only inside `GCPSecretManagerStore` methods
+- All 9 error codes defined in design doc; no secrets in any error message or log line
+
+### V5.12 non-goals
+
+Kubernetes, multi-region replication, cross-project secret sharing, frontend credential UI, OAuth consent screen, write access to Google Ads.
