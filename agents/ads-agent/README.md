@@ -1290,3 +1290,25 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo covers 11 sections: default backend name, auto create, explicit in_memory, explicit gcp_secret_manager disabled, explicit gcp_secret_manager enabled with mock, invalid backend ValueError, factory status shape, GCP env var backend switching, compose with explicit store, compose via factory path (identical behavior), and secret-safety assertion. No GCP credentials required. All assertions pass.
+
+---
+
+## V5.12.7 GCP Secret Manager Mocked Smoke Test
+
+`scripts/smoke_test_v5_12_gcp_secret_manager.sh` — 8-section end-to-end mocked smoke test covering the full V5.12 GCP Secret Manager stack. No real GCP credentials required. No live GCP calls.
+
+| Section | Coverage |
+|---|---|
+| `[1/8]` | Import checks: `gcp_secret_manager_store`, `secret_store_factory`, `google_ads_provider`; dependency available; default backend is `in_memory` |
+| `[2/8]` | Disabled mode: demo passes; all 5 methods return safe values; no GCP call on any path |
+| `[3/8]` | Read/status mock: demo passes; `build_gcp_secret_version_resource_name` format; `parse_gcp_secret_payload` valid/invalid |
+| `[4/8]` | Write mock: demo passes; `build_gcp_secret_id` deterministic; `build_gcp_project_resource_name` format; `build_gcp_secret_payload` valid/invalid |
+| `[5/8]` | Delete/list mock: demo passes; `parse_gcp_secret_id` match/non-match |
+| `[6/8]` | Factory: demo passes; GCP env var switches backend; `create_secret_store` type assertions; factory status has no secrets |
+| `[7/8]` | Provider/factory integration: provider demo passes; explicit injection bypasses factory; factory path consistent with explicit path; no live GCP calls |
+| `[8/8]` | Secret-safety (`ya29`, `sk-`, real credential assignments); no service account JSON; git hygiene |
+
+```bash
+cd ~/kaiju
+./scripts/smoke_test_v5_12_gcp_secret_manager.sh
+```

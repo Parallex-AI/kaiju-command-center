@@ -352,8 +352,9 @@ Goal: Replace `InMemorySecretStore` with a production-grade `GCPSecretManagerSto
 - [x] **V5.12.5** — `delete_secret_bundle()` via `delete_secret` · `list_secret_records()` via `list_secrets` (no payload access) · `parse_gcp_secret_id()` (reverse secret naming) · `_is_gcp_not_found()` · all-safe error returns (False/[]) for NotFound/PermissionDenied/generic · mock delete/list demo (`run_gcp_secret_manager_delete_list_mock_demo.py`, 11 sections) · no real GCP credentials required · all existing smoke tests pass
 - [x] **V5.12.6** — `credentials/secret_store_factory.py` · `create_secret_store()` / `get_secret_store_backend_name()` / `secret_store_factory_status()` · auto-selects `InMemorySecretStore` (default) or `GCPSecretManagerStore` (when `GCP_SECRET_MANAGER_ENABLED=true`) · `compose_google_ads_credentials` uses factory when no `secret_store` arg passed · explicit `secret_store=` injection unchanged · mock demo (`run_secret_store_factory_demo.py`, 11 sections) · no real GCP credentials required · all existing smoke tests pass
 - [ ] **V5.12.6** — OpenClaw admin credential write path wired to `GCPSecretManagerStore` · end-to-end credential submission smoke test (no live Google Ads call required)
-- [ ] **V5.12.7** — Cloud Run deployment guide update · IAM setup instructions · secret rotation runbook · `docs/GCP_SECRET_MANAGER_RUNBOOK.md`
-- [ ] **V5.12.8** — V5.12 smoke test suite · all existing smoke suites (V0–V5) pass · closure
+- [x] **V5.12.7** — `scripts/smoke_test_v5_12_gcp_secret_manager.sh` · 8 sections · 28 checks · import verification · disabled mode · read/write/delete/list mock paths · SecretStoreFactory behavior · provider/factory integration · secret-safety and git hygiene · no real GCP credentials required · no live GCP calls · all existing smoke tests pass
+- [ ] **V5.12.8** — Cloud Run deployment guide update · IAM setup instructions · secret rotation runbook · `docs/GCP_SECRET_MANAGER_RUNBOOK.md`
+- [ ] **V5.12.9** — V5.12 closure · all smoke suites (V0–V5.12) pass · release notes update
 
 ### New env vars (added in V5.12)
 
