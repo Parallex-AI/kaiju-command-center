@@ -1,8 +1,10 @@
 # Ads Agent
 
-**V4.5.1 — Live Google Ads Fetch** — branch `v4.5.1-google-ads-live-fetch` · base tag `v4.0.0-beta`
+**V5.12 beta — GCP Secret Manager Backend Foundation** — branch `v5.12-gcp-secret-manager` · base tag `v5.0.0-beta`
 
-> **Live Google Ads fetch is implemented** behind `GOOGLE_ADS_LIVE_ENABLED=true`. Default behavior (`n8n_demo`) is unchanged. Use `ADS_DATA_SOURCE=mock_fixture` for credential-free local development. For credentials setup and OAuth2 steps see [docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md](../../docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md). For V4 full scope see [docs/V4_BETA_RELEASE_NOTES.md](../../docs/V4_BETA_RELEASE_NOTES.md).
+> **GCP Secret Manager backend is implemented** behind `GCP_SECRET_MANAGER_ENABLED=true`. Default (`GCP_SECRET_MANAGER_ENABLED=false`) uses `InMemorySecretStore` — no GCP credentials required. `SecretStoreFactory` selects the backend automatically. For deployment and IAM setup see [docs/GCP_SECRET_MANAGER_RUNBOOK.md](../../docs/GCP_SECRET_MANAGER_RUNBOOK.md). For full V5.12 scope see [docs/V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md](../../docs/V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md).
+
+> **V4.5.1** — Live Google Ads fetch is implemented behind `GOOGLE_ADS_LIVE_ENABLED=true`. Default behavior (`n8n_demo`) is unchanged. Use `ADS_DATA_SOURCE=mock_fixture` for credential-free local development. For credentials setup and OAuth2 steps see [docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md](../../docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md). For V4 full scope see [docs/V4_BETA_RELEASE_NOTES.md](../../docs/V4_BETA_RELEASE_NOTES.md).
 
 The Ads Agent is responsible for analyzing Google Ads performance data and generating actionable recommendations for clients.
 

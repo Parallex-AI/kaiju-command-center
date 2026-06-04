@@ -354,7 +354,9 @@ Goal: Replace `InMemorySecretStore` with a production-grade `GCPSecretManagerSto
 - [ ] **V5.12.6** — OpenClaw admin credential write path wired to `GCPSecretManagerStore` · end-to-end credential submission smoke test (no live Google Ads call required)
 - [x] **V5.12.7** — `scripts/smoke_test_v5_12_gcp_secret_manager.sh` · 8 sections · 28 checks · import verification · disabled mode · read/write/delete/list mock paths · SecretStoreFactory behavior · provider/factory integration · secret-safety and git hygiene · no real GCP credentials required · no live GCP calls · all existing smoke tests pass
 - [x] **V5.12.8** — Cloud Run deployment guide update · IAM setup instructions · secret rotation runbook · `docs/GCP_SECRET_MANAGER_RUNBOOK.md`
-- [ ] **V5.12.9** — V5.12 closure · all smoke suites (V0–V5.12) pass · release notes update
+- [x] **V5.12.9** — V5.12 closure · all smoke suites (V0–V5.12) pass · release notes update · `docs/V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md`
+
+**V5.12 beta complete.** Recommended next branch: `v5.13-manual-gcp-validation`
 
 ### New env vars (added in V5.12)
 

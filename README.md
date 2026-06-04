@@ -4,9 +4,9 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V5.12 — GCP Secret Manager Backend** (branch: `v5.12-gcp-secret-manager`)
+**V5.12 beta — GCP Secret Manager Backend Foundation** (branch: `v5.12-gcp-secret-manager`)
 
-V5 beta is complete (tag: `v5.0.0-beta`). Active branch is V5.12, which designs and will implement `GCPSecretManagerStore` — a production-grade `SecretStore` backend using GCP Secret Manager. V5.12.1 (design doc) is complete. Next: V5.12.2 — dependency + scaffold.
+V5.12 is complete. `GCPSecretManagerStore` implements the `SecretStore` ABC with full read / write / delete / list behavior, selected at runtime by `SecretStoreFactory`. All automated tests use injected mock clients — no real GCP credentials required. See [V5.12 Release Notes](docs/V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md) and [Runbook](docs/GCP_SECRET_MANAGER_RUNBOOK.md). Next: `v5.13-manual-gcp-validation`.
 
 ## Architecture
 
@@ -54,6 +54,8 @@ cd ~/kaiju/projects/demo-client
 - [V0 Architecture](docs/V0_ARCHITECTURE.md)
 - [V0 Runbook](docs/V0_RUNBOOK.md)
 - [Roadmap](docs/ROADMAP.md)
+- [V5.12 Release Notes](docs/V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md)
+- [GCP Secret Manager Runbook](docs/GCP_SECRET_MANAGER_RUNBOOK.md)
 
 ## Roadmap summary
 
@@ -67,4 +69,4 @@ cd ~/kaiju/projects/demo-client
 | V4 | Real integrations · Google Ads API · data source resolver | **Beta complete** — `v4.0.0-beta` |
 | V4.5.1 | Live Google Ads read-only fetch · GAQL · credential safety gates | **Alpha** — `v4.5.1-alpha` |
 | V5 | Tenant credentials · secure onboarding · secret store · OAuth | **Beta complete** — `v5.0.0-beta` |
-| V5.12 | GCP Secret Manager backend · `GCPSecretManagerStore` · IAM · rotation | **In progress** — `v5.12-gcp-secret-manager` |
+| V5.12 | GCP Secret Manager backend · `GCPSecretManagerStore` · IAM · rotation | **Beta complete** — `v5.12.0-beta` |
