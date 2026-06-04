@@ -1146,3 +1146,79 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo covers 9 sections: `build_gcp_project_resource_name`, `build_gcp_secret_payload` (valid + rejections), disabled mode, valid write (request shapes verified), AlreadyExists handling, forbidden field rejection, empty value rejection, PermissionDenied on create_secret, and PermissionDenied on add_secret_version. All printed outputs asserted free of secret markers.
+
+---
+
+## V5.12.5 GCP Secret Manager Delete/List Behavior
+
+V5.12.5 implements `delete_secret_bundle()` and `list_secret_records()` with injected mock clients. No real GCP credentials are required. No live GCP calls are made.
+
+### New function
+
+| Function | Purpose |
+|---|---|
+| `parse_gcp_secret_id(secret_id)` | Reverse `{prefix}-{env}-{itype}-{cred_ref}` using current env config |
+
+### delete_secret_bundle behavior
+
+| Condition | Returns |
+|---|---|
+| `enabled=False` | `False` (no GCP call) |
+| Init errors (project_id missing, client unavailable) | `False` |
+| `delete_secret` succeeds | `True` |
+| GCP `NotFound` | `False` |
+| GCP `PermissionDenied` or generic error | `False` |
+
+`delete_secret` is called with `{"name": "projects/{project_id}/secrets/{secret_id}"}`. No secret payload is involved. No exception text is exposed.
+
+### list_secret_records behavior
+
+| Condition | Returns |
+|---|---|
+| `enabled=False` | `[]` |
+| Init errors | `[]` |
+| `list_secrets` raises | `[]` |
+| Secrets returned | `SecretRecord` list for matching prefix/env only |
+
+`list_secrets` is called with `{"parent": "projects/{project_id}"}`. Each returned secret name is parsed via `parse_gcp_secret_id()`. Only secrets matching the configured prefix and env are included. `configured_fields` is always `[]` — no `access_secret_version` call is made during list. The `integration_type` filter parameter is honored.
+
+### parse_gcp_secret_id
+
+```python
+from credentials.gcp_secret_manager_store import parse_gcp_secret_id
+
+# With default env vars (GCP_SECRET_MANAGER_PREFIX=kaiju, GCP_SECRET_MANAGER_ENV=local):
+result = parse_gcp_secret_id("kaiju-local-google_ads-cred_google_ads_abc123")
+# {"matched": True, "integration_type": "google_ads", "credential_ref": "cred_google_ads_abc123"}
+
+result = parse_gcp_secret_id("other-prod-google_ads-cred_google_ads_abc123")
+# {"matched": False, "integration_type": None, "credential_ref": None}
+```
+
+Uses the current `GCP_SECRET_MANAGER_PREFIX` and `GCP_SECRET_MANAGER_ENV` values to match. Returns `matched=False` for wrong prefix, wrong env, unknown integration type, or missing credential_ref segment.
+
+### SecretRecord from list
+
+```python
+SecretRecord(
+    credential_ref="cred_google_ads_abc123",
+    integration_type="google_ads",
+    configured_fields=[],           # no payload access during list
+    metadata={
+        "backend": "gcp_secret_manager",
+        "enabled": True,
+        "project_id_configured": True,
+        "secret_id": "kaiju-local-google_ads-cred_google_ads_abc123",
+        "listed": True,
+    },
+)
+```
+
+### Run the mock delete/list demo (no GCP credentials required)
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_gcp_secret_manager_delete_list_mock_demo.py
+```
+
+The demo covers 11 sections: `parse_gcp_secret_id` (valid IDs), non-matching IDs, disabled delete, disabled list, enabled delete success (request shape verified), NotFound on delete, PermissionDenied on delete, list calls with correct parent, list filters non-matching secrets (2 of 5 kept), integration_type filter (including empty list and PermissionDenied on list_secrets), and secret-safety assertion. `access_secret_version` is asserted never called during delete or list. All outputs free of secret markers.

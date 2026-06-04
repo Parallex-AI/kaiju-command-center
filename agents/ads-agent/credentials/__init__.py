@@ -62,6 +62,7 @@ from credentials.gcp_secret_manager_store import (
     get_gcp_secret_manager_enabled,
     get_gcp_secret_manager_env,
     get_gcp_secret_manager_prefix,
+    parse_gcp_secret_id,
     parse_gcp_secret_payload,
 )
 
@@ -117,5 +118,6 @@ __all__ = [
     "get_gcp_secret_manager_enabled",
     "get_gcp_secret_manager_env",
     "get_gcp_secret_manager_prefix",
+    "parse_gcp_secret_id",
     "parse_gcp_secret_payload",
 ]

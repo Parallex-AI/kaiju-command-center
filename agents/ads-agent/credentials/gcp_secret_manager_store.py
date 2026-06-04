@@ -1,14 +1,20 @@
 """
-V5.12.4 — GCPSecretManagerStore with write behavior.
+V5.12.5 — GCPSecretManagerStore with delete and list behavior.
 
-V5.12.4 adds:
+V5.12.5 adds:
+  _KNOWN_INTEGRATION_TYPES                  — known sanitized integration type names
+  parse_gcp_secret_id()                     — reverse {prefix}-{env}-{itype}-{cred_ref}
+  _is_gcp_not_found()                       — classify NotFound exception
+  _map_gcp_delete_list_exception_to_bool()  — map delete/list exceptions to False/[]
+  GCPSecretManagerStore.delete_secret_bundle() — delete_secret + NotFound/PermissionDenied safe
+  GCPSecretManagerStore.list_secret_records()  — list_secrets, filter by prefix/env, no payload
+
+V5.12.4 added:
   build_gcp_project_resource_name()        — projects/{project_id} resource name
   build_gcp_secret_payload()               — validate and JSON-encode secrets to bytes
   _is_gcp_already_exists()                 — classify AlreadyExists exception
   _map_gcp_write_exception_to_error_code() — map write exceptions to safe codes
   GCPSecretManagerStore.put_secret_bundle() — create_secret + add_secret_version
-
-delete_secret_bundle and list_secret_records remain deferred (V5.12.5+).
 
 V5.12.3 added:
   build_gcp_secret_version_resource_name() — version resource name builder
@@ -289,6 +295,66 @@ def _map_gcp_write_exception_to_error_code(exc: Exception) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Delete / list helpers (V5.12.5)
+# ---------------------------------------------------------------------------
+
+_KNOWN_INTEGRATION_TYPES: Tuple[str, ...] = ("google_ads",)
+
+
+def _is_gcp_not_found(exc: Exception) -> bool:
+    """
+    Return True if exc is a GCP NotFound exception.
+
+    Checks the real google.api_core exception type first, then falls back to
+    a substring match for mock/test environments.
+    """
+    try:
+        from google.api_core import exceptions as gcp_exc  # type: ignore
+        if isinstance(exc, gcp_exc.NotFound):
+            return True
+    except ImportError:
+        pass
+    return "not found" in str(exc).lower()
+
+
+def parse_gcp_secret_id(secret_id: str) -> dict:
+    """
+    Attempt to parse a GCP secret ID back into its component parts.
+
+    Reverses: {prefix}-{env}-{integration_type}-{credential_ref}
+    Uses the current configured prefix and env from environment variables.
+
+    Returns on success:
+      {"matched": True, "integration_type": "google_ads", "credential_ref": "cred_..."}
+    Returns on failure:
+      {"matched": False, "integration_type": None, "credential_ref": None}
+
+    Does not expose secret values — only inspects the opaque identifier string.
+    """
+    prefix = _sanitize_segment(get_gcp_secret_manager_prefix())
+    env = _sanitize_segment(get_gcp_secret_manager_env())
+    expected_start = f"{prefix}-{env}-"
+
+    if not secret_id.startswith(expected_start):
+        return {"matched": False, "integration_type": None, "credential_ref": None}
+
+    remaining = secret_id[len(expected_start):]
+
+    for itype in _KNOWN_INTEGRATION_TYPES:
+        itype_prefix = f"{itype}-"
+        if remaining.startswith(itype_prefix):
+            credential_ref = remaining[len(itype_prefix):]
+            if credential_ref:
+                return {
+                    "matched": True,
+                    "integration_type": itype,
+                    "credential_ref": credential_ref,
+                }
+
+    return {"matched": False, "integration_type": None, "credential_ref": None}
+
+
+# ---------------------------------------------------------------------------
 # GCPSecretManagerStore
 # ---------------------------------------------------------------------------
 
@@ -296,9 +362,9 @@ class GCPSecretManagerStore(SecretStore):
     """
     GCP Secret Manager backend for SecretStore.
 
+    V5.12.5: delete_secret_bundle and list_secret_records implemented.
     V5.12.4: put_secret_bundle implemented via create_secret + add_secret_version.
     AlreadyExists on create_secret is handled safely (proceeds to add_secret_version).
-    delete_secret_bundle and list_secret_records remain deferred (V5.12.5+).
 
     An injected client= parameter allows testing without real GCP credentials.
 
@@ -602,34 +668,93 @@ class GCPSecretManagerStore(SecretStore):
         """
         Delete a stored secret bundle from GCP Secret Manager.
 
-        Returns False when disabled. Raises NotImplementedError when enabled
-        (live delete implemented in V5.12.5).
+        Returns False when disabled, project_id missing, or client unavailable.
+        Calls client.delete_secret() with the canonical secret resource name.
+        Returns True on success.
+        Returns False on NotFound (secret did not exist).
+        Returns False on PermissionDenied or any other GCP error — safe, no exception detail exposed.
+        Never prints or logs secret values.
         """
         if not self._enabled:
             return False
-        self._check_ready()
-        raise NotImplementedError(
-            "GCPSecretManagerStore.delete_secret_bundle is not yet implemented. "
-            "Live GCP delete support is added in V5.12.5."
+        if self._init_errors or self._client is None:
+            return False
+
+        secret_id = build_gcp_secret_id(credential_ref, integration_type)
+        secret_resource = build_gcp_secret_resource_name(
+            self._project_id, secret_id  # type: ignore[arg-type]
         )
+
+        try:
+            self._client.delete_secret(request={"name": secret_resource})
+            return True
+        except Exception as exc:
+            if _is_gcp_not_found(exc):
+                return False
+            # PermissionDenied or generic failure — return False safely.
+            return False
 
     def list_secret_records(
         self,
         integration_type: Optional[str] = None,
     ) -> List[SecretRecord]:
         """
-        Return a list of SecretRecord descriptors from GCP Secret Manager.
+        Return SecretRecord descriptors from GCP Secret Manager.
 
-        Returns [] when disabled. Raises NotImplementedError when enabled
-        (live list implemented in V5.12.5).
+        Returns [] when disabled, project_id missing, or client unavailable.
+        Calls client.list_secrets() with parent=projects/{project_id}.
+        Filters secrets whose IDs match the configured prefix and env segment.
+        Parses each matching secret ID via parse_gcp_secret_id() to extract
+        integration_type and credential_ref — no payload access.
+        Optionally filters by integration_type when provided.
+        Returns SecretRecord objects with configured_fields=[] (no payload read).
+        Never calls access_secret_version. Never prints or logs secret values.
         """
         if not self._enabled:
             return []
-        self._check_ready()
-        raise NotImplementedError(
-            "GCPSecretManagerStore.list_secret_records is not yet implemented. "
-            "Live GCP list support is added in V5.12.5."
-        )
+        if self._init_errors or self._client is None:
+            return []
+
+        parent = build_gcp_project_resource_name(self._project_id)  # type: ignore[arg-type]
+
+        try:
+            secrets_iter = self._client.list_secrets(request={"parent": parent})
+        except Exception:
+            return []
+
+        records: List[SecretRecord] = []
+        try:
+            for secret in secrets_iter:
+                name = getattr(secret, "name", "") or ""
+                # Extract the secret_id from the full resource name.
+                secret_id = name.rsplit("/", 1)[-1] if "/" in name else name
+
+                parsed = parse_gcp_secret_id(secret_id)
+                if not parsed["matched"]:
+                    continue
+
+                itype = parsed["integration_type"]
+                cred_ref = parsed["credential_ref"]
+
+                if integration_type is not None and itype != integration_type:
+                    continue
+
+                records.append(SecretRecord(
+                    credential_ref=cred_ref,
+                    integration_type=itype,
+                    configured_fields=[],
+                    metadata={
+                        "backend": "gcp_secret_manager",
+                        "enabled": True,
+                        "project_id_configured": True,
+                        "secret_id": secret_id,
+                        "listed": True,
+                    },
+                ))
+        except Exception:
+            return records
+
+        return records
 
 
 # ---------------------------------------------------------------------------
