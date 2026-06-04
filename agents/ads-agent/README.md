@@ -1051,3 +1051,62 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo covers 9 sections: env helpers, edge cases, secret ID builder, status dict, lazy import guard, disabled mode (all 5 methods), default-env construction, field validation order, and secret-safety assertion. No GCP credentials required. All assertions pass.
+
+---
+
+## V5.12.3 GCP Secret Manager Read/Status Behavior
+
+V5.12.3 implements `get_secret_bundle()` and `get_secret_status()` with live GCP reads behind an injected mock client. `put_secret_bundle`, `delete_secret_bundle`, and `list_secret_records` remain deferred.
+
+### New functions
+
+| Function | Purpose |
+|---|---|
+| `build_gcp_secret_version_resource_name(project_id, secret_id, version="latest")` | Version resource name: `projects/{p}/secrets/{s}/versions/{v}` |
+| `parse_gcp_secret_payload(payload_bytes, integration_type)` | Decode bytes, JSON parse, validate allowed fields, reject empty values |
+
+### get_secret_bundle behavior
+
+| Condition | Returns |
+|---|---|
+| `enabled=False` | `None` |
+| Init errors (missing project, dependency unavailable) | `None` |
+| Valid bundle from GCP | secret dict (internal use only — never print or log) |
+| GCP NotFound / PermissionDenied / parse error | `None` |
+
+### get_secret_status behavior
+
+| Condition | `configured` | `metadata.error_code` |
+|---|---|---|
+| Disabled | `false` | — (`backend_status: disabled`) |
+| Init error | `false` | — (`backend_status: init_error`) |
+| Bundle retrieved | `true` | — (`available: true`) |
+| GCP NotFound | `false` | `gcp_secret_not_found` |
+| Invalid JSON | `false` | `gcp_secret_payload_invalid` |
+| Forbidden field | `false` | `gcp_secret_payload_invalid` |
+| Permission denied | `false` | `gcp_secret_access_denied` |
+
+### Mock client testing
+
+No real GCP credentials are required. Inject a mock via the `client=` constructor parameter:
+
+```python
+from credentials.gcp_secret_manager_store import GCPSecretManagerStore
+
+store = GCPSecretManagerStore(
+    enabled=True,
+    project_id="my-project",
+    client=MyMockClient(),
+)
+status = store.get_secret_status("cred_google_ads_abc123", "google_ads")
+# {"configured": True/False, "metadata": {"backend": "gcp_secret_manager", ...}}
+```
+
+### Run the mock read demo (no GCP credentials required)
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_gcp_secret_manager_read_mock_demo.py
+```
+
+The demo covers 8 sections: `parse_gcp_secret_payload` valid input, rejection cases, `build_gcp_secret_version_resource_name`, valid mock client (configured=true), NotFound mock (gcp_secret_not_found), invalid JSON mock (gcp_secret_payload_invalid), forbidden field mock, and missing project_id init error. All 5 printed status dicts are asserted free of secret markers.

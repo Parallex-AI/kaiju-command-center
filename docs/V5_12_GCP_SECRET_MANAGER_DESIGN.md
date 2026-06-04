@@ -414,8 +414,8 @@ GCP Secret Manager's versioning model maps naturally to the rotation workflow:
 | Phase | Milestone | Description |
 |---|---|---|
 | **V5.12.1** | Design | Design doc and ROADMAP update *(this document)* |
-| **V5.12.2** | Config | Add `google-cloud-secret-manager` dependency · `GCPSecretManagerConfig` dataclass · env var parsing · `is_gcp_secret_manager_enabled()` helper · no live GCP calls |
-| **V5.12.3** | Read/status | Implement `get_secret_bundle` and `get_secret_status` · disabled fallback · missing project ID guard · dependency guard · `gcp_secret_not_found` / `gcp_secret_access_denied` error codes |
+| **V5.12.2** | Config | Add `google-cloud-secret-manager` dependency · env config helpers · lazy import guard · `GCPSecretManagerStore` scaffold (disabled mode fully functional) · `build_gcp_secret_id` / `build_gcp_secret_resource_name` · `gcp_secret_manager_status()` · no live GCP calls *(complete)* |
+| **V5.12.3** | Read/status | `get_secret_bundle` live read via `access_secret_version` · `get_secret_status` redacted status from bundle · `build_gcp_secret_version_resource_name` · `parse_gcp_secret_payload` · `_map_gcp_exception_to_error_code` (NotFound / PermissionDenied / InvalidArgument) · mock client injection for testing · `put/delete/list` remain NotImplementedError *(complete)* |
 | **V5.12.4** | Write | Implement `put_secret_bundle` — create secret + add version · `gcp_secret_write_failed` error code · secret naming helper |
 | **V5.12.5** | Delete | Implement `delete_secret_bundle` — soft delete (destroy latest version) · `gcp_secret_delete_failed` error code |
 | **V5.12.6** | Manual smoke | `scripts/manual_gcp_secret_manager_smoke.sh` — operator-run only, requires real GCP credentials · not part of CI |

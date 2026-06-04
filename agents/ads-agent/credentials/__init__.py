@@ -54,11 +54,13 @@ from credentials.gcp_secret_manager_store import (
     GCPSecretManagerStore,
     build_gcp_secret_id,
     build_gcp_secret_resource_name,
+    build_gcp_secret_version_resource_name,
     gcp_secret_manager_status,
     get_gcp_project_id,
     get_gcp_secret_manager_enabled,
     get_gcp_secret_manager_env,
     get_gcp_secret_manager_prefix,
+    parse_gcp_secret_payload,
 )
 
 __all__ = [
@@ -105,9 +107,11 @@ __all__ = [
     "GCPSecretManagerStore",
     "build_gcp_secret_id",
     "build_gcp_secret_resource_name",
+    "build_gcp_secret_version_resource_name",
     "gcp_secret_manager_status",
     "get_gcp_project_id",
     "get_gcp_secret_manager_enabled",
     "get_gcp_secret_manager_env",
     "get_gcp_secret_manager_prefix",
+    "parse_gcp_secret_payload",
 ]

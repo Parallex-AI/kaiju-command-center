@@ -1,9 +1,17 @@
 """
-V5.12.2 — GCPSecretManagerStore scaffold with lazy import guard.
+V5.12.3 — GCPSecretManagerStore with read/status behavior.
 
-Provides a GCP Secret Manager backend for SecretStore.
-In V5.12.2, no live GCP API calls are made. All methods return controlled
-disabled/not_implemented responses. Live read/write is implemented in V5.12.3.
+V5.12.3 adds:
+  build_gcp_secret_version_resource_name() — version resource name builder
+  parse_gcp_secret_payload()               — decode, validate, and parse secret bytes
+  GCPSecretManagerStore.get_secret_bundle() — live read via access_secret_version
+  GCPSecretManagerStore.get_secret_status() — redacted status derived from bundle result
+
+put_secret_bundle, delete_secret_bundle, and list_secret_records remain deferred.
+Live write/delete/list support is added in V5.12.4+.
+
+No live GCP calls are required for tests. The constructor accepts an injected
+client= parameter so a mock SecretManagerServiceClient can be used.
 
 Environment variables:
   GCP_SECRET_MANAGER_ENABLED   — default false; gate for all live calls
@@ -13,22 +21,20 @@ Environment variables:
 
 Secret naming convention:
   {prefix}-{env}-{integration_type}-{credential_ref}
-  e.g. kaiju-prod-google-ads-cred_google_ads_abcd1234ef56
+  e.g. kaiju-prod-google_ads-cred_google_ads_abcd1234ef56
 
-No secret values are present in this module.
+No secret values are present in this module at any scope.
 """
 
-import copy
+import json
 import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-from credentials.models import now_utc_iso
 from credentials.secret_store import (
     SecretRecord,
     SecretStore,
     assert_allowed_secret_fields,
-    make_secret_store_key,
     redact_secret_status,
 )
 
@@ -103,6 +109,15 @@ def build_gcp_secret_resource_name(project_id: str, secret_id: str) -> str:
     return f"projects/{project_id}/secrets/{secret_id}"
 
 
+def build_gcp_secret_version_resource_name(
+    project_id: str,
+    secret_id: str,
+    version: str = "latest",
+) -> str:
+    """Return the GCP Secret Manager version resource name for a secret."""
+    return f"projects/{project_id}/secrets/{secret_id}/versions/{version}"
+
+
 # ---------------------------------------------------------------------------
 # Lazy import guard
 # ---------------------------------------------------------------------------
@@ -130,6 +145,81 @@ def load_secret_manager_client_class() -> Tuple[bool, Any, List[dict]]:
 
 
 # ---------------------------------------------------------------------------
+# Payload parsing and exception mapping
+# ---------------------------------------------------------------------------
+
+def parse_gcp_secret_payload(
+    payload_bytes: Any,
+    integration_type: str,
+) -> dict:
+    """
+    Decode, parse, and validate a GCP Secret Manager secret payload.
+
+    Returns the parsed secrets dict on success.
+    Raises ValueError on any failure. Error messages do not include raw
+    payload content to prevent accidental secret exposure in tracebacks.
+    """
+    if isinstance(payload_bytes, (bytes, bytearray)):
+        try:
+            raw = payload_bytes.decode("utf-8")
+        except Exception:
+            raise ValueError("Secret payload could not be decoded as UTF-8")
+    elif isinstance(payload_bytes, str):
+        raw = payload_bytes
+    else:
+        raise ValueError(
+            f"Secret payload has unexpected type: {type(payload_bytes).__name__}"
+        )
+
+    try:
+        parsed = json.loads(raw)
+    except Exception:
+        raise ValueError("Secret payload is not valid JSON")
+
+    if not isinstance(parsed, dict):
+        raise ValueError(
+            f"Secret payload must be a JSON object, got: {type(parsed).__name__}"
+        )
+
+    if not parsed:
+        raise ValueError("Secret payload must not be empty")
+
+    allowed, rejected = assert_allowed_secret_fields(parsed, integration_type)
+    if not allowed:
+        raise ValueError(
+            f"Secret payload contains disallowed fields for '{integration_type}': {rejected}"
+        )
+
+    empty_fields = [k for k, v in parsed.items() if not v or not str(v).strip()]
+    if empty_fields:
+        raise ValueError(f"Secret payload has empty values for fields: {empty_fields}")
+
+    return parsed
+
+
+def _map_gcp_exception_to_error_code(exc: Exception) -> str:
+    """
+    Map a GCP API exception to a safe, non-revealing error code.
+
+    Tries to import google.api_core.exceptions to classify the exception type.
+    Falls back to 'gcp_secret_read_failed' if the mapping is not possible.
+    Does not expose exception messages — those may contain resource names
+    that include project or tenant identifiers.
+    """
+    try:
+        from google.api_core import exceptions as gcp_exc  # type: ignore
+        if isinstance(exc, gcp_exc.NotFound):
+            return "gcp_secret_not_found"
+        if isinstance(exc, gcp_exc.PermissionDenied):
+            return "gcp_secret_access_denied"
+        if isinstance(exc, gcp_exc.InvalidArgument):
+            return "gcp_secret_payload_invalid"
+    except ImportError:
+        pass
+    return "gcp_secret_read_failed"
+
+
+# ---------------------------------------------------------------------------
 # GCPSecretManagerStore
 # ---------------------------------------------------------------------------
 
@@ -137,8 +227,12 @@ class GCPSecretManagerStore(SecretStore):
     """
     GCP Secret Manager backend for SecretStore.
 
-    V5.12.2 scaffold: disabled mode is fully functional; enabled mode raises
-    NotImplementedError for all API methods (live calls implemented in V5.12.3).
+    V5.12.3: get_secret_bundle and get_secret_status are implemented with live
+    GCP reads via access_secret_version. An injected client= parameter allows
+    testing without real GCP credentials.
+
+    put_secret_bundle, delete_secret_bundle, and list_secret_records remain
+    NotImplementedError — live write/delete/list support is added in V5.12.4+.
 
     When enabled=False (default):
       - No GCP client is instantiated.
@@ -214,8 +308,39 @@ class GCPSecretManagerStore(SecretStore):
                 f"GCPSecretManagerStore is not ready due to init errors: {codes}"
             )
 
+    def _fetch_secret_bundle(
+        self,
+        credential_ref: str,
+        integration_type: str,
+    ) -> Tuple[Optional[dict], Optional[str]]:
+        """
+        Fetch and parse a secret bundle from GCP Secret Manager.
+
+        Returns (bundle_dict, None) on success.
+        Returns (None, error_code) on any failure.
+        Never raises. Never logs secret values.
+        Only called when self._enabled is True and self._client is set.
+        """
+        secret_id = build_gcp_secret_id(credential_ref, integration_type)
+        version_name = build_gcp_secret_version_resource_name(
+            self._project_id, secret_id  # type: ignore[arg-type]
+        )
+
+        try:
+            response = self._client.access_secret_version(request={"name": version_name})
+            payload_bytes = response.payload.data
+        except Exception as exc:
+            return None, _map_gcp_exception_to_error_code(exc)
+
+        try:
+            bundle = parse_gcp_secret_payload(payload_bytes, integration_type)
+        except ValueError:
+            return None, "gcp_secret_payload_invalid"
+
+        return bundle, None
+
     # ------------------------------------------------------------------
-    # SecretStore interface — V5.12.2 scaffold
+    # SecretStore interface
     # ------------------------------------------------------------------
 
     def put_secret_bundle(
@@ -228,9 +353,9 @@ class GCPSecretManagerStore(SecretStore):
         """
         Store a secret bundle in GCP Secret Manager.
 
-        V5.12.2: raises RuntimeError when disabled.
-        Raises NotImplementedError when enabled (live write implemented in V5.12.3).
-        Validates allowed fields before any network call.
+        V5.12.3: raises RuntimeError when disabled. Validates allowed fields
+        before any network call. Raises NotImplementedError when enabled
+        (live write implemented in V5.12.4).
         """
         self._check_disabled()
 
@@ -245,7 +370,7 @@ class GCPSecretManagerStore(SecretStore):
         self._check_ready()
         raise NotImplementedError(
             "GCPSecretManagerStore.put_secret_bundle is not yet implemented. "
-            "Live GCP write support is added in V5.12.3."
+            "Live GCP write support is added in V5.12.4."
         )
 
     def get_secret_bundle(
@@ -256,16 +381,17 @@ class GCPSecretManagerStore(SecretStore):
         """
         Retrieve a secret bundle from GCP Secret Manager.
 
-        V5.12.2: returns None when disabled or not yet implemented.
+        Returns the raw secret dict for internal adapter use only.
+        Returns None when disabled, when init errors prevent client access,
+        or when the secret cannot be retrieved or parsed.
+        Never logs or exposes secret values.
         """
         if not self._enabled:
             return None
-        if self._init_errors:
+        if self._init_errors or self._client is None:
             return None
-        raise NotImplementedError(
-            "GCPSecretManagerStore.get_secret_bundle is not yet implemented. "
-            "Live GCP read support is added in V5.12.3."
-        )
+        bundle, _ = self._fetch_secret_bundle(credential_ref, integration_type)
+        return bundle
 
     def get_secret_status(
         self,
@@ -275,8 +401,11 @@ class GCPSecretManagerStore(SecretStore):
         """
         Return a redacted status dict. Safe for logging and API responses.
 
-        V5.12.2: returns an unconfigured shape with backend metadata when disabled.
-        Returns a not_implemented shape when enabled but V5.12.3 is not yet present.
+        When disabled: unconfigured shape with backend_status=disabled.
+        When init errors: unconfigured shape with error_codes.
+        When enabled and bundle found: configured=true with field presence map.
+        When enabled and bundle missing/error: configured=false with error_code.
+        No secret values are present in any returned shape.
         """
         if not self._enabled:
             return redact_secret_status(
@@ -285,19 +414,57 @@ class GCPSecretManagerStore(SecretStore):
                 configured_fields=[],
                 metadata={"backend": "gcp_secret_manager", "backend_status": "disabled"},
             )
+
         if self._init_errors:
             codes = [e.get("code", "unknown") for e in self._init_errors]
             return redact_secret_status(
                 credential_ref,
                 integration_type,
                 configured_fields=[],
-                metadata={"backend": "gcp_secret_manager", "backend_status": "init_error", "error_codes": codes},
+                metadata={
+                    "backend": "gcp_secret_manager",
+                    "backend_status": "init_error",
+                    "error_codes": codes,
+                },
             )
+
+        if self._client is None:
+            return redact_secret_status(
+                credential_ref,
+                integration_type,
+                configured_fields=[],
+                metadata={
+                    "backend": "gcp_secret_manager",
+                    "backend_status": "client_unavailable",
+                },
+            )
+
+        bundle, error_code = self._fetch_secret_bundle(credential_ref, integration_type)
+
+        if bundle is not None:
+            return redact_secret_status(
+                credential_ref,
+                integration_type,
+                configured_fields=list(bundle.keys()),
+                metadata={
+                    "backend": "gcp_secret_manager",
+                    "enabled": True,
+                    "project_id_configured": True,
+                    "available": True,
+                },
+            )
+
         return redact_secret_status(
             credential_ref,
             integration_type,
             configured_fields=[],
-            metadata={"backend": "gcp_secret_manager", "backend_status": "not_implemented"},
+            metadata={
+                "backend": "gcp_secret_manager",
+                "enabled": True,
+                "project_id_configured": self._project_id is not None,
+                "available": False,
+                "error_code": error_code,
+            },
         )
 
     def delete_secret_bundle(
@@ -308,14 +475,15 @@ class GCPSecretManagerStore(SecretStore):
         """
         Delete a stored secret bundle from GCP Secret Manager.
 
-        V5.12.2: returns False when disabled. Raises NotImplementedError when enabled.
+        Returns False when disabled. Raises NotImplementedError when enabled
+        (live delete implemented in V5.12.4).
         """
         if not self._enabled:
             return False
         self._check_ready()
         raise NotImplementedError(
             "GCPSecretManagerStore.delete_secret_bundle is not yet implemented. "
-            "Live GCP delete support is added in V5.12.3."
+            "Live GCP delete support is added in V5.12.4."
         )
 
     def list_secret_records(
@@ -325,14 +493,15 @@ class GCPSecretManagerStore(SecretStore):
         """
         Return a list of SecretRecord descriptors from GCP Secret Manager.
 
-        V5.12.2: returns [] when disabled. Raises NotImplementedError when enabled.
+        Returns [] when disabled. Raises NotImplementedError when enabled
+        (live list implemented in V5.12.4).
         """
         if not self._enabled:
             return []
         self._check_ready()
         raise NotImplementedError(
             "GCPSecretManagerStore.list_secret_records is not yet implemented. "
-            "Live GCP list support is added in V5.12.3."
+            "Live GCP list support is added in V5.12.4."
         )
 
 
