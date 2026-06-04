@@ -52,7 +52,9 @@ from credentials.google_ads_provider import (
 )
 from credentials.gcp_secret_manager_store import (
     GCPSecretManagerStore,
+    build_gcp_project_resource_name,
     build_gcp_secret_id,
+    build_gcp_secret_payload,
     build_gcp_secret_resource_name,
     build_gcp_secret_version_resource_name,
     gcp_secret_manager_status,
@@ -105,7 +107,9 @@ __all__ = [
     "google_ads_provider_result_to_redacted_dict",
     "make_provider_error",
     "GCPSecretManagerStore",
+    "build_gcp_project_resource_name",
     "build_gcp_secret_id",
+    "build_gcp_secret_payload",
     "build_gcp_secret_resource_name",
     "build_gcp_secret_version_resource_name",
     "gcp_secret_manager_status",

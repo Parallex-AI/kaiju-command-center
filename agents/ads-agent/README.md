@@ -1110,3 +1110,39 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo covers 8 sections: `parse_gcp_secret_payload` valid input, rejection cases, `build_gcp_secret_version_resource_name`, valid mock client (configured=true), NotFound mock (gcp_secret_not_found), invalid JSON mock (gcp_secret_payload_invalid), forbidden field mock, and missing project_id init error. All 5 printed status dicts are asserted free of secret markers.
+
+---
+
+## V5.12.4 GCP Secret Manager Write Behavior
+
+V5.12.4 implements `put_secret_bundle()` via `create_secret` + `add_secret_version`. `delete_secret_bundle` and `list_secret_records` remain deferred (V5.12.5).
+
+### New functions
+
+| Function | Purpose |
+|---|---|
+| `build_gcp_project_resource_name(project_id)` | `projects/{project_id}` — parent for secret creation |
+| `build_gcp_secret_payload(secrets, integration_type)` | Validate fields + encode as sorted UTF-8 JSON bytes |
+
+### put_secret_bundle behavior
+
+| Step | Action |
+|---|---|
+| 1 | Disabled check — raises `RuntimeError` immediately |
+| 2 | Field validation — `ValueError` for empty/forbidden/empty-value fields |
+| 3 | Ready check — `RuntimeError` if project_id missing or client unavailable |
+| 4 | `create_secret(parent, secret_id, replication=automatic)` |
+| 5 | `AlreadyExists` on step 4 → proceed to step 6 |
+| 6 | `add_secret_version(parent=secret_resource, payload={"data": bytes})` |
+| 7 | Return `SecretRecord` — no secret values included |
+
+`RuntimeError` messages on GCP failure contain only a safe error code (`gcp_secret_access_denied`, `gcp_secret_write_failed`) — never raw exception text or secret content.
+
+### Run the write mock demo (no GCP credentials required)
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_gcp_secret_manager_write_mock_demo.py
+```
+
+The demo covers 9 sections: `build_gcp_project_resource_name`, `build_gcp_secret_payload` (valid + rejections), disabled mode, valid write (request shapes verified), AlreadyExists handling, forbidden field rejection, empty value rejection, PermissionDenied on create_secret, and PermissionDenied on add_secret_version. All printed outputs asserted free of secret markers.

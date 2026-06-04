@@ -1,14 +1,20 @@
 """
-V5.12.3 — GCPSecretManagerStore with read/status behavior.
+V5.12.4 — GCPSecretManagerStore with write behavior.
 
-V5.12.3 adds:
+V5.12.4 adds:
+  build_gcp_project_resource_name()        — projects/{project_id} resource name
+  build_gcp_secret_payload()               — validate and JSON-encode secrets to bytes
+  _is_gcp_already_exists()                 — classify AlreadyExists exception
+  _map_gcp_write_exception_to_error_code() — map write exceptions to safe codes
+  GCPSecretManagerStore.put_secret_bundle() — create_secret + add_secret_version
+
+delete_secret_bundle and list_secret_records remain deferred (V5.12.5+).
+
+V5.12.3 added:
   build_gcp_secret_version_resource_name() — version resource name builder
   parse_gcp_secret_payload()               — decode, validate, and parse secret bytes
   GCPSecretManagerStore.get_secret_bundle() — live read via access_secret_version
   GCPSecretManagerStore.get_secret_status() — redacted status derived from bundle result
-
-put_secret_bundle, delete_secret_bundle, and list_secret_records remain deferred.
-Live write/delete/list support is added in V5.12.4+.
 
 No live GCP calls are required for tests. The constructor accepts an injected
 client= parameter so a mock SecretManagerServiceClient can be used.
@@ -31,6 +37,7 @@ import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+from credentials.models import now_utc_iso
 from credentials.secret_store import (
     SecretRecord,
     SecretStore,
@@ -107,6 +114,11 @@ def build_gcp_secret_id(credential_ref: str, integration_type: str) -> str:
 def build_gcp_secret_resource_name(project_id: str, secret_id: str) -> str:
     """Return the full GCP Secret Manager resource name for a secret."""
     return f"projects/{project_id}/secrets/{secret_id}"
+
+
+def build_gcp_project_resource_name(project_id: str) -> str:
+    """Return the GCP project resource name used as the parent for secret creation."""
+    return f"projects/{project_id}"
 
 
 def build_gcp_secret_version_resource_name(
@@ -197,6 +209,28 @@ def parse_gcp_secret_payload(
     return parsed
 
 
+def build_gcp_secret_payload(secrets: dict, integration_type: str) -> bytes:
+    """
+    Validate and encode a secrets dict to UTF-8 JSON bytes for GCP Secret Manager.
+
+    Validates allowed fields and rejects empty values.
+    Uses sorted key ordering for deterministic output.
+    Never prints or logs the returned bytes — they contain secret values.
+    Raises ValueError for any validation failure.
+    """
+    if not secrets:
+        raise ValueError("secrets dict must not be empty")
+    allowed, rejected = assert_allowed_secret_fields(secrets, integration_type)
+    if not allowed:
+        raise ValueError(
+            f"secrets contain disallowed fields for '{integration_type}': {rejected}"
+        )
+    empty_fields = [k for k, v in secrets.items() if not v or not str(v).strip()]
+    if empty_fields:
+        raise ValueError(f"Secret fields must not be empty: {empty_fields}")
+    return json.dumps(dict(sorted(secrets.items())), ensure_ascii=False).encode("utf-8")
+
+
 def _map_gcp_exception_to_error_code(exc: Exception) -> str:
     """
     Map a GCP API exception to a safe, non-revealing error code.
@@ -219,6 +253,41 @@ def _map_gcp_exception_to_error_code(exc: Exception) -> str:
     return "gcp_secret_read_failed"
 
 
+def _is_gcp_already_exists(exc: Exception) -> bool:
+    """
+    Return True if exc is a GCP AlreadyExists exception.
+
+    Checks the real google.api_core exception type first, then falls back to
+    a substring match on the exception message for mock/test environments.
+    """
+    try:
+        from google.api_core import exceptions as gcp_exc  # type: ignore
+        if isinstance(exc, gcp_exc.AlreadyExists):
+            return True
+    except ImportError:
+        pass
+    return "already exists" in str(exc).lower()
+
+
+def _map_gcp_write_exception_to_error_code(exc: Exception) -> str:
+    """
+    Map a GCP write-path exception to a safe error code.
+
+    Falls back to 'gcp_secret_write_failed'. Does not expose exception messages.
+    """
+    try:
+        from google.api_core import exceptions as gcp_exc  # type: ignore
+        if isinstance(exc, gcp_exc.PermissionDenied):
+            return "gcp_secret_access_denied"
+        if isinstance(exc, gcp_exc.InvalidArgument):
+            return "gcp_secret_payload_invalid"
+        if isinstance(exc, gcp_exc.AlreadyExists):
+            return "gcp_secret_already_exists"
+    except ImportError:
+        pass
+    return "gcp_secret_write_failed"
+
+
 # ---------------------------------------------------------------------------
 # GCPSecretManagerStore
 # ---------------------------------------------------------------------------
@@ -227,12 +296,11 @@ class GCPSecretManagerStore(SecretStore):
     """
     GCP Secret Manager backend for SecretStore.
 
-    V5.12.3: get_secret_bundle and get_secret_status are implemented with live
-    GCP reads via access_secret_version. An injected client= parameter allows
-    testing without real GCP credentials.
+    V5.12.4: put_secret_bundle implemented via create_secret + add_secret_version.
+    AlreadyExists on create_secret is handled safely (proceeds to add_secret_version).
+    delete_secret_bundle and list_secret_records remain deferred (V5.12.5+).
 
-    put_secret_bundle, delete_secret_bundle, and list_secret_records remain
-    NotImplementedError — live write/delete/list support is added in V5.12.4+.
+    An injected client= parameter allows testing without real GCP credentials.
 
     When enabled=False (default):
       - No GCP client is instantiated.
@@ -353,12 +421,20 @@ class GCPSecretManagerStore(SecretStore):
         """
         Store a secret bundle in GCP Secret Manager.
 
-        V5.12.3: raises RuntimeError when disabled. Validates allowed fields
-        before any network call. Raises NotImplementedError when enabled
-        (live write implemented in V5.12.4).
+        Creates the secret if it does not exist; adds a new version if it does.
+        AlreadyExists on create_secret is handled safely — proceeds to add_secret_version.
+        Returns a SecretRecord (no secret values). Never logs or returns the payload.
+
+        Raises:
+          RuntimeError — when disabled, project missing, client unavailable, or GCP error.
+          ValueError   — when secrets dict is empty or contains disallowed/empty fields.
+
+        Field validation and disabled/ready checks run before any GCP API call.
         """
+        # Disabled check first.
         self._check_disabled()
 
+        # Validate fields before any GCP call.
         if not secrets:
             raise ValueError("secrets dict must not be empty")
         allowed, rejected = assert_allowed_secret_fields(secrets, integration_type)
@@ -366,11 +442,62 @@ class GCPSecretManagerStore(SecretStore):
             raise ValueError(
                 f"Secrets contain disallowed fields for '{integration_type}': {rejected}"
             )
+        empty_fields = [k for k, v in secrets.items() if not v or not str(v).strip()]
+        if empty_fields:
+            raise ValueError(f"Secret fields must not be empty: {empty_fields}")
 
+        # Check project_id and client are available.
         self._check_ready()
-        raise NotImplementedError(
-            "GCPSecretManagerStore.put_secret_bundle is not yet implemented. "
-            "Live GCP write support is added in V5.12.4."
+
+        # Build identifiers — no secret values here.
+        secret_id = build_gcp_secret_id(credential_ref, integration_type)
+        parent = build_gcp_project_resource_name(self._project_id)  # type: ignore[arg-type]
+        secret_resource = build_gcp_secret_resource_name(
+            self._project_id, secret_id  # type: ignore[arg-type]
+        )
+
+        # Encode payload bytes — internal only, never printed or returned.
+        payload_bytes = build_gcp_secret_payload(secrets, integration_type)
+
+        # Step 1: Create secret. AlreadyExists → continue to add_secret_version.
+        try:
+            self._client.create_secret(request={
+                "parent": parent,
+                "secret_id": secret_id,
+                "secret": {"replication": {"automatic": {}}},
+            })
+        except Exception as exc:
+            if not _is_gcp_already_exists(exc):
+                error_code = _map_gcp_write_exception_to_error_code(exc)
+                raise RuntimeError(f"Failed to create GCP secret: {error_code}")
+            # AlreadyExists — proceed to add a new version.
+
+        # Step 2: Add secret version.
+        try:
+            self._client.add_secret_version(request={
+                "parent": secret_resource,
+                "payload": {"data": payload_bytes},
+            })
+        except Exception as exc:
+            error_code = _map_gcp_write_exception_to_error_code(exc)
+            raise RuntimeError(f"Failed to add GCP secret version: {error_code}")
+
+        # Return redacted SecretRecord — no secret values.
+        now = now_utc_iso()
+        record_meta: Dict[str, Any] = {
+            "backend": "gcp_secret_manager",
+            "enabled": True,
+            "project_id_configured": True,
+            "secret_id": secret_id,
+            "write_mode": "add_secret_version",
+        }
+        return SecretRecord(
+            credential_ref=credential_ref,
+            integration_type=integration_type,
+            configured_fields=sorted(secrets.keys()),
+            created_at=now,
+            updated_at=now,
+            metadata=record_meta,
         )
 
     def get_secret_bundle(
@@ -476,14 +603,14 @@ class GCPSecretManagerStore(SecretStore):
         Delete a stored secret bundle from GCP Secret Manager.
 
         Returns False when disabled. Raises NotImplementedError when enabled
-        (live delete implemented in V5.12.4).
+        (live delete implemented in V5.12.5).
         """
         if not self._enabled:
             return False
         self._check_ready()
         raise NotImplementedError(
             "GCPSecretManagerStore.delete_secret_bundle is not yet implemented. "
-            "Live GCP delete support is added in V5.12.4."
+            "Live GCP delete support is added in V5.12.5."
         )
 
     def list_secret_records(
@@ -494,14 +621,14 @@ class GCPSecretManagerStore(SecretStore):
         Return a list of SecretRecord descriptors from GCP Secret Manager.
 
         Returns [] when disabled. Raises NotImplementedError when enabled
-        (live list implemented in V5.12.4).
+        (live list implemented in V5.12.5).
         """
         if not self._enabled:
             return []
         self._check_ready()
         raise NotImplementedError(
             "GCPSecretManagerStore.list_secret_records is not yet implemented. "
-            "Live GCP list support is added in V5.12.4."
+            "Live GCP list support is added in V5.12.5."
         )
 
 
