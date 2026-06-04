@@ -50,6 +50,16 @@ from credentials.google_ads_provider import (
     google_ads_provider_result_to_redacted_dict,
     make_provider_error,
 )
+from credentials.gcp_secret_manager_store import (
+    GCPSecretManagerStore,
+    build_gcp_secret_id,
+    build_gcp_secret_resource_name,
+    gcp_secret_manager_status,
+    get_gcp_project_id,
+    get_gcp_secret_manager_enabled,
+    get_gcp_secret_manager_env,
+    get_gcp_secret_manager_prefix,
+)
 
 __all__ = [
     "CredentialReference",
@@ -92,4 +102,12 @@ __all__ = [
     "compose_google_ads_credentials",
     "google_ads_provider_result_to_redacted_dict",
     "make_provider_error",
+    "GCPSecretManagerStore",
+    "build_gcp_secret_id",
+    "build_gcp_secret_resource_name",
+    "gcp_secret_manager_status",
+    "get_gcp_project_id",
+    "get_gcp_secret_manager_enabled",
+    "get_gcp_secret_manager_env",
+    "get_gcp_secret_manager_prefix",
 ]

@@ -1008,3 +1008,46 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo covers 6 sections without making any live Google Ads API calls: credential source flag resolution, live-disabled guard, missing `tenant_id` error, no-store provider failure, in-memory store with valid credential loading, and backward-compatible 2-arg call. All existing demos continue to run unchanged.
+
+---
+
+## V5.12.2 GCP Secret Manager Store Scaffold
+
+V5.12.2 adds `credentials/gcp_secret_manager_store.py` — the scaffold for the production GCP Secret Manager backend. The dependency `google-cloud-secret-manager>=2.20.0` is added to `requirements.txt`.
+
+> **No live GCP calls are made in V5.12.2.** Disabled mode is fully functional. Enabled mode stubs raise `NotImplementedError` — live read/write is implemented in V5.12.3.
+
+### New env vars
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `GCP_SECRET_MANAGER_ENABLED` | `false` | Gate for all live GCP calls — `false` by default |
+| `GCP_PROJECT_ID` | `` | GCP project; fallback: `GOOGLE_CLOUD_PROJECT` |
+| `GCP_SECRET_MANAGER_PREFIX` | `kaiju` | Secret name prefix segment |
+| `GCP_SECRET_MANAGER_ENV` | `local` | Env segment: `local`, `dev`, `staging`, `prod` |
+
+### Secret naming
+
+```
+{prefix}-{env}-{integration_type}-{credential_ref}
+e.g. kaiju-prod-google_ads-cred_google_ads_abcd1234ef56
+```
+
+### Disabled mode behavior (default)
+
+| Method | Returns |
+|---|---|
+| `put_secret_bundle(...)` | Raises `RuntimeError("GCP Secret Manager is disabled")` |
+| `get_secret_bundle(...)` | `None` |
+| `get_secret_status(...)` | Redacted unconfigured shape with `backend_status: "disabled"` |
+| `delete_secret_bundle(...)` | `False` |
+| `list_secret_records(...)` | `[]` |
+
+### Run the scaffold demo (no GCP credentials required)
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_gcp_secret_manager_store_demo.py
+```
+
+The demo covers 9 sections: env helpers, edge cases, secret ID builder, status dict, lazy import guard, disabled mode (all 5 methods), default-env construction, field validation order, and secret-safety assertion. No GCP credentials required. All assertions pass.

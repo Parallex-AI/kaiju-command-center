@@ -346,7 +346,7 @@ Goal: Replace `InMemorySecretStore` with a production-grade `GCPSecretManagerSto
 ### Implementation phases
 
 - [x] **V5.12.1** — Design doc (`docs/V5_12_GCP_SECRET_MANAGER_DESIGN.md`) · ROADMAP update · no code, no dependencies, no runtime changes
-- [ ] **V5.12.2** — Add `google-cloud-secret-manager>=2.20.0` dependency · lazy import guard · `GCPSecretManagerStore` class scaffold (no live calls) · unit tests with mocks
+- [x] **V5.12.2** — Add `google-cloud-secret-manager>=2.20.0` dependency · lazy import guard · `GCPSecretManagerStore` scaffold (disabled mode fully functional, enabled stubs raise `NotImplementedError`) · env config helpers · `build_gcp_secret_id` / `build_gcp_secret_resource_name` · `gcp_secret_manager_status()` · `credentials/__init__.py` re-exports · demo (`run_gcp_secret_manager_store_demo.py`) · all existing smoke tests pass
 - [ ] **V5.12.3** — `get_secret_bundle()` implementation · `put_secret_bundle()` implementation · `delete_secret()` implementation · integration tests against GCP emulator or real project (behind `GCP_SECRET_MANAGER_ENABLED=true`)
 - [ ] **V5.12.4** — `list_secrets()` and `secret_exists()` implementation · pagination support · filter by `credential_ref` prefix
 - [ ] **V5.12.5** — `SecretStoreFactory` — selects `InMemorySecretStore` vs `GCPSecretManagerStore` based on `GCP_SECRET_MANAGER_ENABLED` · wired into `compose_google_ads_credentials`

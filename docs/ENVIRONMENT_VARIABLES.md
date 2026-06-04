@@ -358,6 +358,65 @@ All Kaiju Command Center / OpenClaw configuration is read from environment varia
 
 ---
 
+## GCP Secret Manager Variables (V5.12+)
+
+### `GCP_SECRET_MANAGER_ENABLED`
+
+| Field | Value |
+|---|---|
+| Purpose | Gate for all live GCP Secret Manager API calls |
+| Default | `false` |
+| Accepted true values | `true`, `1`, `yes`, `on` |
+| Accepted false values | anything else |
+| Local example | `GCP_SECRET_MANAGER_ENABLED=false` |
+| Production | `GCP_SECRET_MANAGER_ENABLED=true` when GCPSecretManagerStore is active |
+| Secret | No |
+| Notes | When `false`, no GCP client is instantiated and no network calls are made. Default remains `false` through V5.12.2. |
+
+---
+
+### `GCP_PROJECT_ID`
+
+| Field | Value |
+|---|---|
+| Purpose | GCP project for Secret Manager API calls |
+| Default | Empty |
+| Fallback | `GOOGLE_CLOUD_PROJECT` (standard GCP SDK env var) |
+| Local example | `GCP_PROJECT_ID=my-gcp-project` |
+| Production | Set to the project that owns the Secret Manager secrets |
+| Secret | No |
+| Notes | Required when `GCP_SECRET_MANAGER_ENABLED=true`. If empty, `GCPSecretManagerStore` records an init error and returns safe unavailable responses. |
+
+---
+
+### `GCP_SECRET_MANAGER_PREFIX`
+
+| Field | Value |
+|---|---|
+| Purpose | Prefix segment in GCP secret names |
+| Default | `kaiju` |
+| Local example | `GCP_SECRET_MANAGER_PREFIX=kaiju` |
+| Production | `GCP_SECRET_MANAGER_PREFIX=kaiju` (or org-specific slug) |
+| Secret | No |
+| Notes | Becomes the first segment of `{prefix}-{env}-{integration_type}-{credential_ref}`. |
+
+---
+
+### `GCP_SECRET_MANAGER_ENV`
+
+| Field | Value |
+|---|---|
+| Purpose | Environment segment in GCP secret names |
+| Default | `local` |
+| Allowed values | `local`, `dev`, `staging`, `prod` |
+| Invalid value | Falls back to `local` |
+| Local example | `GCP_SECRET_MANAGER_ENV=local` |
+| Production | `GCP_SECRET_MANAGER_ENV=prod` |
+| Secret | No |
+| Notes | Becomes the second segment of the secret name. Ensures prod secrets are never accessible in dev or staging by accident. |
+
+---
+
 ## Summary Table
 
 | Variable | Default | Secret | Required in Production |
@@ -387,3 +446,7 @@ All Kaiju Command Center / OpenClaw configuration is read from environment varia
 | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | `` | No | Optional |
 | `GOOGLE_ADS_CUSTOMER_ID` | `` | No | Yes (live only) |
 | `GOOGLE_ADS_CURRENCY` | `ARS` | No | Set per tenant |
+| `GCP_SECRET_MANAGER_ENABLED` | `false` | No | `true` when GCPSecretManagerStore is active |
+| `GCP_PROJECT_ID` | `` | No | Yes (when Secret Manager enabled) |
+| `GCP_SECRET_MANAGER_PREFIX` | `kaiju` | No | No |
+| `GCP_SECRET_MANAGER_ENV` | `local` | No | `prod` in production |

@@ -1,3 +1,4 @@
 langgraph
 requests
 google-ads>=23.1.0
+google-cloud-secret-manager>=2.20.0
