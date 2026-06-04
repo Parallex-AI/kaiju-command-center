@@ -420,7 +420,7 @@ GCP Secret Manager's versioning model maps naturally to the rotation workflow:
 | **V5.12.5** | Delete/List | `delete_secret_bundle` via `delete_secret` · NotFound/PermissionDenied/generic all return `False` safely · `list_secret_records` via `list_secrets` with prefix/env filter · no payload access during list · `parse_gcp_secret_id` reversal helper · `_is_gcp_not_found` · mock demo (`run_gcp_secret_manager_delete_list_mock_demo.py`, 11 sections) *(complete)* |
 | **V5.12.6** | Factory/wiring | `credentials/secret_store_factory.py` · `create_secret_store()` auto-selects `InMemorySecretStore` or `GCPSecretManagerStore` via `GCP_SECRET_MANAGER_ENABLED` · `compose_google_ads_credentials` uses factory when no `secret_store` passed · explicit injection still works · factory demo (11 sections) *(complete)* |
 | **V5.12.7** | Mocked smoke test | `scripts/smoke_test_v5_12_gcp_secret_manager.sh` · 8 sections · import checks · disabled/read/write/delete/list/factory/provider paths · secret-safety and git hygiene · no real GCP credentials required *(complete)* |
-| **V5.12.8** | Cloud Run runbook | Cloud Run deployment guide update · IAM setup instructions · secret rotation runbook · `docs/GCP_SECRET_MANAGER_RUNBOOK.md` |
+| **V5.12.8** | Cloud Run runbook | Cloud Run deployment guide update · IAM setup instructions · secret rotation runbook · `docs/GCP_SECRET_MANAGER_RUNBOOK.md` *(complete)* |
 | **V5.12.9** | Closure | Final docs pass · all smoke suites (V0–V5.12) pass · release notes update |
 
 ---
