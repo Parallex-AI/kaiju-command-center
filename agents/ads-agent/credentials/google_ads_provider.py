@@ -1,7 +1,13 @@
 """
-V5.9 — Google Ads CredentialProvider composition layer.
+V5.12.6 — Google Ads CredentialProvider composition layer.
 
-Composes a complete set of Google Ads credentials by combining:
+V5.12.6: compose_google_ads_credentials now uses SecretStoreFactory when no
+explicit secret_store is provided. Default behavior is unchanged — InMemorySecretStore
+is still selected when GCP_SECRET_MANAGER_ENABLED=false (the default). When
+GCP_SECRET_MANAGER_ENABLED=true, GCPSecretManagerStore is selected automatically.
+Passing an explicit secret_store= bypasses the factory entirely (used in all tests).
+
+V5.9 original: Composes a complete set of Google Ads credentials by combining:
 - CredentialReference metadata (customer_id, login_customer_id) from the resolver
 - Secret bundle (developer_token, client_id, client_secret, refresh_token) from a SecretStore
 
@@ -25,7 +31,7 @@ if _ADS_AGENT_DIR not in sys.path:
 
 from credentials.models import IntegrationType
 from credentials.resolver import resolve_credential_reference
-from credentials.secret_store import InMemorySecretStore, SecretStore
+from credentials.secret_store import SecretStore
 from integrations.google_ads_adapter import GoogleAdsCredentials
 
 _INTEGRATION_TYPE = IntegrationType.GOOGLE_ADS.value
@@ -107,7 +113,8 @@ def compose_google_ads_credentials(
     It must never be logged, printed, or returned from any API endpoint.
     """
     if secret_store is None:
-        secret_store = InMemorySecretStore()
+        from credentials.secret_store_factory import create_secret_store
+        secret_store = create_secret_store()
 
     # Step 1: Resolve CredentialReference metadata
     resolved = resolve_credential_reference(tenant_id, client_id, _INTEGRATION_TYPE)

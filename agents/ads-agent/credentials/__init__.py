@@ -65,6 +65,11 @@ from credentials.gcp_secret_manager_store import (
     parse_gcp_secret_id,
     parse_gcp_secret_payload,
 )
+from credentials.secret_store_factory import (
+    create_secret_store,
+    get_secret_store_backend_name,
+    secret_store_factory_status,
+)
 
 __all__ = [
     "CredentialReference",
@@ -120,4 +125,7 @@ __all__ = [
     "get_gcp_secret_manager_prefix",
     "parse_gcp_secret_id",
     "parse_gcp_secret_payload",
+    "create_secret_store",
+    "get_secret_store_backend_name",
+    "secret_store_factory_status",
 ]

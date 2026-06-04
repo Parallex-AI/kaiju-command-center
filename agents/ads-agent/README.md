@@ -1222,3 +1222,71 @@ cd ~/kaiju/agents/ads-agent
 ```
 
 The demo covers 11 sections: `parse_gcp_secret_id` (valid IDs), non-matching IDs, disabled delete, disabled list, enabled delete success (request shape verified), NotFound on delete, PermissionDenied on delete, list calls with correct parent, list filters non-matching secrets (2 of 5 kept), integration_type filter (including empty list and PermissionDenied on list_secrets), and secret-safety assertion. `access_secret_version` is asserted never called during delete or list. All outputs free of secret markers.
+
+---
+
+## V5.12.6 SecretStoreFactory
+
+V5.12.6 adds `credentials/secret_store_factory.py` — a factory that selects `InMemorySecretStore` or `GCPSecretManagerStore` based on `GCP_SECRET_MANAGER_ENABLED`. `compose_google_ads_credentials()` now uses the factory when no explicit `secret_store` is passed, so existing tests and demos that inject a store are unaffected.
+
+### Package location
+
+```
+agents/ads-agent/credentials/
+  secret_store_factory.py    — create_secret_store, get_secret_store_backend_name, secret_store_factory_status
+```
+
+### Backend selection
+
+| `GCP_SECRET_MANAGER_ENABLED` | `create_secret_store()` returns |
+|---|---|
+| `false` (default) | `InMemorySecretStore()` |
+| `true` | `GCPSecretManagerStore()` |
+
+Explicit `backend=` overrides auto-selection.
+
+### API
+
+```python
+from credentials.secret_store_factory import (
+    create_secret_store,
+    get_secret_store_backend_name,
+    secret_store_factory_status,
+)
+
+# Auto-select based on env var (default: in_memory)
+store = create_secret_store()
+
+# Explicit backend
+store = create_secret_store("in_memory")
+store = create_secret_store("gcp_secret_manager", enabled=False)
+store = create_secret_store("gcp_secret_manager", project_id="my-project", client=mock)
+
+# Invalid backend → ValueError with safe message
+create_secret_store("redis")   # raises ValueError
+
+# Safe status (no credentials)
+status = secret_store_factory_status()
+# {
+#   "selected_backend": "in_memory",
+#   "gcp": {"enabled": False, "project_id_configured": False, ...}
+# }
+```
+
+### compose_google_ads_credentials behavior
+
+| `secret_store` argument | What happens |
+|---|---|
+| Not passed (default `None`) | Factory auto-selects backend based on `GCP_SECRET_MANAGER_ENABLED` |
+| Passed explicitly | Factory is bypassed — injected store used directly |
+
+This means all existing tests and demos that pass `secret_store=InMemorySecretStore()` explicitly are unaffected. When `GCP_SECRET_MANAGER_ENABLED=false` (default), omitting `secret_store` is equivalent to passing `InMemorySecretStore()` — same behavior as before V5.12.6.
+
+### Run the factory demo (no GCP credentials required)
+
+```bash
+cd ~/kaiju/agents/ads-agent
+~/kaiju/.venv/bin/python3 run_secret_store_factory_demo.py
+```
+
+The demo covers 11 sections: default backend name, auto create, explicit in_memory, explicit gcp_secret_manager disabled, explicit gcp_secret_manager enabled with mock, invalid backend ValueError, factory status shape, GCP env var backend switching, compose with explicit store, compose via factory path (identical behavior), and secret-safety assertion. No GCP credentials required. All assertions pass.
