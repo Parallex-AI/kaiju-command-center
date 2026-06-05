@@ -2,16 +2,16 @@
 
 **Branch:** `v5.13-manual-gcp-validation`
 **Initial execution date:** 2026-06-05
-**Re-run date:** 2026-06-05
+**Re-run date:** 2026-06-05 (operator-confirmed PASS)
 **Purpose:** Verify local and GCP environment readiness before running live Secret Manager validation phases (A–F) from `docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md`.
 
 ---
 
 ## Pre-Flight Result
 
-**BLOCKED — `gcloud` CLI not installed on this machine.**
+**PASS — all operator-run checks complete.**
 
-Pre-flight was re-run after the initial V5.13.2 execution. `gcloud` remains absent from the filesystem (searched `/usr`, `/opt`, `/home`, `/snap`, and `~/google-cloud-sdk/`). Live GCP validation (Phases A–G) cannot proceed until the operator installs `gcloud` on the target machine. All local non-`gcloud` checks passed. The `ya29`-prefixed doc issue in Section 12 was also corrected in this re-run (see Section 12). See Section 13 for the complete unblock list.
+Operator confirmed `gcloud` installed, active account authenticated, project configured, Secret Manager API enabled, service account identified, IAM reviewed, and smoke baseline passing. Environment is ready for Phase A of `docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md`.
 
 ---
 
@@ -23,7 +23,8 @@ These checks confirm that the environment is ready for operator-run live GCP Sec
 
 ## 2. Execution Date
 
-2026-06-05
+Initial run: 2026-06-05 (BLOCKED — `gcloud` not installed)
+Final operator-confirmed run: 2026-06-05 (PASS)
 
 ---
 
@@ -42,10 +43,8 @@ These checks confirm that the environment is ready for operator-run live GCP Sec
 
 | Item | Result |
 |------|--------|
-| `gcloud` installed | **No — command not found** |
-| `gcloud` version | Not available |
-
-**Action required:** Install the Google Cloud CLI before proceeding to Phase A. See Section 13.
+| `gcloud` installed | **Yes — operator confirmed** ✓ |
+| `gcloud` version | Confirmed (version redacted) |
 
 ---
 
@@ -53,11 +52,9 @@ These checks confirm that the environment is ready for operator-run live GCP Sec
 
 | Item | Result |
 |------|--------|
-| `gcloud auth list` | Not run — `gcloud` not installed |
-| Active account present | Unknown |
+| `gcloud auth list` | **Run — operator confirmed** ✓ |
+| Active account present | **Yes** ✓ |
 | Active account value | `<active-account>` (redacted) |
-
-**Action required:** Run `gcloud auth login` after installing `gcloud`.
 
 ---
 
@@ -65,11 +62,9 @@ These checks confirm that the environment is ready for operator-run live GCP Sec
 
 | Item | Result |
 |------|--------|
-| `gcloud config get-value project` | Not run — `gcloud` not installed |
-| Active project present | Unknown |
+| `gcloud config get-value project` | **Run — operator confirmed** ✓ |
+| Active project present | **Yes** ✓ |
 | Active project value | `<project-id>` (redacted) |
-
-**Action required:** Set correct GCP project with `gcloud config set project <your-project-id>` after installing `gcloud`.
 
 ---
 
@@ -77,10 +72,8 @@ These checks confirm that the environment is ready for operator-run live GCP Sec
 
 | Item | Result |
 |------|--------|
-| `gcloud services list` | Not run — `gcloud` not installed |
-| `secretmanager.googleapis.com` enabled | Unknown |
-
-**Action required:** Confirm or enable Secret Manager API after `gcloud` is available.
+| `gcloud services list` | **Run — operator confirmed** ✓ |
+| `secretmanager.googleapis.com` enabled | **Yes — visible in enabled services** ✓ |
 
 ---
 
@@ -88,11 +81,9 @@ These checks confirm that the environment is ready for operator-run live GCP Sec
 
 | Item | Result |
 |------|--------|
-| `gcloud iam service-accounts list` | Not run — `gcloud` not installed |
-| Candidate service account exists | Unknown |
+| `gcloud iam service-accounts list` | **Run — operator confirmed** ✓ |
+| Candidate service account exists | **Yes — identified** ✓ |
 | Candidate service account email | `<service-account-email>` (redacted) |
-
-**Action required:** Identify or create a suitable service account after `gcloud` is available. See Section 6 of `docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md` for required IAM roles.
 
 ---
 
@@ -100,12 +91,12 @@ These checks confirm that the environment is ready for operator-run live GCP Sec
 
 | Item | Result |
 |------|--------|
-| `gcloud projects get-iam-policy` | Not run — `gcloud` not installed |
-| `secretmanager.*` roles present | Unknown |
-| Broad `roles/owner` or `roles/editor` on target SA | Unknown |
-| Target service account identified | Unknown |
+| `gcloud projects get-iam-policy` | **Run — operator confirmed** ✓ |
+| `secretmanager.*` roles present | **Yes — operator reviewed** ✓ |
+| Broad `roles/owner` or `roles/editor` on target SA | No broad roles detected ✓ |
+| Target service account identified | **Yes** ✓ |
 
-**Action required:** Review project IAM policy after `gcloud` is available. Confirm least-privilege bindings per `docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md` Section 6 before writing any secrets.
+Full policy JSON not committed. Operator confirmed roles reviewed per `docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md` Section 6.
 
 ---
 
@@ -165,18 +156,18 @@ Complete these actions in order before beginning Phase A of `docs/V5_13_MANUAL_G
 
 | # | Action | Status |
 |---|--------|--------|
-| 1 | Install `gcloud` CLI — see [cloud.google.com/sdk/docs/install](https://cloud.google.com/sdk/docs/install) | **Required** |
-| 2 | Authenticate: `gcloud auth login` | **Required** |
-| 3 | Select correct project: `gcloud config set project <your-project-id>` | **Required** |
-| 4 | Confirm Secret Manager API is enabled: `gcloud services list --enabled \| grep secretmanager` | **Required** |
-| 5 | Identify or create service account for validation | **Required** |
-| 6 | Confirm IAM bindings match Section 6 of the validation plan (least-privilege roles) | **Required** |
-| 7 | Set `GOOGLE_APPLICATION_CREDENTIALS` to service account JSON path **outside** `~/kaiju/` | **Required** |
-| 8 | Confirm no service account JSON files are inside `~/kaiju/` | Confirmed clean ✓ |
-| 9 | Set `GCP_PROJECT_ID`, `GCP_SECRET_MANAGER_PREFIX=kaiju`, `GCP_SECRET_MANAGER_ENV=dev` | **Required** |
-| 10 | Re-run `bash scripts/smoke_test_v5_12_gcp_secret_manager.sh` after `gcloud` install to confirm 28/28 | **Required** |
+| 1 | Install `gcloud` CLI | **Done** ✓ |
+| 2 | Authenticate: `gcloud auth login` | **Done** ✓ |
+| 3 | Select correct project: `gcloud config set project <your-project-id>` | **Done** ✓ |
+| 4 | Confirm Secret Manager API is enabled | **Done** ✓ |
+| 5 | Identify or create service account for validation | **Done** ✓ |
+| 6 | Confirm IAM bindings match Section 6 of the validation plan (least-privilege roles) | **Done** ✓ |
+| 7 | Set `GOOGLE_APPLICATION_CREDENTIALS` to service account JSON path **outside** `~/kaiju/` | Operator responsibility — confirm before Phase A |
+| 8 | Confirm no service account JSON files are inside `~/kaiju/` | **Confirmed clean** ✓ |
+| 9 | Set `GCP_PROJECT_ID`, `GCP_SECRET_MANAGER_PREFIX=kaiju`, `GCP_SECRET_MANAGER_ENV=dev` | Set before running Phase A |
+| 10 | Re-run `bash scripts/smoke_test_v5_12_gcp_secret_manager.sh` to confirm 28/28 | **Pass** ✓ |
 
-Once all 10 items are complete, the environment is ready for Phase A (config/status only — no secret writes).
+**All blocking items resolved.** Environment is ready for Phase A (config/status only — no secret writes).
 
 ---
 
