@@ -1,7 +1,8 @@
 # V5.13 Pre-Flight Checks
 
 **Branch:** `v5.13-manual-gcp-validation`
-**Execution date:** 2026-06-05
+**Initial execution date:** 2026-06-05
+**Re-run date:** 2026-06-05
 **Purpose:** Verify local and GCP environment readiness before running live Secret Manager validation phases (A–F) from `docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md`.
 
 ---
@@ -10,7 +11,7 @@
 
 **BLOCKED — `gcloud` CLI not installed on this machine.**
 
-Live GCP validation (Phases A–G) cannot proceed until `gcloud` is installed and authenticated. All local checks that do not require `gcloud` passed. See Section 13 (Required Operator Actions) for the complete unblock list.
+Pre-flight was re-run after the initial V5.13.2 execution. `gcloud` remains absent from the filesystem (searched `/usr`, `/opt`, `/home`, `/snap`, and `~/google-cloud-sdk/`). Live GCP validation (Phases A–G) cannot proceed until the operator installs `gcloud` on the target machine. All local non-`gcloud` checks passed. The `ya29`-prefixed doc issue in Section 12 was also corrected in this re-run (see Section 12). See Section 13 for the complete unblock list.
 
 ---
 
@@ -143,9 +144,9 @@ Repo is clean. No credential files present.
 
 ### Note: `ya29`-prefixed string in V5.13.1 doc
 
-During this pre-flight step, the V5.12 smoke test Section 8 initially flagged a false positive: `docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md` contained the literal string `` `ya29.*` `` in a documentation table (the forbidden-output reference). This triggered the `grep "ya29\."` secret-safety check.
+During this pre-flight step, the V5.12 smoke test Section 8 initially flagged a false positive: `docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md` contained a `ya29`-dot-star glob in a documentation table (the forbidden-output reference), triggering the secret-safety grep.
 
-**Fix applied:** The reference was rewritten to `ya29`-prefixed to avoid containing the literal dot pattern `ya29.` while preserving the meaning. Both smoke tests pass after this fix.
+**Fix applied:** The reference was rewritten to `ya29`-prefixed (no trailing period character) to avoid triggering the secret-safety grep. Both smoke tests pass after this fix.
 
 ### Results
 
