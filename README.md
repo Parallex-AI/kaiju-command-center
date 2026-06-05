@@ -4,9 +4,9 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V5.12 beta — GCP Secret Manager Backend Foundation** (branch: `v5.12-gcp-secret-manager`)
+**V5.13 — Manual GCP Validation** (branch: `v5.13-manual-gcp-validation`)
 
-V5.12 is complete. `GCPSecretManagerStore` implements the `SecretStore` ABC with full read / write / delete / list behavior, selected at runtime by `SecretStoreFactory`. All automated tests use injected mock clients — no real GCP credentials required. See [V5.12 Release Notes](docs/V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md) and [Runbook](docs/GCP_SECRET_MANAGER_RUNBOOK.md). Next: `v5.13-manual-gcp-validation`.
+V5.12 is published (`v5.12.0-beta`). V5.13 validates `GCPSecretManagerStore` against a real GCP project — write, read, list, delete, and provider composition — using operator-controlled credentials with no committed secrets. See [V5.13 Validation Plan](docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md), [V5.12 Release Notes](docs/V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md), and [Runbook](docs/GCP_SECRET_MANAGER_RUNBOOK.md).
 
 ## Architecture
 
@@ -56,6 +56,7 @@ cd ~/kaiju/projects/demo-client
 - [Roadmap](docs/ROADMAP.md)
 - [V5.12 Release Notes](docs/V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md)
 - [GCP Secret Manager Runbook](docs/GCP_SECRET_MANAGER_RUNBOOK.md)
+- [V5.13 Manual GCP Validation Plan](docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md)
 
 ## Roadmap summary
 

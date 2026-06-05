@@ -358,6 +358,18 @@ Goal: Replace `InMemorySecretStore` with a production-grade `GCPSecretManagerSto
 
 **V5.12 beta complete.** Recommended next branch: `v5.13-manual-gcp-validation`
 
+---
+
+## V5.13 — Manual GCP Validation (branch: `v5.13-manual-gcp-validation`)
+
+**Goal:** Validate the V5.12 `GCPSecretManagerStore` implementation against a real GCP project using operator-controlled credentials. No credentials committed. No automated GCP calls.
+
+- [x] **V5.13.1** — Validation plan (`docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md`) · pre-flight checklist · IAM validation plan · manual command plan · env var plan · 7 validation phases (A–G) · safety stop conditions · output rules · result template · rollback plan
+- [ ] **V5.13.2** — Operator pre-flight checks complete · gcloud configured · service account IAM bindings confirmed · V5.12 smoke suite passing
+- [ ] **V5.13.3** — Operator manual validation complete · Phases A–F run · result table filled in `docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md`
+- [ ] **V5.13.4** — Provider validation complete · Phase F `compose_google_ads_credentials` verified against live Secret Manager
+- [ ] **V5.13.5** — V5.13 closure docs · release notes · final smoke suite pass · merge to master · tag `v5.13.0-beta`
+
 ### New env vars (added in V5.12)
 
 | Variable | Default | Secret | Purpose |
