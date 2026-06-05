@@ -412,7 +412,7 @@ export GOOGLE_ADS_LIVE_ENABLED=false
 | `developer_token` value | Google Ads API credential |
 | `client_secret` value | OAuth2 client secret |
 | `refresh_token` value | OAuth2 long-lived token |
-| `access_token` / `ya29.*` | OAuth2 short-lived token |
+| `access_token` (OAuth2 short-lived token, `ya29`-prefixed) | OAuth2 short-lived token |
 | Service account private key | GCP authentication |
 | OAuth authorization code | One-time exchange token |
 
@@ -470,7 +470,9 @@ The in-memory fallback is always available — setting `GCP_SECRET_MANAGER_ENABL
 - [x] No code changes — runtime source files untouched
 - [x] No dependencies added
 - [x] Roadmap updated with V5.13 section
-- [ ] Operator has reviewed pre-flight checklist (Section 5)
+- [x] Pre-flight checks executed and documented in `docs/V5_13_PREFLIGHT_CHECKS.md` (V5.13.2)
+- [x] No resources created, no secrets touched during pre-flight
+- [ ] Operator has installed `gcloud` and authenticated (blocked — see `docs/V5_13_PREFLIGHT_CHECKS.md` Section 13)
 - [ ] Operator has confirmed IAM bindings (Section 6)
 - [ ] Phases A–F completed and result table filled (Section 12)
 
@@ -478,6 +480,7 @@ The in-memory fallback is always available — setting `GCP_SECRET_MANAGER_ENABL
 
 ## Related Documents
 
+- [V5.13 Pre-Flight Checks](V5_13_PREFLIGHT_CHECKS.md)
 - [V5.12 Design Document](V5_12_GCP_SECRET_MANAGER_DESIGN.md)
 - [GCP Secret Manager Runbook](GCP_SECRET_MANAGER_RUNBOOK.md)
 - [V5.12 Release Notes](V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md)
