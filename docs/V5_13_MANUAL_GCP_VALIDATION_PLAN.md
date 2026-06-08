@@ -472,15 +472,16 @@ The in-memory fallback is always available — setting `GCP_SECRET_MANAGER_ENABL
 - [x] Roadmap updated with V5.13 section
 - [x] Pre-flight checks executed and documented in `docs/V5_13_PREFLIGHT_CHECKS.md` (V5.13.2)
 - [x] No resources created, no secrets touched during pre-flight
-- [ ] Operator has installed `gcloud` and authenticated (blocked — see `docs/V5_13_PREFLIGHT_CHECKS.md` Section 13)
-- [ ] Operator has confirmed IAM bindings (Section 6)
-- [ ] Phases A–F completed and result table filled (Section 12)
+- [x] Operator has installed `gcloud` and authenticated — confirmed PASS in `docs/V5_13_PREFLIGHT_CHECKS.md`
+- [x] Operator has confirmed IAM bindings (Section 6) — confirmed PASS in `docs/V5_13_PREFLIGHT_CHECKS.md`
+- [ ] Phases A–F completed and result table filled — tracked in `docs/V5_13_LIVE_GCP_VALIDATION_RESULTS.md` (V5.13.3)
 
 ---
 
 ## Related Documents
 
 - [V5.13 Pre-Flight Checks](V5_13_PREFLIGHT_CHECKS.md)
+- [V5.13 Live GCP Validation Results](V5_13_LIVE_GCP_VALIDATION_RESULTS.md)
 - [V5.12 Design Document](V5_12_GCP_SECRET_MANAGER_DESIGN.md)
 - [GCP Secret Manager Runbook](GCP_SECRET_MANAGER_RUNBOOK.md)
 - [V5.12 Release Notes](V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md)
