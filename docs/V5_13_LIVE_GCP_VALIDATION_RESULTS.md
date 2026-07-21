@@ -2,7 +2,7 @@
 
 **Branch:** `v5.13-manual-gcp-validation`
 **Date:** 2026-06-08
-**Status:** In progress — Phase A PASS, Phases B–F pending operator execution
+**Status:** In progress — Phase A PASS, Phase B PASS, Phases C–F pending operator execution
 
 ---
 
@@ -142,7 +142,19 @@ print('secret_id: kaiju-dev-google_ads-cred_google_ads_manual_validation_v5130')
 - `secret_id: kaiju-dev-google_ads-cred_google_ads_manual_validation_v5130`
 - No credential values printed
 
-**Result:** Pending
+**Result:** PASS
+
+| Field | Value |
+|-------|-------|
+| `ok` | `true` |
+| `credential_ref` | `<redacted>` |
+| `secret_id` | `<redacted>` |
+| `backend` | `gcp_secret_manager` |
+| `configured_fields` | `client_id, client_secret, developer_token, refresh_token` |
+| `google_ads_live_enabled` | `false` |
+| `error_code` | `none` |
+
+**Notes:** Test secret bundle written to GCP Secret Manager using fake validation values only. No real Google Ads credentials used. No secret payload printed. No fixed-cost infrastructure created. SDK (`google-cloud-secret-manager`) installed into project venv; package was already declared in `requirements.txt:4`.
 
 ---
 
@@ -308,13 +320,13 @@ print('redacted_status:', json.dumps(result.redacted_status(), indent=2))
 | Phase | Status | Redacted Evidence | Notes |
 |-------|--------|-------------------|-------|
 | A — Config/status | **PASS** | enabled=true, project_id_configured=true, selected_backend=gcp_secret_manager, created_store_class=GCPSecretManagerStore, google_ads_live_enabled=false, error_code=none | Placeholder env vars used; acceptable for config-only phase. Real values required before Phase B. |
-| B — Write test secret | Pending | | |
+| B — Write test secret | **PASS** | ok=true, credential_ref=&lt;redacted&gt;, secret_id=&lt;redacted&gt;, backend=gcp_secret_manager, configured_fields=client_id,client_secret,developer_token,refresh_token, google_ads_live_enabled=false, error_code=none | Fake validation values only. No real credentials. No payload printed. |
 | C — Read/status | Pending | | |
 | D — List | Pending | | |
 | E — Delete | Pending | | |
 | F — Provider composition | Pending | | |
 
-**Overall:** In progress (1/6 phases complete)
+**Overall:** In progress (2/6 phases complete)
 
 ---
 
@@ -361,7 +373,7 @@ bash scripts/smoke_test_v5_credentials.sh
 ## 13. Acceptance Criteria
 
 - [ ] Phase A — config/status passes with live env vars
-- [ ] Phase B — test secret created in real GCP Secret Manager
+- [x] Phase B — test secret created in real GCP Secret Manager
 - [ ] Phase C — redacted status returns correct `configured_fields`
 - [ ] Phase D — list returns test secret with `configured_fields: []`
 - [ ] Phase E — delete returns `True`; post-delete status confirms `not_found`
