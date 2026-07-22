@@ -2,7 +2,7 @@
 
 **Branch:** `v5.13-manual-gcp-validation`
 **Date:** 2026-06-08
-**Status:** In progress — Phase A PASS, Phase B PASS, Phase C PASS, Phase D PASS, Phases E–F pending operator execution
+**Status:** In progress — Phase A PASS, Phase B PASS, Phase C PASS, Phase D PASS, Phase E PASS, Phase F pending operator execution
 
 ---
 
@@ -298,7 +298,20 @@ print('post_delete_status:', json.dumps(safe, indent=2))
 - Post-delete status: `configured: false` or error code `not_found` / `gcp_secret_not_found`
 - No secret values printed
 
-**Result:** Pending
+**Result:** PASS
+
+| Field | Value |
+|-------|-------|
+| `deleted` | `true` |
+| `credential_ref` | `<redacted>` |
+| `status_after_delete` | `configured_false` |
+| `configured_after_delete` | `false` |
+| `payload_printed` | `false` |
+| `backend` | `gcp_secret_manager` |
+| `google_ads_live_enabled` | `false` |
+| `error_code` | `none` |
+
+**Notes:** Manual validation test secret deleted from GCP Secret Manager. Post-delete `get_secret_status()` returned `configured=false`, confirming the secret is no longer accessible. No secret payload accessed or printed. No actual `credential_ref` or `secret_id` printed. No Google Ads live call. No fixed-cost infrastructure created.
 
 ---
 
@@ -349,10 +362,10 @@ print('redacted_status:', json.dumps(result.redacted_status(), indent=2))
 | B — Write test secret | **PASS** | ok=true, credential_ref=&lt;redacted&gt;, secret_id=&lt;redacted&gt;, backend=gcp_secret_manager, configured_fields=client_id,client_secret,developer_token,refresh_token, google_ads_live_enabled=false, error_code=none | Fake validation values only. No real credentials. No payload printed. |
 | C — Read/status | **PASS** | configured=true, available=true, credential_ref=&lt;redacted&gt;, backend=gcp_secret_manager, configured_fields=developer_token,client_id,client_secret,refresh_token (all true), google_ads_live_enabled=false, payload_printed=false, error_code=none | Status verified via list+status only. No payload printed. |
 | D — List | **PASS** | listed=true, credential_ref_found=true, manual_validation_records_count=1, payload_accessed=false, backend=gcp_secret_manager, configured_fields=[] (descriptor-only), google_ads_live_enabled=false, error_code=none | list_secret_records descriptor API only. No payload access. |
-| E — Delete | Pending | | |
+| E — Delete | **PASS** | deleted=true, credential_ref=&lt;redacted&gt;, status_after_delete=configured_false, configured_after_delete=false, payload_printed=false, backend=gcp_secret_manager, google_ads_live_enabled=false, error_code=none | Secret deleted. Post-delete status confirmed configured=false. |
 | F — Provider composition | Pending | | |
 
-**Overall:** In progress (4/6 phases complete)
+**Overall:** In progress (5/6 phases complete)
 
 ---
 
@@ -402,7 +415,7 @@ bash scripts/smoke_test_v5_credentials.sh
 - [x] Phase B — test secret created in real GCP Secret Manager
 - [x] Phase C — redacted status returns correct `configured_fields`
 - [x] Phase D — list returns test secret with `configured_fields: []`
-- [ ] Phase E — delete returns `True`; post-delete status confirms `not_found`
+- [x] Phase E — delete returns `True`; post-delete status confirms `not_found`
 - [ ] Phase F — provider composition returns `ok: True` with `GOOGLE_ADS_LIVE_ENABLED=false`
 - [ ] Test secret cleaned up (deleted from GCP)
 - [ ] No real secrets in this document
