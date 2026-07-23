@@ -21,7 +21,12 @@ from schemas import (
 )
 from auth import validate_api_auth
 from config import get_config
-from admin import get_google_ads_credential_status, upsert_google_ads_credential_reference
+from admin import (
+    get_google_ads_credential_status,
+    upsert_google_ads_credential_reference,
+    write_google_ads_credential_bundle,
+    GOOGLE_ADS_SECRET_FIELDS,
+)
 
 SERVICE_NAME = "kaiju-openclaw"
 
@@ -170,7 +175,16 @@ async def admin_upsert_google_ads_credential_reference(
             },
         )
 
-    result = upsert_google_ads_credential_reference(tenant_id, client_id, payload)
+    # Route to bundle write when any known Google Ads secret field is present in payload;
+    # otherwise use the existing metadata-only path (backward-compatible).
+    if (
+        payload
+        and isinstance(payload, dict)
+        and any(k in GOOGLE_ADS_SECRET_FIELDS for k in payload)
+    ):
+        result = write_google_ads_credential_bundle(tenant_id, client_id, payload)
+    else:
+        result = upsert_google_ads_credential_reference(tenant_id, client_id, payload)
     result["request_id"] = request_id
     result["trace_id"] = trace_id
     status_code = 200 if result.get("ok") else 400

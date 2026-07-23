@@ -133,7 +133,7 @@ do
 done
 
 (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
-    $PYTHON -c "from admin import get_google_ads_credential_status, upsert_google_ads_credential_reference") \
+    $PYTHON -c "from admin import get_google_ads_credential_status, upsert_google_ads_credential_reference, write_google_ads_credential_bundle, GOOGLE_ADS_SECRET_FIELDS") \
     >/dev/null 2>&1 \
     && pass "openclaw.admin importable" \
     || fail "openclaw.admin not importable"
@@ -366,12 +366,14 @@ assert d["tenant_id"] == "smoke-tenant", f"tenant_id: {d}"
 assert d["client_id"] == "smoke-client", f"client_id: {d}"
 PYEOF
 
-# POST forbidden payload — must be rejected with secret_material_rejected
-py_http_pass "POST forbidden payload with developer_token: secret_material_rejected" <<PYEOF
+# POST forbidden field (non-secret-bundle field) — must be rejected with secret_material_rejected
+# Uses oauth_code which is forbidden in the metadata path and not a known bundle field,
+# so it routes to the metadata-only path and is rejected by the forbidden-field guard.
+py_http_pass "POST forbidden field with oauth_code: secret_material_rejected" <<PYEOF
 import requests
 r = requests.post(
     "http://localhost:${PORT}/openclaw/admin/tenants/smoke-tenant/clients/smoke-client/credentials/google-ads",
-    json={"customer_id": "1234567890", "developer_token": "should-be-rejected"},
+    json={"customer_id": "1234567890", "oauth_code": "should-be-rejected"},
     timeout=10,
 )
 assert r.status_code == 400, f"expected 400, got: {r.status_code} body: {r.text[:200]}"
@@ -494,7 +496,7 @@ rm -f "$CRED_STORE_FILE"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[8/8] Secret-safety and git hygiene..."
+echo "[8/9] Secret-safety and git hygiene..."
 # ---------------------------------------------------------------------------
 
 GREP_TARGETS="$REPO/scripts $REPO/docs $REPO/agents $REPO/openclaw $REPO/README.md $REPO/.env.example"
@@ -540,6 +542,37 @@ if git status --porcelain | grep -E "credential_references\.json|memory/client-m
 else
     pass "no runtime files in git status"
 fi
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+echo ""
+echo "[9/9] Admin credential bundle write — mocked secret store..."
+# ---------------------------------------------------------------------------
+
+_OUT=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    $PYTHON run_admin_credentials_gcp_write_demo.py 2>&1)
+echo "$_OUT" | grep -q "All assertions passed" \
+    && pass "run_admin_credentials_gcp_write_demo.py: All assertions passed" \
+    || { echo "  ✗ run_admin_credentials_gcp_write_demo.py: assertion not found"; echo "$_OUT" | tail -15; exit 1; }
+
+# Verify the demo produced no raw fake secret values in its stdout
+for val in "fake-dev-token" "fake-client-secret" "fake-refresh-token"; do
+    if echo "$_OUT" | grep -q "$val"; then
+        fail "Fake secret value '$val' appeared in demo stdout — possible secret leak"
+    fi
+done
+pass "no fake secret values in demo stdout"
+
+# Verify factory selects in_memory when GCP_SECRET_MANAGER_ENABLED=false
+# Runs from AGENT_DIR so credentials package is importable directly
+py_pass_env "factory default: GCP_SECRET_MANAGER_ENABLED=false selects in_memory" \
+    "GCP_SECRET_MANAGER_ENABLED=false" <<'PYEOF'
+from credentials.secret_store_factory import get_secret_store_backend_name
+backend = get_secret_store_backend_name()
+assert backend == "in_memory", f"Expected in_memory, got: {backend}"
+PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
