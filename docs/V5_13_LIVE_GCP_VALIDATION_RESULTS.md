@@ -2,7 +2,7 @@
 
 **Branch:** `v5.13-manual-gcp-validation`
 **Date:** 2026-06-08
-**Status:** In progress — Phase A PASS, Phase B PASS, Phase C PASS, Phase D PASS, Phase E PASS, Phase F pending operator execution
+**Status:** Complete — Phases A–F PASS
 
 ---
 
@@ -350,7 +350,26 @@ print('redacted_status:', json.dumps(result.redacted_status(), indent=2))
 - `google_ads_live_enabled: false` — no Google Ads API call made
 - No raw credential values in output
 
-**Result:** Pending
+**Result:** PASS
+
+| Field | Value |
+|-------|-------|
+| `provider_ok` | `true` |
+| `credentials_object_created` | `true` |
+| `output_redacted` | `true` |
+| `credential_ref` | `<redacted>` |
+| `secret_id` | `<redacted>` |
+| `backend` | `gcp_secret_manager` |
+| `configured_fields` | `client_id, client_secret, developer_token, refresh_token` (all `true`) |
+| `google_ads_live_enabled` | `false` |
+| `google_ads_api_called` | `false` |
+| `temporary_secret_deleted` | `true` |
+| `payload_printed` | `false` |
+| `runtime_reference_untracked` | `true` |
+| `runtime_reference_location` | `/tmp` (outside repo) |
+| `error_code` | `none` |
+
+**Notes:** Provider composition succeeded using `GCPSecretManagerStore` and fake validation values only. Credential reference was stored in a temporary file under `/tmp`, outside the repo. `CREDENTIAL_REFERENCE_STORE_PATH` env var redirected the local file store so no runtime reference files were written inside the repo. Redacted output confirmed clean by `assert_provider_output_has_no_secret_values()`. No raw credential values printed. No Google Ads live call. Temporary Phase F secret was deleted. No credential files left in the repo. No fixed-cost infrastructure created.
 
 ---
 
@@ -363,9 +382,9 @@ print('redacted_status:', json.dumps(result.redacted_status(), indent=2))
 | C — Read/status | **PASS** | configured=true, available=true, credential_ref=&lt;redacted&gt;, backend=gcp_secret_manager, configured_fields=developer_token,client_id,client_secret,refresh_token (all true), google_ads_live_enabled=false, payload_printed=false, error_code=none | Status verified via list+status only. No payload printed. |
 | D — List | **PASS** | listed=true, credential_ref_found=true, manual_validation_records_count=1, payload_accessed=false, backend=gcp_secret_manager, configured_fields=[] (descriptor-only), google_ads_live_enabled=false, error_code=none | list_secret_records descriptor API only. No payload access. |
 | E — Delete | **PASS** | deleted=true, credential_ref=&lt;redacted&gt;, status_after_delete=configured_false, configured_after_delete=false, payload_printed=false, backend=gcp_secret_manager, google_ads_live_enabled=false, error_code=none | Secret deleted. Post-delete status confirmed configured=false. |
-| F — Provider composition | Pending | | |
+| F — Provider composition | **PASS** | provider_ok=true, credentials_object_created=true, output_redacted=true, credential_ref=&lt;redacted&gt;, secret_id=&lt;redacted&gt;, backend=gcp_secret_manager, configured_fields=client_id,client_secret,developer_token,refresh_token (all true), google_ads_live_enabled=false, google_ads_api_called=false, temporary_secret_deleted=true, payload_printed=false, runtime_reference_untracked=true, error_code=none | Composition via GCPSecretManagerStore with fake values. Credential reference in /tmp. No secrets in repo. |
 
-**Overall:** In progress (5/6 phases complete)
+**Overall:** Complete — 6/6 phases PASS
 
 ---
 
@@ -416,11 +435,11 @@ bash scripts/smoke_test_v5_credentials.sh
 - [x] Phase C — redacted status returns correct `configured_fields`
 - [x] Phase D — list returns test secret with `configured_fields: []`
 - [x] Phase E — delete returns `True`; post-delete status confirms `not_found`
-- [ ] Phase F — provider composition returns `ok: True` with `GOOGLE_ADS_LIVE_ENABLED=false`
-- [ ] Test secret cleaned up (deleted from GCP)
-- [ ] No real secrets in this document
-- [ ] No live Google Ads API calls made
-- [ ] Smoke baseline passes after cleanup
+- [x] Phase F — provider composition returns `ok: True` with `GOOGLE_ADS_LIVE_ENABLED=false`
+- [x] Test secret cleaned up (deleted from GCP)
+- [x] No real secrets in this document
+- [x] No live Google Ads API calls made
+- [x] Smoke baseline passes after cleanup — `smoke_test_v5_12_gcp_secret_manager.sh` 28/28 PASS; `smoke_test_v5_credentials.sh` all sections PASS
 
 ---
 
