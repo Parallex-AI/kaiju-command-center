@@ -358,6 +358,18 @@ Goal: Replace `InMemorySecretStore` with a production-grade `GCPSecretManagerSto
 
 **V5.12 beta complete.** Recommended next branch: `v5.13-manual-gcp-validation`
 
+---
+
+## V5.13 — Manual GCP Validation (branch: `v5.13-manual-gcp-validation`)
+
+**Goal:** Validate the V5.12 `GCPSecretManagerStore` implementation against a real GCP project using operator-controlled credentials. No credentials committed. No automated GCP calls.
+
+- [x] **V5.13.1** — Validation plan (`docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md`) · pre-flight checklist · IAM validation plan · manual command plan · env var plan · 7 validation phases (A–G) · safety stop conditions · output rules · result template · rollback plan
+- [x] **V5.13.2** — Pre-flight checks documented (`docs/V5_13_PREFLIGHT_CHECKS.md`) · operator confirmed: `gcloud` installed · account authenticated · project active · Secret Manager API enabled · service account identified · IAM reviewed · no broad roles · smoke baseline 28/28 · no service account JSON in repo · **result: PASS**
+- [x] **V5.13.3** — Operator manual validation · Phases A–F PASS · results in `docs/V5_13_LIVE_GCP_VALIDATION_RESULTS.md` · fake Google Ads values only · no live Google Ads API calls · no fixed-cost infrastructure · temporary test secrets cleaned up · no credentials committed
+- [x] **V5.13.4** — Provider validation complete · Phase F `compose_google_ads_credentials` verified against live Secret Manager · `GCPSecretManagerStore` confirmed end-to-end · `GOOGLE_ADS_LIVE_ENABLED=false` throughout
+- [x] **V5.13.5** — V5.13 closure docs · release notes · final smoke suite pass · merge to master · tag `v5.13.0-beta` · `docs/V5_13_BRANCH_CLOSURE.md` · `docs/RELEASE_NOTES_V5_13_0_BETA.md` · smoke suites PASS · ready for merge
+
 ### New env vars (added in V5.12)
 
 | Variable | Default | Secret | Purpose |
