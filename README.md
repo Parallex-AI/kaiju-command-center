@@ -4,9 +4,11 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V5.13 — Manual GCP Validation** (branch: `v5.13-manual-gcp-validation`)
+**V5.13 — Manual GCP Validation complete** (branch: `v5.13-manual-gcp-validation` · tag candidate: `v5.13.0-beta`)
 
-V5.12 is published (`v5.12.0-beta`). V5.13 validates `GCPSecretManagerStore` against a real GCP project — write, read, list, delete, and provider composition — using operator-controlled credentials with no committed secrets. See [V5.13 Validation Plan](docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md), [V5.12 Release Notes](docs/V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md), and [Runbook](docs/GCP_SECRET_MANAGER_RUNBOOK.md).
+V5.13 validated `GCPSecretManagerStore` against a real GCP project. All six phases (config, write, read, list, delete, provider composition) passed using fake Google Ads values only — no real credentials, no live API calls, no fixed-cost infrastructure. Temporary test secrets were deleted. Smoke suites pass. Ready for merge and tag.
+
+See [V5.13 Branch Closure](docs/V5_13_BRANCH_CLOSURE.md), [v5.13.0-beta Release Notes](docs/RELEASE_NOTES_V5_13_0_BETA.md), [Validation Results](docs/V5_13_LIVE_GCP_VALIDATION_RESULTS.md), and [Runbook](docs/GCP_SECRET_MANAGER_RUNBOOK.md).
 
 ## Architecture
 
@@ -56,7 +58,10 @@ cd ~/kaiju/projects/demo-client
 - [Roadmap](docs/ROADMAP.md)
 - [V5.12 Release Notes](docs/V5_12_GCP_SECRET_MANAGER_RELEASE_NOTES.md)
 - [GCP Secret Manager Runbook](docs/GCP_SECRET_MANAGER_RUNBOOK.md)
+- [V5.13 Branch Closure](docs/V5_13_BRANCH_CLOSURE.md)
+- [v5.13.0-beta Release Notes](docs/RELEASE_NOTES_V5_13_0_BETA.md)
 - [V5.13 Manual GCP Validation Plan](docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md)
+- [V5.13 Live GCP Validation Results](docs/V5_13_LIVE_GCP_VALIDATION_RESULTS.md)
 
 ## Roadmap summary
 
@@ -71,3 +76,4 @@ cd ~/kaiju/projects/demo-client
 | V4.5.1 | Live Google Ads read-only fetch · GAQL · credential safety gates | **Alpha** — `v4.5.1-alpha` |
 | V5 | Tenant credentials · secure onboarding · secret store · OAuth | **Beta complete** — `v5.0.0-beta` |
 | V5.12 | GCP Secret Manager backend · `GCPSecretManagerStore` · IAM · rotation | **Beta complete** — `v5.12.0-beta` |
+| V5.13 | Live GCP validation · Phases A–F PASS · provider composition confirmed | **Beta complete** — `v5.13.0-beta` (tag candidate) |
