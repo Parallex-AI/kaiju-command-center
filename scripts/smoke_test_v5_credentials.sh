@@ -496,7 +496,7 @@ rm -f "$CRED_STORE_FILE"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[8/9] Secret-safety and git hygiene..."
+echo "[8/10] Secret-safety and git hygiene..."
 # ---------------------------------------------------------------------------
 
 GREP_TARGETS="$REPO/scripts $REPO/docs $REPO/agents $REPO/openclaw $REPO/README.md $REPO/.env.example"
@@ -546,7 +546,7 @@ fi
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 echo ""
-echo "[9/9] Admin credential bundle write — mocked secret store..."
+echo "[9/10] Admin credential bundle write — mocked secret store..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -573,6 +573,46 @@ from credentials.secret_store_factory import get_secret_store_backend_name
 backend = get_secret_store_backend_name()
 assert backend == "in_memory", f"Expected in_memory, got: {backend}"
 PYEOF
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[10/10] Admin credential API write — FastAPI TestClient..."
+# ---------------------------------------------------------------------------
+
+_OUT=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    $PYTHON run_admin_credentials_api_write_demo.py 2>&1)
+echo "$_OUT" | grep -q "All assertions passed" \
+    && pass "run_admin_credentials_api_write_demo.py: All assertions passed" \
+    || { echo "  ✗ run_admin_credentials_api_write_demo.py: assertion not found"; echo "$_OUT" | tail -20; exit 1; }
+
+# Verify no fake secret values leaked into demo stdout
+for val in "fake-dev-token" "fake-client-id" "fake-client-secret" "fake-refresh-token" "fake-access-token"; do
+    if echo "$_OUT" | grep -q "$val"; then
+        fail "Fake secret value '$val' appeared in API demo stdout — possible secret leak"
+    fi
+done
+pass "no fake secret values in API demo stdout"
+
+# Scenario checks in stdout
+echo "$_OUT" | grep -q "scenario-A.*PASS\|PASS:.*ok=true.*no secret_status" \
+    && pass "scenario A: metadata-only POST accepted, no secret_status" \
+    || { echo "  ✗ scenario A marker not found"; echo "$_OUT" | tail -30; exit 1; }
+
+echo "$_OUT" | grep -q "PASS.*secret_status.configured=true" \
+    && pass "scenario B: full bundle POST accepted, secret_status.configured=true" \
+    || { echo "  ✗ scenario B marker not found"; echo "$_OUT" | tail -30; exit 1; }
+
+echo "$_OUT" | grep -q "secret_bundle_incomplete" \
+    && pass "scenario C: incomplete bundle rejected with secret_bundle_incomplete" \
+    || { echo "  ✗ scenario C marker not found"; echo "$_OUT" | tail -30; exit 1; }
+
+echo "$_OUT" | grep -q "secret_material_rejected" \
+    && pass "scenario D: forbidden field rejected with secret_material_rejected" \
+    || { echo "  ✗ scenario D marker not found"; echo "$_OUT" | tail -30; exit 1; }
 
 # ---------------------------------------------------------------------------
 echo ""
