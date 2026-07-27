@@ -19,6 +19,9 @@ V5.16 RBAC scenarios (A–H):
   RBAC G — invalid token → 401 unauthorized
   RBAC H — missing token → 401 unauthorized
 
+V5.16 Phase 2 audit warning:
+  Audit Warning API — audit failure → HTTP 200 with warnings=['audit_append_failed']
+
 Env vars are set before importing server to avoid module-level config issues.
 """
 
@@ -429,10 +432,40 @@ def run_demo():
         ok_rh &= _no_fake_values(d_rh, "no fake values in RBAC H response")
         all_pass = all_pass and ok_rh
 
-        # Restore to no-auth state for final leak assertion
+        # Restore to no-auth state for remaining scenarios
         os.environ["OPENCLAW_API_AUTH_ENABLED"] = "false"
         os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
         os.environ.pop("OPENCLAW_READ_KEYS", None)
+
+        # ── Audit Warning API — audit failure propagated as response warning ───
+        print("\n" + "-" * 60)
+        print("  Audit Warning API. Audit failure → 200 with warnings=['audit_append_failed']")
+        print("-" * 60)
+        _AW_TENANT = "audit-warn-tenant"
+        _AW_CLIENT = "audit-warn-client"
+        _AW_BASE = f"/openclaw/admin/tenants/{_AW_TENANT}/clients/{_AW_CLIENT}/credentials/google-ads"
+
+        # Prep: write a credential reference so validate has something to find
+        r_aw_prep = client.post(_AW_BASE, json={"customer_id": "8888888888"})
+        assert r_aw_prep.status_code == 200, f"prep write failed: {r_aw_prep.text[:200]}"
+
+        # Monkeypatch append_audit_event in admin's namespace to always return failure
+        _original_append_audit = _admin_mod.append_audit_event
+        _admin_mod.append_audit_event = lambda event: {"ok": False, "error": "IOError"}
+        try:
+            r_aw = client.post(_AW_BASE, json={"customer_id": "7654321098"})
+            print(f"  Write status: {r_aw.status_code}")
+            d_aw = r_aw.json()
+            ok_aw = _check(r_aw.status_code == 200, "audit failure → still HTTP 200")
+            ok_aw &= _check(d_aw.get("ok") is True, "ok=true despite audit failure")
+            ok_aw &= _check(
+                "audit_append_failed" in (d_aw.get("warnings") or []),
+                f"warnings includes audit_append_failed (got {d_aw.get('warnings')!r})"
+            )
+            ok_aw &= _no_fake_values(d_aw, "no fake values in audit-warn write response")
+        finally:
+            _admin_mod.append_audit_event = _original_append_audit
+        all_pass = all_pass and ok_aw
 
         # ── Leak assertion across all API responses ───────────────────────────
         print("\n" + "-" * 60)
@@ -446,6 +479,7 @@ def run_demo():
             (d_ra, "rbac-A-read-status"), (d_rb, "rbac-B-write-denied"),
             (d_rc, "rbac-C-validate-denied"), (d_rd, "rbac-D-delete-denied"),
             (d_rg, "rbac-G-invalid-token"), (d_rh, "rbac-H-missing-token"),
+            (d_aw, "audit-warn-write"),
         ]
         for resp_dict, label in all_responses:
             ok_leak &= _no_fake_values(resp_dict, f"no fake values in {label}")

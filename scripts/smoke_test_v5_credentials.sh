@@ -113,7 +113,7 @@ echo ""
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-echo "[1/15] Environment and import checks..."
+echo "[1/16] Environment and import checks..."
 # ---------------------------------------------------------------------------
 
 [ -f "$PYTHON" ] || fail "Python not found at $PYTHON"
@@ -140,7 +140,7 @@ done
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[2/15] CredentialReference model demo..."
+echo "[2/16] CredentialReference model demo..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_model_demo.py 2>&1)
@@ -150,7 +150,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[3/15] Credential stores..."
+echo "[3/16] Credential stores..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_store_demo.py 2>&1)
@@ -165,7 +165,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[4/15] Credential resolver..."
+echo "[4/16] Credential resolver..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_resolver_demo.py 2>&1)
@@ -175,7 +175,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[5/15] SecretStore and provider..."
+echo "[5/16] SecretStore and provider..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_secret_store_demo.py 2>&1)
@@ -190,7 +190,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[6/15] Adapter provider mode — non-live checks..."
+echo "[6/16] Adapter provider mode — non-live checks..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_google_ads_adapter_provider_demo.py 2>&1)
@@ -307,7 +307,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[7/15] OpenClaw admin credential endpoints..."
+echo "[7/16] OpenClaw admin credential endpoints..."
 # ---------------------------------------------------------------------------
 
 # Set up temp credential reference store to avoid touching any runtime file
@@ -496,7 +496,7 @@ rm -f "$CRED_STORE_FILE"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[8/15] Secret-safety and git hygiene..."
+echo "[8/16] Secret-safety and git hygiene..."
 # ---------------------------------------------------------------------------
 
 GREP_TARGETS="$REPO/scripts $REPO/docs $REPO/agents $REPO/openclaw $REPO/README.md $REPO/.env.example"
@@ -546,7 +546,7 @@ fi
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 echo ""
-echo "[9/15] Admin credential bundle write — mocked secret store..."
+echo "[9/16] Admin credential bundle write — mocked secret store..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -576,7 +576,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[10/15] Admin credential API write — FastAPI TestClient..."
+echo "[10/16] Admin credential API write — FastAPI TestClient..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -616,7 +616,7 @@ echo "$_OUT" | grep -q "secret_material_rejected" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[11/15] Credential lifecycle audit and validation events..."
+echo "[11/16] Credential lifecycle audit and validation events..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -672,7 +672,7 @@ echo "$_OUT" | grep -q "secret_already_absent" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[12/15] Credential lifecycle validation API (FastAPI TestClient)..."
+echo "[12/16] Credential lifecycle validation API (FastAPI TestClient)..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -725,7 +725,7 @@ echo "$_OUT" | grep -q "warnings includes secret_already_absent" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[13/15] Validate route — server-level auth checks..."
+echo "[13/16] Validate route — server-level auth checks..."
 # ---------------------------------------------------------------------------
 
 CRED_STORE_FILE2=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
@@ -786,7 +786,7 @@ rm -f "$CRED_STORE_FILE2"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[14/15] Phase 3 delete/revoke — forbidden behavior and env gate checks..."
+echo "[14/16] Phase 3 delete/revoke — forbidden behavior and env gate checks..."
 # ---------------------------------------------------------------------------
 
 # delete_google_ads_credentials must not call get_secret_bundle (only delete_secret_bundle + get_secret_status)
@@ -858,7 +858,7 @@ pass "Phase 3 delete/revoke forbidden behavior checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[15/15] Admin RBAC scope enforcement..."
+echo "[15/16] Admin RBAC scope enforcement..."
 # ---------------------------------------------------------------------------
 
 # AdminScope enum importable from auth.py
@@ -1023,6 +1023,148 @@ fi
 rm -f "$RBAC_STORE3"
 
 pass "Admin RBAC scope enforcement checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[16/16] Audit seq/digest hardening and maintenance..."
+# ---------------------------------------------------------------------------
+
+# audit_maintenance.py importable with both functions
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import audit_maintenance
+assert hasattr(audit_maintenance, 'verify_audit_file'), 'verify_audit_file missing'
+assert hasattr(audit_maintenance, 'prune_audit_files'), 'prune_audit_files missing'
+" 2>&1); then
+    pass "audit_maintenance.py importable with verify_audit_file and prune_audit_files"
+else
+    fail "audit_maintenance.py not importable or missing functions"
+fi
+
+# audit.py has _compute_file_digest and _next_audit_seq
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import audit
+assert hasattr(audit, '_compute_file_digest'), '_compute_file_digest missing from audit'
+assert hasattr(audit, '_next_audit_seq'), '_next_audit_seq missing from audit'
+" 2>&1); then
+    pass "audit.py has _compute_file_digest and _next_audit_seq"
+else
+    fail "audit.py missing _compute_file_digest or _next_audit_seq"
+fi
+
+# Config parses OPENCLAW_AUDIT_RETAIN_DAYS
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    OPENCLAW_AUDIT_RETAIN_DAYS=30 \
+    $PYTHON -c "
+from config import get_config
+c = get_config()
+assert c.audit_retain_days == 30, f'Expected 30, got {c.audit_retain_days}'
+" 2>&1); then
+    pass "config parses OPENCLAW_AUDIT_RETAIN_DAYS=30"
+else
+    fail "config does not parse OPENCLAW_AUDIT_RETAIN_DAYS"
+fi
+
+# Config default audit_retain_days=90
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from config import get_config
+c = get_config()
+assert c.audit_retain_days == 90, f'Expected default 90, got {c.audit_retain_days}'
+" 2>&1); then
+    pass "config audit_retain_days default=90"
+else
+    fail "config audit_retain_days default is not 90"
+fi
+
+# prune_audit_files: empty dir returns ok=True with zero counts
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import tempfile
+from pathlib import Path
+from audit_maintenance import prune_audit_files
+with tempfile.TemporaryDirectory() as tmp:
+    result = prune_audit_files(Path(tmp), retain_days=90)
+    assert result['ok'] is True, f'Expected ok=True: {result}'
+    assert result['deleted_count'] == 0, f'Expected 0 deleted: {result}'
+    assert result['kept_count'] == 0, f'Expected 0 kept: {result}'
+    assert result['errors'] == [], f'Expected no errors: {result}'
+" 2>&1); then
+    pass "prune_audit_files: empty dir → ok=True, deleted=0, kept=0"
+else
+    fail "prune_audit_files: unexpected result for empty dir"
+fi
+
+# verify_audit_file: valid 2-event chain passes
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import json, tempfile, hashlib
+from pathlib import Path
+from audit_maintenance import verify_audit_file
+with tempfile.TemporaryDirectory() as tmp:
+    audit_file = Path(tmp) / 'test.jsonl'
+    e1 = {'seq': 1, 'file_digest': '', 'op': 'test'}
+    line1 = json.dumps(e1) + '\n'
+    e2 = {'seq': 2, 'file_digest': hashlib.sha256(line1.encode('utf-8')).hexdigest(), 'op': 'test2'}
+    line2 = json.dumps(e2) + '\n'
+    audit_file.write_text(line1 + line2, encoding='utf-8')
+    result = verify_audit_file(audit_file)
+    assert result['ok'] is True, f'Expected ok=True: {result}'
+    assert result['events_checked'] == 2, f'Expected 2 events: {result}'
+    assert result['errors'] == [], f'Expected no errors: {result}'
+" 2>&1); then
+    pass "verify_audit_file: valid 2-event file passes"
+else
+    fail "verify_audit_file: valid file failed verification"
+fi
+
+# verify_audit_file: tampered digest detected
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import json, tempfile, hashlib
+from pathlib import Path
+from audit_maintenance import verify_audit_file
+with tempfile.TemporaryDirectory() as tmp:
+    audit_file = Path(tmp) / 'tampered.jsonl'
+    e1 = {'seq': 1, 'file_digest': '', 'op': 'test'}
+    line1 = json.dumps(e1) + '\n'
+    e2_tampered = {'seq': 2, 'file_digest': 'aabbcc', 'op': 'test2'}
+    line2 = json.dumps(e2_tampered) + '\n'
+    audit_file.write_text(line1 + line2, encoding='utf-8')
+    result = verify_audit_file(audit_file)
+    assert result['ok'] is False, f'Expected ok=False for tampered file: {result}'
+    assert any('digest_mismatch' in e for e in result['errors']), f'Expected digest_mismatch: {result}'
+" 2>&1); then
+    pass "verify_audit_file: tampered digest detected (digest_mismatch)"
+else
+    fail "verify_audit_file: tampered file not detected"
+fi
+
+# Lifecycle demo includes L/M/N/O sections (lifecycle demo already ran in [11/16])
+# Re-run just to capture output for marker checks
+_OUT_PHASE2=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON run_admin_credentials_lifecycle_demo.py 2>&1)
+echo "$_OUT_PHASE2" | grep -q "verify_audit_file ok=True" \
+    && pass "lifecycle demo L: verify_audit_file ok=True confirmed" \
+    || { echo "  ✗ lifecycle demo L: verify_audit_file ok=True not found"; echo "$_OUT_PHASE2" | tail -20; exit 1; }
+
+echo "$_OUT_PHASE2" | grep -q "tampered file fails verification" \
+    && pass "lifecycle demo M: tamper detection confirmed" \
+    || { echo "  ✗ lifecycle demo M: tamper detection not found"; echo "$_OUT_PHASE2" | tail -20; exit 1; }
+
+echo "$_OUT_PHASE2" | grep -q "audit_append_failed" \
+    && pass "lifecycle demo N: audit failure warning confirmed" \
+    || { echo "  ✗ lifecycle demo N: audit_append_failed not found"; echo "$_OUT_PHASE2" | tail -20; exit 1; }
+
+echo "$_OUT_PHASE2" | grep -q "old file was deleted" \
+    && pass "lifecycle demo O: prune deleted old file confirmed" \
+    || { echo "  ✗ lifecycle demo O: prune marker not found"; echo "$_OUT_PHASE2" | tail -20; exit 1; }
+
+pass "Audit seq/digest hardening and maintenance checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

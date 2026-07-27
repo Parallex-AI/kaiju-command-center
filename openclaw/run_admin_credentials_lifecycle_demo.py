@@ -416,6 +416,133 @@ def run_demo():
         ok_k &= _assert("fake-" not in _json.dumps(del_k), "no fake values in missing delete response")
         all_pass = all_pass and ok_k
 
+        # ── Section L: seq/digest chain in JSONL ─────────────────────────────
+        print("\n── L: audit events carry seq/file_digest and verify_audit_file passes ──")
+        import tempfile as _tempfile
+        import audit_maintenance as _am
+
+        # Perform extra operations to ensure at least 2 events in the file
+        _T_L = "tenant-seq-digest-l"
+        _C_L = "client-seq-digest-l"
+        store_l = InMemorySecretStore()
+        adm.write_google_ads_credential_bundle(
+            _T_L, _C_L,
+            {"customer_id": "100-200-3000", **_FAKE_SECRETS},
+            secret_store=store_l,
+        )
+        adm.validate_google_ads_credentials(_T_L, _C_L, secret_store=store_l)
+
+        all_events_l = _read_audit_events(audit_root)
+        ok_l = _assert(len(all_events_l) >= 2, f"at least 2 events present (got {len(all_events_l)})")
+
+        # Verify seq starts at 1 and increments
+        seqs = [e.get("seq") for e in all_events_l]
+        ok_l &= _assert(seqs[0] == 1, f"first event seq=1 (got {seqs[0]!r})")
+        for i in range(1, len(seqs)):
+            ok_l &= _assert(seqs[i] == i + 1, f"event[{i}] seq={i + 1} (got {seqs[i]!r})")
+
+        # First event file_digest=""; subsequent events are 64-char hex
+        first_dig = all_events_l[0].get("file_digest")
+        ok_l &= _assert(first_dig == "", f"first event file_digest='' (got {first_dig!r})")
+        for i in range(1, len(all_events_l)):
+            dig = all_events_l[i].get("file_digest", "")
+            ok_l &= _assert(len(dig) == 64, f"event[{i}] file_digest is 64-char hex (len={len(dig)})")
+            ok_l &= _assert(
+                all(c in "0123456789abcdef" for c in dig),
+                f"event[{i}] file_digest is lowercase hex"
+            )
+
+        # verify_audit_file on the actual audit file
+        audit_files_l = sorted(audit_root.glob("*.jsonl"))
+        ok_l &= _assert(len(audit_files_l) >= 1, "at least one audit JSONL file exists")
+        if audit_files_l:
+            vr_l = _am.verify_audit_file(audit_files_l[0])
+            ok_l &= _assert(vr_l.get("ok") is True, f"verify_audit_file ok=True (got {vr_l})")
+            ok_l &= _assert(
+                vr_l.get("events_checked") == len(all_events_l),
+                f"events_checked={len(all_events_l)} (got {vr_l.get('events_checked')})"
+            )
+            ok_l &= _assert(vr_l.get("errors") == [], f"no verify errors (got {vr_l.get('errors')})")
+        all_pass = all_pass and ok_l
+
+        # ── Section M: verify_audit_file detects tampered JSONL ──────────────
+        print("\n── M: verify_audit_file detects tampered JSONL ──")
+        audit_files_m = sorted(audit_root.glob("*.jsonl"))
+        ok_m = _assert(len(audit_files_m) >= 1, "audit file exists for tamper test")
+        if audit_files_m:
+            original_lines = audit_files_m[0].read_text(encoding="utf-8").splitlines(keepends=True)
+            ok_m &= _assert(len(original_lines) >= 3, f"at least 3 lines for tamper test (got {len(original_lines)})")
+            if len(original_lines) >= 3:
+                # Tamper the second line's source field — breaks digest for line 3+
+                tampered_lines = list(original_lines)
+                tampered_lines[1] = tampered_lines[1].replace('"openclaw_admin"', '"TAMPERED"', 1)
+                with _tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".jsonl", encoding="utf-8", delete=False
+                ) as tf:
+                    tampered_path = tf.name
+                    tf.writelines(tampered_lines)
+                try:
+                    verify_m = _am.verify_audit_file(tampered_path)
+                    ok_m &= _assert(verify_m.get("ok") is False, "tampered file fails verification")
+                    errs_m = verify_m.get("errors") or []
+                    ok_m &= _assert(
+                        any("digest_mismatch" in e or "seq_mismatch" in e for e in errs_m),
+                        f"errors include digest_mismatch or seq_mismatch (got {errs_m})"
+                    )
+                finally:
+                    try:
+                        os.unlink(tampered_path)
+                    except OSError:
+                        pass
+        all_pass = all_pass and ok_m
+
+        # ── Section N: audit failure warning propagated to caller ─────────────
+        print("\n── N: audit failure → operation ok=True with warnings=['audit_append_failed'] ──")
+        _T_N = "tenant-audit-fail-n"
+        _C_N = "client-audit-fail-n"
+
+        _original_append = adm.append_audit_event
+        adm.append_audit_event = lambda event: {"ok": False, "error": "IOError"}
+        try:
+            result_n = adm.upsert_google_ads_credential_reference(
+                _T_N, _C_N, {"customer_id": "999-999-0001"}
+            )
+            ok_n = _assert(result_n.get("ok") is True, "operation ok=True despite audit failure")
+            ok_n &= _assert(
+                "audit_append_failed" in (result_n.get("warnings") or []),
+                f"warnings includes 'audit_append_failed' (got {result_n.get('warnings')!r})"
+            )
+            ok_n &= _assert(result_n.get("errors") == [], "no errors in operation result")
+        finally:
+            adm.append_audit_event = _original_append
+        all_pass = all_pass and ok_n
+
+        # ── Section O: prune_audit_files removes old files, keeps recent ──────
+        print("\n── O: prune_audit_files removes old files, keeps recent ──")
+        import time as _time
+
+        tmp_prune_root = Path(tmp_dir) / "prune_audit"
+        tmp_prune_root.mkdir(parents=True, exist_ok=True)
+
+        # Old file — mtime set to 30 days ago
+        old_file = tmp_prune_root / "2020-01-01.jsonl"
+        old_file.write_text('{"seq": 1, "file_digest": "", "event": "old"}\n', encoding="utf-8")
+        thirty_days_ago = _time.time() - (30 * 86400)
+        os.utime(old_file, (thirty_days_ago, thirty_days_ago))
+
+        # Recent file — default mtime (now)
+        recent_file = tmp_prune_root / "2099-12-31.jsonl"
+        recent_file.write_text('{"seq": 1, "file_digest": "", "event": "recent"}\n', encoding="utf-8")
+
+        prune_result = _am.prune_audit_files(tmp_prune_root, retain_days=1)
+        ok_o = _assert(prune_result.get("ok") is True, f"prune_audit_files ok=True (got {prune_result})")
+        ok_o &= _assert(prune_result.get("deleted_count") == 1, f"deleted_count=1 (got {prune_result.get('deleted_count')})")
+        ok_o &= _assert(prune_result.get("kept_count") == 1, f"kept_count=1 (got {prune_result.get('kept_count')})")
+        ok_o &= _assert(not old_file.exists(), "old file was deleted")
+        ok_o &= _assert(recent_file.exists(), "recent file was kept")
+        ok_o &= _assert(prune_result.get("errors") == [], f"no prune errors (got {prune_result.get('errors')})")
+        all_pass = all_pass and ok_o
+
         print()
         if all_pass:
             print(_PASS + " All credential lifecycle audit assertions passed.")

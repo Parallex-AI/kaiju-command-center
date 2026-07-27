@@ -71,6 +71,7 @@ class OpenClawConfig:
     n8n_ads_webhook_url: Optional[str]
     n8n_webhook_timeout: float
     port: int
+    audit_retain_days: int
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +117,10 @@ def get_config() -> OpenClawConfig:
 
     port = parse_int(os.getenv("PORT"), default=8100, min_value=0)
 
+    audit_retain_days = parse_int(
+        os.getenv("OPENCLAW_AUDIT_RETAIN_DAYS"), default=90, min_value=0
+    )
+
     return OpenClawConfig(
         env=env,
         api_auth_enabled=api_auth_enabled,
@@ -132,6 +137,7 @@ def get_config() -> OpenClawConfig:
         n8n_ads_webhook_url=n8n_ads_webhook_url,
         n8n_webhook_timeout=n8n_webhook_timeout,
         port=port,
+        audit_retain_days=audit_retain_days,
     )
 
 
@@ -156,6 +162,7 @@ def config_to_dict(config: OpenClawConfig) -> dict:
         "n8n_ads_webhook_url": config.n8n_ads_webhook_url,
         "n8n_webhook_timeout": config.n8n_webhook_timeout,
         "port": config.port,
+        "audit_retain_days": config.audit_retain_days,
     }
 
 
