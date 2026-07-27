@@ -162,12 +162,110 @@ def run_demo():
         ok_vc &= _no_fake_values(d_vc, "no fake values in incomplete validate response")
         all_pass = all_pass and ok_vc
 
+        # ── Scenario Delete E — auth required ────────────────────────────────
+        print("\n" + "-" * 60)
+        print("  Delete E. DELETE without auth token → 401")
+        print("-" * 60)
+        # get_config() reads env fresh on every call (no cache), so temporarily
+        # enabling auth here is picked up immediately by the live route handler.
+        # No server reimport needed.
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "true"
+        os.environ["OPENCLAW_API_KEYS"] = "test-delete-key"
+        r_de = client.delete(_BASE)
+        print(f"Status: {r_de.status_code}")
+        ok_de = _check(r_de.status_code == 401, "status 401 without auth token")
+        ok_de &= _check(r_de.json().get("ok") is False, "ok=false")
+        ok_de &= _no_fake_values(r_de.json(), "no fake values in 401 response")
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "false"
+        os.environ.pop("OPENCLAW_API_KEYS", None)
+        all_pass = all_pass and ok_de
+
+        # ── Scenario Delete A — disabled by default → 403 ────────────────────
+        print("\n" + "-" * 60)
+        print("  Delete A. DELETE without OPENCLAW_ADMIN_DELETE_ENABLED → 403")
+        print("-" * 60)
+        os.environ.pop("OPENCLAW_ADMIN_DELETE_ENABLED", None)
+        r_da = client.delete(_BASE)
+        print(f"Status: {r_da.status_code}")
+        d_da = r_da.json()
+        print(json.dumps(d_da, indent=2))
+        ok_da = _check(r_da.status_code == 403, "status 403 when delete disabled")
+        ok_da &= _check(d_da.get("ok") is False, "ok=false")
+        codes_da = [e.get("code") for e in d_da.get("errors", []) if isinstance(e, dict)]
+        ok_da &= _check("delete_not_enabled" in codes_da, "error delete_not_enabled")
+        ok_da &= _no_fake_values(d_da, "no fake values in 403 response")
+        all_pass = all_pass and ok_da
+
+        # ── Scenario Delete D — enabled missing credential → 404 ─────────────
+        print("\n" + "-" * 60)
+        print("  Delete D. DELETE enabled but missing credential → 404")
+        print("-" * 60)
+        os.environ["OPENCLAW_ADMIN_DELETE_ENABLED"] = "true"
+        _T_D2 = "api-delete-missing-tenant"
+        _C_D2 = "api-delete-missing-client"
+        _BASE_D2 = f"/openclaw/admin/tenants/{_T_D2}/clients/{_C_D2}/credentials/google-ads"
+        r_dd = client.delete(_BASE_D2)
+        print(f"Status: {r_dd.status_code}")
+        d_dd = r_dd.json()
+        print(json.dumps(d_dd, indent=2))
+        ok_dd = _check(r_dd.status_code == 404, "status 404 for missing credential")
+        ok_dd &= _check(d_dd.get("ok") is False, "ok=false")
+        codes_dd = [e.get("code") for e in d_dd.get("errors", []) if isinstance(e, dict)]
+        ok_dd &= _check("credential_not_found" in codes_dd, "error credential_not_found")
+        ok_dd &= _no_fake_values(d_dd, "no fake values in 404 delete response")
+        all_pass = all_pass and ok_dd
+
+        # ── Scenario Delete B — enabled success → 200, status=revoked ────────
+        print("\n" + "-" * 60)
+        print("  Delete B. Full bundle then DELETE → 200, status=revoked")
+        print("-" * 60)
+        _T_B2 = "api-delete-success-tenant"
+        _C_B2 = "api-delete-success-client"
+        _BASE_B2 = f"/openclaw/admin/tenants/{_T_B2}/clients/{_C_B2}/credentials/google-ads"
+        r_write2 = client.post(_BASE_B2, json={"customer_id": "7777777777", **_FAKE_SECRETS})
+        assert r_write2.status_code == 200, f"bundle write failed: {r_write2.text[:200]}"
+        r_db = client.delete(_BASE_B2)
+        print(f"Status: {r_db.status_code}")
+        d_db = r_db.json()
+        print(json.dumps(d_db, indent=2))
+        ok_db = _check(r_db.status_code == 200, "status 200 for successful delete")
+        ok_db &= _check(d_db.get("ok") is True, "ok=true")
+        ok_db &= _check(d_db.get("errors") == [], "errors=[]")
+        cred_db = d_db.get("credential_status") or {}
+        ok_db &= _check(cred_db.get("status") == "revoked", "credential status=revoked")
+        ss_db = d_db.get("secret_status") or {}
+        ok_db &= _check(ss_db.get("configured") is False, "secret_status.configured=false")
+        ok_db &= _no_fake_values(d_db, "no fake values in delete response")
+        all_pass = all_pass and ok_db
+
+        # ── Scenario Delete C — idempotent delete → 200, warnings ────────────
+        print("\n" + "-" * 60)
+        print("  Delete C. DELETE same credential again → 200, idempotent")
+        print("-" * 60)
+        r_dc = client.delete(_BASE_B2)
+        print(f"Status: {r_dc.status_code}")
+        d_dc = r_dc.json()
+        print(json.dumps(d_dc, indent=2))
+        ok_dc = _check(r_dc.status_code == 200, "status 200 for idempotent delete")
+        ok_dc &= _check(d_dc.get("ok") is True, "ok=true")
+        ok_dc &= _check("secret_already_absent" in (d_dc.get("warnings") or []),
+                        "warnings includes secret_already_absent")
+        cred_dc = d_dc.get("credential_status") or {}
+        ok_dc &= _check(cred_dc.get("status") == "revoked", "status remains revoked")
+        ok_dc &= _no_fake_values(d_dc, "no fake values in idempotent delete response")
+        all_pass = all_pass and ok_dc
+
         # ── Leak assertion across all API responses ───────────────────────────
         print("\n" + "-" * 60)
         print("  Leak assertion — all API responses")
         print("-" * 60)
         ok_leak = True
-        for resp_dict, label in [(d_vb, "404 response"), (d_va, "validate-A"), (d_vc, "validate-C")]:
+        all_responses = [
+            (d_vb, "404-validate"), (d_va, "validate-A"), (d_vc, "validate-C"),
+            (d_da, "403-delete-disabled"), (d_dd, "404-delete-missing"),
+            (d_db, "delete-success"), (d_dc, "delete-idempotent"),
+        ]
+        for resp_dict, label in all_responses:
             ok_leak &= _no_fake_values(resp_dict, f"no fake values in {label}")
         all_pass = all_pass and ok_leak
 
@@ -184,6 +282,8 @@ def run_demo():
         return 0 if all_pass else 1
 
     finally:
+        os.environ.pop("OPENCLAW_ADMIN_DELETE_ENABLED", None)
+        os.environ.pop("OPENCLAW_API_KEYS", None)
         try:
             _admin_mod.create_secret_store = _original_create_secret_store
         except NameError:

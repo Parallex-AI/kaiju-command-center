@@ -9,10 +9,14 @@ V5.14: write_google_ads_credential_bundle — write full credential bundle (meta
 V5.15: validate_google_ads_credentials — structural validation via SecretStore.get_secret_status().
   No secret values fetched. Updates CredentialReference status and last_validated_at.
   Emits audit event operation="validate".
+  delete_google_ads_credentials — delete credential bundle and mark CredentialReference REVOKED.
+  Requires OPENCLAW_ADMIN_DELETE_ENABLED=true. Idempotent on already-absent secrets.
+  Emits audit event operation="delete".
 
 No secret values are returned by any function in this module.
 """
 
+import os
 import sys
 from dataclasses import replace as dc_replace
 from pathlib import Path
@@ -572,5 +576,197 @@ def validate_google_ads_credentials(
         },
         "credential_status": updated_credential_status,
         "secret_status": secret_status_result,
+        "errors": [],
+    }
+
+
+def _is_admin_delete_enabled() -> bool:
+    return os.environ.get("OPENCLAW_ADMIN_DELETE_ENABLED", "false").strip().lower() == "true"
+
+
+def delete_google_ads_credentials(
+    tenant_id: str,
+    client_id: str,
+    secret_store: Optional[SecretStore] = None,
+) -> Dict[str, Any]:
+    """
+    Delete a Google Ads credential bundle and mark CredentialReference as REVOKED.
+
+    V5.15 Phase 3 — requires OPENCLAW_ADMIN_DELETE_ENABLED=true. Disabled by default.
+
+    Steps:
+    A. Check env gate — returns delete_not_enabled if not enabled.
+    B. Load CredentialReference — returns credential_not_found if missing.
+    C. Resolve SecretStore (injected or factory).
+    D. Call delete_secret_bundle() — no get_secret_bundle(), no secret values accessed.
+    E. Handle result:
+       - True  → secrets deleted, update status to REVOKED, ok=true
+       - False → secrets already absent (idempotent), update status to REVOKED,
+                 ok=true, warnings=["secret_already_absent"]
+       - raises → do not update status, ok=false, errors=["secret_delete_failed"]
+    F. Emit audit event operation="delete".
+    G. Return redacted response — no secret values, no credential_ref, no secret_id.
+    """
+    # A. Check env gate first — do not load or delete anything when disabled
+    if not _is_admin_delete_enabled():
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="delete",
+            ok=False,
+            error_codes=["delete_not_enabled"],
+        )
+        return {
+            "ok": False,
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "integration_type": _INTEGRATION_TYPE,
+            "credential_status": None,
+            "secret_status": None,
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "delete_not_enabled",
+                    "message": "Delete is disabled. Set OPENCLAW_ADMIN_DELETE_ENABLED=true to enable.",
+                    "recoverable": False,
+                    "source": "openclaw_admin",
+                }
+            ],
+        }
+
+    # B. Load CredentialReference
+    try:
+        ref_store = LocalFileCredentialReferenceStore()
+        ref = ref_store.get_reference(tenant_id, client_id, _INTEGRATION_TYPE)
+    except Exception:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="delete",
+            ok=False,
+            error_codes=["credential_store_failed"],
+        )
+        return {
+            "ok": False,
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "integration_type": _INTEGRATION_TYPE,
+            "credential_status": None,
+            "secret_status": None,
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "credential_store_failed",
+                    "message": "Failed to load credential reference store. Check configuration.",
+                    "recoverable": True,
+                    "source": "openclaw_admin",
+                }
+            ],
+        }
+
+    if ref is None:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="delete",
+            ok=False,
+            error_codes=["credential_not_found"],
+        )
+        return {
+            "ok": False,
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "integration_type": _INTEGRATION_TYPE,
+            "credential_status": None,
+            "secret_status": None,
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "credential_not_found",
+                    "message": "No credential reference found for this tenant/client.",
+                    "recoverable": False,
+                    "source": "openclaw_admin",
+                }
+            ],
+        }
+
+    # C. Resolve credential_ref (internal only — never echoed in response)
+    _credential_ref: str = ref.credential_ref
+
+    # D. Resolve SecretStore (injected for tests; factory for production)
+    if secret_store is None:
+        secret_store = create_secret_store()
+
+    # E. Delete secret bundle — no get_secret_bundle(), no raw values accessed
+    warnings: List[str] = []
+    try:
+        deleted: bool = secret_store.delete_secret_bundle(
+            credential_ref=_credential_ref,
+            integration_type=_INTEGRATION_TYPE,
+        )
+        if not deleted:
+            # Idempotent — secret was already absent; still mark REVOKED
+            warnings.append("secret_already_absent")
+    except Exception:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="delete",
+            ok=False,
+            error_codes=["secret_delete_failed"],
+        )
+        return {
+            "ok": False,
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "integration_type": _INTEGRATION_TYPE,
+            "credential_status": None,
+            "secret_status": None,
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "secret_delete_failed",
+                    "message": "Failed to delete secret bundle. Check secret store configuration.",
+                    "recoverable": True,
+                    "source": "openclaw_admin",
+                }
+            ],
+        }
+
+    # F. Update CredentialReference status to REVOKED
+    updated_credential_status: Optional[Dict[str, Any]] = None
+    try:
+        updated_ref = update_credential_status(
+            ref, CredentialStatus.REVOKED.value, last_validated_at=now_utc_iso()
+        )
+        ref_store.put_reference(updated_ref)
+        updated_credential_status = ref_store.get_status(tenant_id, client_id, _INTEGRATION_TYPE)
+    except Exception:
+        pass  # status update failure is non-fatal; delete itself succeeded
+
+    # Redacted secret status after delete (configured=false confirms removal)
+    secret_status_result: Optional[Dict[str, Any]] = None
+    try:
+        secret_status_result = secret_store.get_secret_status(
+            credential_ref=_credential_ref,
+            integration_type=_INTEGRATION_TYPE,
+        )
+    except Exception:
+        pass
+
+    # G. Emit audit event — ok=true; error_codes reflects idempotent case
+    audit_error_codes: List[str] = ["secret_already_absent"] if warnings else []
+    _emit_credential_audit_event(
+        tenant_id, client_id,
+        operation="delete",
+        ok=True,
+        error_codes=audit_error_codes,
+    )
+
+    # H. Return redacted response — no secret values anywhere
+    return {
+        "ok": True,
+        "tenant_id": tenant_id,
+        "client_id": client_id,
+        "integration_type": _INTEGRATION_TYPE,
+        "credential_status": updated_credential_status,
+        "secret_status": secret_status_result,
+        "warnings": warnings,
         "errors": [],
     }

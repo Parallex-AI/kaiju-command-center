@@ -302,6 +302,120 @@ def run_demo():
         ok_g &= _assert("fake-" not in val_g_str, "no fake values in incomplete validate response")
         all_pass = all_pass and ok_g
 
+        # ── Section H: delete disabled by default ─────────────────────────────
+        print("\n── H: delete disabled by default → delete_not_enabled ──")
+        os.environ.pop("OPENCLAW_ADMIN_DELETE_ENABLED", None)
+        events_before_h = _read_audit_events(audit_root)
+        del_h = adm.delete_google_ads_credentials(_FAKE_TENANT, _FAKE_CLIENT)
+        ok_h = _assert(del_h.get("ok") is False, "delete returns ok=false when disabled")
+        codes_h = [e.get("code") for e in del_h.get("errors", []) if isinstance(e, dict)]
+        ok_h &= _assert("delete_not_enabled" in codes_h, "error delete_not_enabled")
+        ok_h &= _assert(del_h.get("credential_status") is None, "credential_status=None (no load)")
+        events_after_h = _read_audit_events(audit_root)
+        new_h = events_after_h[len(events_before_h):]
+        delete_ev_h = [ev for ev in new_h if ev.get("operation") == "delete"]
+        ok_h &= _assert(len(delete_ev_h) >= 1, "delete audit event emitted when disabled")
+        if delete_ev_h:
+            ev = delete_ev_h[-1]
+            ok_h &= _assert(ev.get("ok") is False, "delete audit event ok=false")
+            ok_h &= _assert(
+                "delete_not_enabled" in (ev.get("error_codes") or []),
+                "delete audit error_codes includes delete_not_enabled",
+            )
+            ok_h &= _assert_no_forbidden_content(ev, _FAKE_SECRET_VALUES, "delete-disabled event clean")
+        ok_h &= _assert("fake-" not in _json.dumps(del_h), "no fake values in disabled delete response")
+        all_pass = all_pass and ok_h
+
+        # ── Section I: delete enabled → ok, status=revoked ────────────────────
+        print("\n── I: delete enabled → ok=true, status=revoked ──")
+        _T_I = "tenant-delete-enabled"
+        _C_I = "client-delete-enabled"
+        _FAKE_SECRETS_I = {
+            "developer_token": "fake-dev-token-lifecycle",
+            "client_id": "fake-oauth-client-id-lifecycle",
+            "client_secret": "fake-client-secret-lifecycle",
+            "refresh_token": "fake-refresh-token-lifecycle",
+        }
+        store_i = InMemorySecretStore()
+        write_i = adm.write_google_ads_credential_bundle(
+            _T_I, _C_I,
+            {"customer_id": "111-222-3333", **_FAKE_SECRETS_I},
+            secret_store=store_i,
+        )
+        ok_i = _assert(write_i.get("ok") is True, "bundle write ok=true before delete")
+        os.environ["OPENCLAW_ADMIN_DELETE_ENABLED"] = "true"
+        events_before_i = _read_audit_events(audit_root)
+        del_i = adm.delete_google_ads_credentials(_T_I, _C_I, secret_store=store_i)
+        ok_i &= _assert(del_i.get("ok") is True, "delete returns ok=true")
+        ok_i &= _assert(del_i.get("errors") == [], "errors=[]")
+        cred_i = del_i.get("credential_status") or {}
+        ok_i &= _assert(cred_i.get("status") == "revoked", "status=revoked")
+        ss_i = del_i.get("secret_status") or {}
+        ok_i &= _assert(ss_i.get("configured") is False, "secret_status.configured=false after delete")
+        # Audit
+        events_after_i = _read_audit_events(audit_root)
+        new_i = events_after_i[len(events_before_i):]
+        delete_ev_i = [ev for ev in new_i if ev.get("operation") == "delete"]
+        ok_i &= _assert(len(delete_ev_i) >= 1, "delete audit event present")
+        if delete_ev_i:
+            ev = delete_ev_i[-1]
+            ok_i &= _assert(ev.get("ok") is True, "delete audit event ok=true")
+            ok_i &= _assert(ev.get("error_codes") == [], "delete audit error_codes=[]")
+            ok_i &= _assert_no_forbidden_content(ev, set(_FAKE_SECRETS_I.values()), "delete event clean")
+        ok_i &= _assert("fake-" not in _json.dumps(del_i), "no fake values in delete response")
+        all_pass = all_pass and ok_i
+
+        # ── Section J: idempotent delete / already absent ─────────────────────
+        print("\n── J: idempotent delete (already absent) → ok=true, warnings ──")
+        # Delete same credential again — secret already gone from InMemorySecretStore
+        events_before_j = _read_audit_events(audit_root)
+        del_j = adm.delete_google_ads_credentials(_T_I, _C_I, secret_store=store_i)
+        ok_j = _assert(del_j.get("ok") is True, "idempotent delete returns ok=true")
+        ok_j &= _assert("secret_already_absent" in (del_j.get("warnings") or []),
+                        "warnings includes secret_already_absent")
+        cred_j = del_j.get("credential_status") or {}
+        ok_j &= _assert(cred_j.get("status") == "revoked", "status remains revoked")
+        # Audit
+        events_after_j = _read_audit_events(audit_root)
+        new_j = events_after_j[len(events_before_j):]
+        delete_ev_j = [ev for ev in new_j if ev.get("operation") == "delete"]
+        ok_j &= _assert(len(delete_ev_j) >= 1, "idempotent delete audit event present")
+        if delete_ev_j:
+            ev = delete_ev_j[-1]
+            ok_j &= _assert(ev.get("ok") is True, "idempotent delete audit event ok=true")
+            ok_j &= _assert(
+                "secret_already_absent" in (ev.get("error_codes") or []),
+                "idempotent delete audit error_codes includes secret_already_absent",
+            )
+            ok_j &= _assert_no_forbidden_content(ev, set(), "idempotent delete event clean")
+        ok_j &= _assert("fake-" not in _json.dumps(del_j), "no fake values in idempotent delete response")
+        all_pass = all_pass and ok_j
+
+        # ── Section K: delete missing credential ──────────────────────────────
+        print("\n── K: delete missing credential → credential_not_found ──")
+        # OPENCLAW_ADMIN_DELETE_ENABLED still true from Section I
+        _T_K = "tenant-delete-missing"
+        _C_K = "client-delete-missing"
+        events_before_k = _read_audit_events(audit_root)
+        del_k = adm.delete_google_ads_credentials(_T_K, _C_K)
+        ok_k = _assert(del_k.get("ok") is False, "delete returns ok=false for missing ref")
+        codes_k = [e.get("code") for e in del_k.get("errors", []) if isinstance(e, dict)]
+        ok_k &= _assert("credential_not_found" in codes_k, "error credential_not_found")
+        events_after_k = _read_audit_events(audit_root)
+        new_k = events_after_k[len(events_before_k):]
+        delete_ev_k = [ev for ev in new_k if ev.get("operation") == "delete"]
+        ok_k &= _assert(len(delete_ev_k) >= 1, "delete audit event for missing ref present")
+        if delete_ev_k:
+            ev = delete_ev_k[-1]
+            ok_k &= _assert(ev.get("ok") is False, "delete audit event ok=false for missing ref")
+            ok_k &= _assert(
+                "credential_not_found" in (ev.get("error_codes") or []),
+                "delete audit error_codes includes credential_not_found",
+            )
+            ok_k &= _assert_no_forbidden_content(ev, set(), "delete-missing event clean")
+        ok_k &= _assert("fake-" not in _json.dumps(del_k), "no fake values in missing delete response")
+        all_pass = all_pass and ok_k
+
         print()
         if all_pass:
             print(_PASS + " All credential lifecycle audit assertions passed.")
@@ -310,6 +424,7 @@ def run_demo():
         return 0 if all_pass else 1
 
     finally:
+        os.environ.pop("OPENCLAW_ADMIN_DELETE_ENABLED", None)
         for k, v in original_env.items():
             if v is None:
                 os.environ.pop(k, None)

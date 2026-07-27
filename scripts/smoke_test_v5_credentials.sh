@@ -113,7 +113,7 @@ echo ""
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-echo "[1/13] Environment and import checks..."
+echo "[1/14] Environment and import checks..."
 # ---------------------------------------------------------------------------
 
 [ -f "$PYTHON" ] || fail "Python not found at $PYTHON"
@@ -140,7 +140,7 @@ done
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[2/13] CredentialReference model demo..."
+echo "[2/14] CredentialReference model demo..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_model_demo.py 2>&1)
@@ -150,7 +150,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[3/13] Credential stores..."
+echo "[3/14] Credential stores..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_store_demo.py 2>&1)
@@ -165,7 +165,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[4/13] Credential resolver..."
+echo "[4/14] Credential resolver..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_resolver_demo.py 2>&1)
@@ -175,7 +175,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[5/13] SecretStore and provider..."
+echo "[5/14] SecretStore and provider..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_secret_store_demo.py 2>&1)
@@ -190,7 +190,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[6/13] Adapter provider mode — non-live checks..."
+echo "[6/14] Adapter provider mode — non-live checks..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_google_ads_adapter_provider_demo.py 2>&1)
@@ -307,7 +307,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[7/13] OpenClaw admin credential endpoints..."
+echo "[7/14] OpenClaw admin credential endpoints..."
 # ---------------------------------------------------------------------------
 
 # Set up temp credential reference store to avoid touching any runtime file
@@ -496,7 +496,7 @@ rm -f "$CRED_STORE_FILE"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[8/13] Secret-safety and git hygiene..."
+echo "[8/14] Secret-safety and git hygiene..."
 # ---------------------------------------------------------------------------
 
 GREP_TARGETS="$REPO/scripts $REPO/docs $REPO/agents $REPO/openclaw $REPO/README.md $REPO/.env.example"
@@ -546,7 +546,7 @@ fi
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 echo ""
-echo "[9/13] Admin credential bundle write — mocked secret store..."
+echo "[9/14] Admin credential bundle write — mocked secret store..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -576,7 +576,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[10/13] Admin credential API write — FastAPI TestClient..."
+echo "[10/14] Admin credential API write — FastAPI TestClient..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -616,7 +616,7 @@ echo "$_OUT" | grep -q "secret_material_rejected" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[11/13] Credential lifecycle audit and validation events..."
+echo "[11/14] Credential lifecycle audit and validation events..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -657,9 +657,22 @@ echo "$_OUT" | grep -q "status=validation_failed" \
     && pass "lifecycle demo G: status=validation_failed confirmed" \
     || { echo "  ✗ lifecycle demo G: status=validation_failed not found"; echo "$_OUT" | tail -20; exit 1; }
 
+# Delete/revoke markers (H-K)
+echo "$_OUT" | grep -q "delete_not_enabled" \
+    && pass "lifecycle demo H: delete_not_enabled gate confirmed" \
+    || { echo "  ✗ lifecycle demo H: delete_not_enabled not found"; echo "$_OUT" | tail -20; exit 1; }
+
+echo "$_OUT" | grep -q "status=revoked" \
+    && pass "lifecycle demo I: status=revoked confirmed" \
+    || { echo "  ✗ lifecycle demo I: status=revoked not found"; echo "$_OUT" | tail -20; exit 1; }
+
+echo "$_OUT" | grep -q "secret_already_absent" \
+    && pass "lifecycle demo J: idempotent delete secret_already_absent confirmed" \
+    || { echo "  ✗ lifecycle demo J: secret_already_absent not found"; echo "$_OUT" | tail -20; exit 1; }
+
 # ---------------------------------------------------------------------------
 echo ""
-echo "[12/13] Credential lifecycle validation API (FastAPI TestClient)..."
+echo "[12/14] Credential lifecycle validation API (FastAPI TestClient)..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -693,9 +706,26 @@ echo "$_OUT" | grep -q "status=validation_failed" \
     && pass "API lifecycle Validate C: status=validation_failed" \
     || { echo "  ✗ API lifecycle Validate C: status=validation_failed not found"; echo "$_OUT" | tail -30; exit 1; }
 
+# Delete scenario markers in API lifecycle demo stdout
+echo "$_OUT" | grep -q "status 401 without auth token" \
+    && pass "API lifecycle Delete E: 401 auth gate confirmed" \
+    || { echo "  ✗ API lifecycle Delete E: 401 marker not found"; echo "$_OUT" | tail -30; exit 1; }
+
+echo "$_OUT" | grep -q "status 403 when delete disabled" \
+    && pass "API lifecycle Delete A: 403 delete_not_enabled confirmed" \
+    || { echo "  ✗ API lifecycle Delete A: 403 marker not found"; echo "$_OUT" | tail -30; exit 1; }
+
+echo "$_OUT" | grep -q "credential status=revoked" \
+    && pass "API lifecycle Delete B: status=revoked confirmed" \
+    || { echo "  ✗ API lifecycle Delete B: status=revoked not found"; echo "$_OUT" | tail -30; exit 1; }
+
+echo "$_OUT" | grep -q "warnings includes secret_already_absent" \
+    && pass "API lifecycle Delete C: idempotent delete confirmed" \
+    || { echo "  ✗ API lifecycle Delete C: secret_already_absent not found"; echo "$_OUT" | tail -30; exit 1; }
+
 # ---------------------------------------------------------------------------
 echo ""
-echo "[13/13] Validate route — server-level auth checks..."
+echo "[13/14] Validate route — server-level auth checks..."
 # ---------------------------------------------------------------------------
 
 CRED_STORE_FILE2=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
@@ -753,6 +783,78 @@ wait "$SERVER_PID" 2>/dev/null || true
 SERVER_PID=""
 pass "Validate auth test server stopped cleanly"
 rm -f "$CRED_STORE_FILE2"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[14/14] Phase 3 delete/revoke — forbidden behavior and env gate checks..."
+# ---------------------------------------------------------------------------
+
+# delete_google_ads_credentials must not call get_secret_bundle (only delete_secret_bundle + get_secret_status)
+# Match method call syntax (.get_secret_bundle) to avoid matching docstring references.
+if grep -n "\.get_secret_bundle" "$OPENCLAW_DIR/admin.py" 2>/dev/null; then
+    fail ".get_secret_bundle() call found in admin.py — delete path must not fetch secrets"
+else
+    pass "admin.py delete path does not call .get_secret_bundle()"
+fi
+
+# GOOGLE_ADS_LIVE_ENABLED must not be true in any demo or script file
+if grep -R "GOOGLE_ADS_LIVE_ENABLED=true" \
+    "$OPENCLAW_DIR/run_admin_credentials_lifecycle_demo.py" \
+    "$OPENCLAW_DIR/run_admin_credentials_lifecycle_api_demo.py" \
+    "$OPENCLAW_DIR/run_admin_credentials_gcp_write_demo.py" \
+    "$OPENCLAW_DIR/run_admin_credentials_api_write_demo.py" \
+    2>/dev/null; then
+    fail "GOOGLE_ADS_LIVE_ENABLED=true found in a demo file — must remain false"
+else
+    pass "GOOGLE_ADS_LIVE_ENABLED=true absent from all demo files"
+fi
+
+# GCP_SECRET_MANAGER_ENABLED must not be true in demo files
+if grep -R "GCP_SECRET_MANAGER_ENABLED=true" \
+    "$OPENCLAW_DIR/run_admin_credentials_lifecycle_demo.py" \
+    "$OPENCLAW_DIR/run_admin_credentials_lifecycle_api_demo.py" \
+    2>/dev/null; then
+    fail "GCP_SECRET_MANAGER_ENABLED=true found in lifecycle demo file"
+else
+    pass "GCP_SECRET_MANAGER_ENABLED=true absent from lifecycle demo files"
+fi
+
+# OPENCLAW_ADMIN_DELETE_ENABLED gate must be read from os.environ (not hardcoded).
+# Verify _is_admin_delete_enabled reads from os.environ, not a literal True.
+if grep -A 3 "def _is_admin_delete_enabled" "$OPENCLAW_DIR/admin.py" 2>/dev/null \
+    | grep -q "os.environ"; then
+    pass "_is_admin_delete_enabled reads from os.environ (not hardcoded)"
+else
+    fail "_is_admin_delete_enabled does not read os.environ — delete gate may be hardcoded"
+fi
+
+# Audit events in delete path must not log credential_ref, secret_id, customer_id, or login_customer_id
+# Check that build_credential_audit_event does not include any of these fields
+for forbidden_field in "credential_ref" "secret_id" "customer_id" "login_customer_id"; do
+    if grep -A 30 "def build_credential_audit_event" "$OPENCLAW_DIR/audit.py" 2>/dev/null \
+        | grep -q "\"${forbidden_field}\""; then
+        fail "Forbidden field '${forbidden_field}' found in build_credential_audit_event body"
+    else
+        pass "build_credential_audit_event does not emit '${forbidden_field}'"
+    fi
+done
+
+# No real credential JSON files left in repo
+for f in \
+    "$OPENCLAW_DIR/credential_references.json" \
+    "$REPO/agents/ads-agent/credential_references.json"; do
+    if [ -f "$f" ]; then
+        if git -C "$REPO" ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+            fail "Credential file tracked in git: $f"
+        else
+            pass "Credential file exists but not tracked: $f (ok — runtime only)"
+        fi
+    else
+        pass "Credential file absent (expected): $(basename $f)"
+    fi
+done
+
+pass "Phase 3 delete/revoke forbidden behavior checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

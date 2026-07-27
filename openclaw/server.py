@@ -26,6 +26,7 @@ from admin import (
     upsert_google_ads_credential_reference,
     write_google_ads_credential_bundle,
     validate_google_ads_credentials,
+    delete_google_ads_credentials,
     GOOGLE_ADS_SECRET_FIELDS,
 )
 
@@ -239,6 +240,60 @@ async def admin_validate_google_ads_credentials(
 
     error_codes = [e.get("code") for e in result.get("errors", []) if isinstance(e, dict)]
     if "credential_not_found" in error_codes:
+        status_code = 404
+    elif result.get("ok"):
+        status_code = 200
+    else:
+        status_code = 400
+    return JSONResponse(status_code=status_code, content=result)
+
+
+@app.delete(
+    "/openclaw/admin/tenants/{tenant_id}/clients/{client_id}/credentials/google-ads"
+)
+async def admin_delete_google_ads_credentials(
+    tenant_id: str,
+    client_id: str,
+    request: Request,
+):
+    """
+    V5.15 — Delete a Google Ads credential bundle and mark CredentialReference as REVOKED.
+
+    Requires OPENCLAW_ADMIN_DELETE_ENABLED=true. Disabled by default (returns 403).
+    Calls delete_secret_bundle() only — no secret values fetched or returned.
+    Idempotent on already-absent secrets (returns 200 with warnings=[secret_already_absent]).
+    Emits audit event operation="delete".
+    Auth applies when OPENCLAW_API_AUTH_ENABLED=true.
+    """
+    request_id = request.headers.get("x-request-id") or generate_request_id()
+    trace_id = request.headers.get("x-trace-id") or generate_trace_id()
+
+    auth_ok, auth_errors = validate_api_auth(headers=dict(request.headers))
+    if not auth_ok:
+        return JSONResponse(
+            status_code=401,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "credential_status": None,
+                "secret_status": None,
+                "warnings": [],
+                "errors": auth_errors,
+            },
+        )
+
+    result = delete_google_ads_credentials(tenant_id, client_id)
+    result["request_id"] = request_id
+    result["trace_id"] = trace_id
+
+    error_codes = [e.get("code") for e in result.get("errors", []) if isinstance(e, dict)]
+    if "delete_not_enabled" in error_codes:
+        status_code = 403
+    elif "credential_not_found" in error_codes:
         status_code = 404
     elif result.get("ok"):
         status_code = 200
