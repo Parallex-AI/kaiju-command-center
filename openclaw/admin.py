@@ -1,16 +1,22 @@
 """
-V5.5 / V5.6 / V5.14 — OpenClaw admin helper for credential reference operations.
+V5.5 / V5.6 / V5.14 / V5.15 — OpenClaw admin helper for credential reference operations.
 
-V5.5: get_google_ads_credential_status — read-only status lookup
-V5.6: upsert_google_ads_credential_reference — create/update CredentialReference (no secrets)
+V5.5:  get_google_ads_credential_status — read-only status lookup
+V5.6:  upsert_google_ads_credential_reference — create/update CredentialReference (no secrets)
 V5.14: write_google_ads_credential_bundle — write full credential bundle (metadata →
   LocalFileCredentialReferenceStore, secrets → SecretStore). Routes to
   GCPSecretManagerStore or InMemorySecretStore based on GCP_SECRET_MANAGER_ENABLED.
-  Secret values are never returned, logged, or echoed.
+V5.15: validate_google_ads_credentials — structural validation via SecretStore.get_secret_status().
+  No secret values fetched. Updates CredentialReference status and last_validated_at.
+  Emits audit event operation="validate".
+  delete_google_ads_credentials — delete credential bundle and mark CredentialReference REVOKED.
+  Requires OPENCLAW_ADMIN_DELETE_ENABLED=true. Idempotent on already-absent secrets.
+  Emits audit event operation="delete".
 
 No secret values are returned by any function in this module.
 """
 
+import os
 import sys
 from dataclasses import replace as dc_replace
 from pathlib import Path
@@ -27,6 +33,7 @@ from credentials.models import (
     create_credential_reference,
     filter_safe_metadata,
     now_utc_iso,
+    update_credential_status,
 )
 from credentials.secret_store import (
     SecretStore,
@@ -34,6 +41,7 @@ from credentials.secret_store import (
     assert_allowed_secret_fields,
 )
 from credentials.secret_store_factory import create_secret_store
+from audit import build_credential_audit_event, append_audit_event
 
 _INTEGRATION_TYPE = "google_ads"
 _VALID_STATUSES = frozenset(s.value for s in CredentialStatus)
@@ -52,6 +60,32 @@ _WRITE_FORBIDDEN_SUBSTRINGS: Tuple[str, ...] = (
     "refresh",
     "access",
 )
+
+
+def _emit_credential_audit_event(
+    tenant_id: str,
+    client_id: str,
+    operation: str,
+    ok: bool,
+    request_id: str = "",
+    trace_id: str = "",
+    error_codes: Optional[List[str]] = None,
+) -> None:
+    """Emit a credential audit event. Swallows all exceptions — never affects write outcome."""
+    try:
+        event = build_credential_audit_event(
+            tenant_id=tenant_id,
+            client_id=client_id,
+            integration_type=_INTEGRATION_TYPE,
+            operation=operation,
+            ok=ok,
+            request_id=request_id,
+            trace_id=trace_id,
+            error_codes=error_codes,
+        )
+        append_audit_event(event)
+    except Exception:
+        pass
 
 
 def _check_no_forbidden_write_fields(
@@ -221,6 +255,7 @@ def upsert_google_ads_credential_reference(
 
         store.put_reference(ref)
         credential_status = store.get_status(tenant_id, client_id, _INTEGRATION_TYPE)
+        _emit_credential_audit_event(tenant_id, client_id, operation="metadata_upsert", ok=True)
         return {
             "ok": True,
             "tenant_id": tenant_id,
@@ -231,12 +266,24 @@ def upsert_google_ads_credential_reference(
         }
 
     except ValueError:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="metadata_upsert",
+            ok=False,
+            error_codes=["invalid_credential_reference"],
+        )
         return _make_admin_error(
             tenant_id, client_id,
             "invalid_credential_reference",
             "Credential reference is invalid. Check field values.",
         )
     except Exception:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="metadata_upsert",
+            ok=False,
+            error_codes=["credential_write_failed"],
+        )
         return _make_admin_error(
             tenant_id, client_id,
             "credential_write_failed",
@@ -365,6 +412,12 @@ def write_google_ads_credential_bundle(
             secrets=secret_payload,
         )
     except Exception:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="bundle_write",
+            ok=False,
+            error_codes=["secret_write_failed"],
+        )
         err = _make_admin_error(
             tenant_id, client_id,
             "secret_write_failed",
@@ -373,6 +426,8 @@ def write_google_ads_credential_bundle(
         )
         err["secret_status"] = None
         return err
+
+    _emit_credential_audit_event(tenant_id, client_id, operation="bundle_write", ok=True)
 
     # 11–12. Get redacted secret status (no secret values — configured_fields booleans only)
     try:
@@ -391,5 +446,327 @@ def write_google_ads_credential_bundle(
         "integration_type": _INTEGRATION_TYPE,
         "credential_status": ref_result.get("credential_status"),
         "secret_status": secret_status_result,
+        "errors": [],
+    }
+
+
+def validate_google_ads_credentials(
+    tenant_id: str,
+    client_id: str,
+    secret_store: Optional[SecretStore] = None,
+) -> Dict[str, Any]:
+    """
+    Structural validation of stored Google Ads credentials.
+
+    V5.15 Phase 2 — structural only. No Google Ads API call. No secret values fetched.
+
+    Steps:
+    A. Load CredentialReference — returns credential_not_found if missing.
+    B. Resolve SecretStore (injected or factory).
+    C. Call get_secret_status() — field presence check only, no raw values.
+    D. Compute structurally_complete and missing_fields (field names only).
+    E. Update CredentialReference: status → ACTIVE (complete) or VALIDATION_FAILED (incomplete).
+    F. Emit audit event operation="validate".
+    G. Return redacted validation result — no secret values, no raw exceptions.
+
+    Secret values, credential_ref, secret_id, customer_id, login_customer_id are
+    never included in the returned validation_result block.
+    """
+    _EMPTY_VALIDATION_RESULT: Dict[str, Any] = {
+        "structurally_complete": False,
+        "missing_fields": [],
+        "live_api_tested": False,
+    }
+
+    # A. Load CredentialReference
+    try:
+        ref_store = LocalFileCredentialReferenceStore()
+        ref = ref_store.get_reference(tenant_id, client_id, _INTEGRATION_TYPE)
+    except Exception:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="validate",
+            ok=False,
+            error_codes=["credential_store_failed"],
+        )
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "credential_store_failed",
+            "Failed to load credential reference store. Check configuration.",
+            recoverable=True,
+        )
+        err["validation_result"] = _EMPTY_VALIDATION_RESULT
+        err["secret_status"] = None
+        return err
+
+    if ref is None:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="validate",
+            ok=False,
+            error_codes=["credential_not_found"],
+        )
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "credential_not_found",
+            "No credential reference found for this tenant/client.",
+            recoverable=False,
+        )
+        err["validation_result"] = _EMPTY_VALIDATION_RESULT
+        err["secret_status"] = None
+        return err
+
+    # B. Resolve credential_ref (internal use only — never echoed in response)
+    _credential_ref: str = ref.credential_ref
+
+    # C. Resolve SecretStore (injected for tests; factory for production)
+    if secret_store is None:
+        secret_store = create_secret_store()
+
+    # D. Get redacted secret status — field presence booleans only, no raw values
+    try:
+        secret_status_result = secret_store.get_secret_status(
+            credential_ref=_credential_ref,
+            integration_type=_INTEGRATION_TYPE,
+        )
+    except Exception:
+        secret_status_result = {"configured": False, "configured_fields": {}}
+
+    configured_fields_map: Dict[str, bool] = secret_status_result.get("configured_fields") or {}
+    missing_fields: List[str] = [
+        f for f in GOOGLE_ADS_SECRET_FIELDS
+        if not configured_fields_map.get(f)
+    ]
+    structurally_complete: bool = len(missing_fields) == 0
+
+    # E. Update CredentialReference status and last_validated_at
+    last_validated_at: str = now_utc_iso()
+    new_status: str = (
+        CredentialStatus.ACTIVE.value if structurally_complete
+        else CredentialStatus.VALIDATION_FAILED.value
+    )
+    updated_credential_status: Optional[Dict[str, Any]] = None
+    try:
+        updated_ref = update_credential_status(ref, new_status, last_validated_at=last_validated_at)
+        ref_store.put_reference(updated_ref)
+        updated_credential_status = ref_store.get_status(tenant_id, client_id, _INTEGRATION_TYPE)
+    except Exception:
+        pass  # persist failure is non-fatal; validation result is still returned
+
+    # F. Emit audit event — ok=True means validation process ran; error_codes signal completeness
+    audit_error_codes: List[str] = [] if structurally_complete else ["secret_bundle_incomplete"]
+    _emit_credential_audit_event(
+        tenant_id, client_id,
+        operation="validate",
+        ok=True,
+        error_codes=audit_error_codes,
+    )
+
+    # G. Return redacted validation result — no secret values anywhere
+    return {
+        "ok": True,
+        "tenant_id": tenant_id,
+        "client_id": client_id,
+        "integration_type": _INTEGRATION_TYPE,
+        "validation_result": {
+            "structurally_complete": structurally_complete,
+            "missing_fields": missing_fields,
+            "last_validated_at": last_validated_at,
+            "live_api_tested": False,
+        },
+        "credential_status": updated_credential_status,
+        "secret_status": secret_status_result,
+        "errors": [],
+    }
+
+
+def _is_admin_delete_enabled() -> bool:
+    return os.environ.get("OPENCLAW_ADMIN_DELETE_ENABLED", "false").strip().lower() == "true"
+
+
+def delete_google_ads_credentials(
+    tenant_id: str,
+    client_id: str,
+    secret_store: Optional[SecretStore] = None,
+) -> Dict[str, Any]:
+    """
+    Delete a Google Ads credential bundle and mark CredentialReference as REVOKED.
+
+    V5.15 Phase 3 — requires OPENCLAW_ADMIN_DELETE_ENABLED=true. Disabled by default.
+
+    Steps:
+    A. Check env gate — returns delete_not_enabled if not enabled.
+    B. Load CredentialReference — returns credential_not_found if missing.
+    C. Resolve SecretStore (injected or factory).
+    D. Call delete_secret_bundle() — no get_secret_bundle(), no secret values accessed.
+    E. Handle result:
+       - True  → secrets deleted, update status to REVOKED, ok=true
+       - False → secrets already absent (idempotent), update status to REVOKED,
+                 ok=true, warnings=["secret_already_absent"]
+       - raises → do not update status, ok=false, errors=["secret_delete_failed"]
+    F. Emit audit event operation="delete".
+    G. Return redacted response — no secret values, no credential_ref, no secret_id.
+    """
+    # A. Check env gate first — do not load or delete anything when disabled
+    if not _is_admin_delete_enabled():
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="delete",
+            ok=False,
+            error_codes=["delete_not_enabled"],
+        )
+        return {
+            "ok": False,
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "integration_type": _INTEGRATION_TYPE,
+            "credential_status": None,
+            "secret_status": None,
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "delete_not_enabled",
+                    "message": "Delete is disabled. Set OPENCLAW_ADMIN_DELETE_ENABLED=true to enable.",
+                    "recoverable": False,
+                    "source": "openclaw_admin",
+                }
+            ],
+        }
+
+    # B. Load CredentialReference
+    try:
+        ref_store = LocalFileCredentialReferenceStore()
+        ref = ref_store.get_reference(tenant_id, client_id, _INTEGRATION_TYPE)
+    except Exception:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="delete",
+            ok=False,
+            error_codes=["credential_store_failed"],
+        )
+        return {
+            "ok": False,
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "integration_type": _INTEGRATION_TYPE,
+            "credential_status": None,
+            "secret_status": None,
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "credential_store_failed",
+                    "message": "Failed to load credential reference store. Check configuration.",
+                    "recoverable": True,
+                    "source": "openclaw_admin",
+                }
+            ],
+        }
+
+    if ref is None:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="delete",
+            ok=False,
+            error_codes=["credential_not_found"],
+        )
+        return {
+            "ok": False,
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "integration_type": _INTEGRATION_TYPE,
+            "credential_status": None,
+            "secret_status": None,
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "credential_not_found",
+                    "message": "No credential reference found for this tenant/client.",
+                    "recoverable": False,
+                    "source": "openclaw_admin",
+                }
+            ],
+        }
+
+    # C. Resolve credential_ref (internal only — never echoed in response)
+    _credential_ref: str = ref.credential_ref
+
+    # D. Resolve SecretStore (injected for tests; factory for production)
+    if secret_store is None:
+        secret_store = create_secret_store()
+
+    # E. Delete secret bundle — no get_secret_bundle(), no raw values accessed
+    warnings: List[str] = []
+    try:
+        deleted: bool = secret_store.delete_secret_bundle(
+            credential_ref=_credential_ref,
+            integration_type=_INTEGRATION_TYPE,
+        )
+        if not deleted:
+            # Idempotent — secret was already absent; still mark REVOKED
+            warnings.append("secret_already_absent")
+    except Exception:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="delete",
+            ok=False,
+            error_codes=["secret_delete_failed"],
+        )
+        return {
+            "ok": False,
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "integration_type": _INTEGRATION_TYPE,
+            "credential_status": None,
+            "secret_status": None,
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "secret_delete_failed",
+                    "message": "Failed to delete secret bundle. Check secret store configuration.",
+                    "recoverable": True,
+                    "source": "openclaw_admin",
+                }
+            ],
+        }
+
+    # F. Update CredentialReference status to REVOKED
+    updated_credential_status: Optional[Dict[str, Any]] = None
+    try:
+        updated_ref = update_credential_status(
+            ref, CredentialStatus.REVOKED.value, last_validated_at=now_utc_iso()
+        )
+        ref_store.put_reference(updated_ref)
+        updated_credential_status = ref_store.get_status(tenant_id, client_id, _INTEGRATION_TYPE)
+    except Exception:
+        pass  # status update failure is non-fatal; delete itself succeeded
+
+    # Redacted secret status after delete (configured=false confirms removal)
+    secret_status_result: Optional[Dict[str, Any]] = None
+    try:
+        secret_status_result = secret_store.get_secret_status(
+            credential_ref=_credential_ref,
+            integration_type=_INTEGRATION_TYPE,
+        )
+    except Exception:
+        pass
+
+    # G. Emit audit event — ok=true; error_codes reflects idempotent case
+    audit_error_codes: List[str] = ["secret_already_absent"] if warnings else []
+    _emit_credential_audit_event(
+        tenant_id, client_id,
+        operation="delete",
+        ok=True,
+        error_codes=audit_error_codes,
+    )
+
+    # H. Return redacted response — no secret values anywhere
+    return {
+        "ok": True,
+        "tenant_id": tenant_id,
+        "client_id": client_id,
+        "integration_type": _INTEGRATION_TYPE,
+        "credential_status": updated_credential_status,
+        "secret_status": secret_status_result,
+        "warnings": warnings,
         "errors": [],
     }

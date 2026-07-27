@@ -417,3 +417,28 @@ Kubernetes, multi-region replication, cross-project secret sharing, frontend cre
 ### V5.14 non-goals
 
 Production deployment, real Google Ads credentials, credential validation/rotation/delete endpoints, admin RBAC hardening, frontend UI, OAuth consent screen.
+
+---
+
+## V5.15 — Credential Lifecycle Hardening (branch: `v5.15-credential-lifecycle-hardening` · tag candidate: `v5.15.0-beta`)
+
+**Goal:** Complete the credential lifecycle story following V5.14's bundle write: add safe audit events on all write paths, add a structural validation endpoint, and add an env-gated revoke/delete endpoint.
+
+- [x] **Phase 1** — Credential audit events · `build_credential_audit_event()` in `openclaw/audit.py` · `_emit_credential_audit_event()` helper · audit emission on `upsert_google_ads_credential_reference()` (`operation="metadata_upsert"`) and `write_google_ads_credential_bundle()` (`operation="bundle_write"`) · audit events never include `credential_ref`, `secret_id`, `customer_id`, `login_customer_id`, or any secret value · lifecycle demo sections A–D (audit assertions)
+- [x] **Phase 2** — Structural validation endpoint · `validate_google_ads_credentials()` in `openclaw/admin.py` · `POST /credentials/google-ads/validate` route · uses `get_secret_status()` only — never calls `get_secret_bundle()` or Google Ads API · updates `CredentialReference` to `ACTIVE` or `VALIDATION_FAILED` · sets `last_validated_at` · emits `operation="validate"` audit event · lifecycle demo sections E–G · FastAPI TestClient demo (Validate B/A/C)
+- [x] **Phase 3** — Revoke/delete endpoint · `delete_google_ads_credentials()` in `openclaw/admin.py` · `DELETE /credentials/google-ads` route · `OPENCLAW_ADMIN_DELETE_ENABLED=true` required (403 by default) · calls `delete_secret_bundle()` only — never reads secrets · marks `CredentialReference` as `REVOKED` · idempotent (`warnings=["secret_already_absent"]` when already absent) · emits `operation="delete"` audit event · lifecycle demo sections H–K (76/76 PASS) · FastAPI TestClient demo Delete E/A/D/B/C
+- [x] **Closure** — branch closure doc · release notes · ROADMAP update · README update · `smoke_test_v5_credentials.sh` extended to 14/14 · final smoke suites PASS · ready for merge and tag
+
+**V5.15 complete.** Recommended tag: `v5.15.0-beta`
+
+### V5.15 design notes
+
+- `build_credential_audit_event()` is a new function separate from `build_audit_event()` — shaped for credential operations, not OpenClaw process responses
+- Validate path: `get_secret_status()` only; field presence booleans only; `live_api_tested=false` always
+- Delete path: `delete_secret_bundle()` + `get_secret_status()` only; `get_secret_bundle()` never called
+- `_is_admin_delete_enabled()` reads `os.environ` at call time — no caching; safe to toggle without restart
+- Idempotent delete: `delete_secret_bundle()` returning `False` → `ok=true`, `warnings=["secret_already_absent"]`
+
+### V5.15 non-goals
+
+Production deployment, real Google Ads credentials, live API validation, RBAC hardening, audit log tamper-resistance, secret rotation endpoint, live GCP delete validation, frontend UI.
