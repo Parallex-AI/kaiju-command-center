@@ -1,10 +1,14 @@
 """
-V5.5 / V5.6 — OpenClaw admin helper for credential reference operations.
+V5.5 / V5.6 / V5.14 — OpenClaw admin helper for credential reference operations.
 
 V5.5: get_google_ads_credential_status — read-only status lookup
 V5.6: upsert_google_ads_credential_reference — create/update CredentialReference (no secrets)
+V5.14: write_google_ads_credential_bundle — write full credential bundle (metadata →
+  LocalFileCredentialReferenceStore, secrets → SecretStore). Routes to
+  GCPSecretManagerStore or InMemorySecretStore based on GCP_SECRET_MANAGER_ENABLED.
+  Secret values are never returned, logged, or echoed.
 
-No secret material is accepted, stored, or returned by any function in this module.
+No secret values are returned by any function in this module.
 """
 
 import sys
@@ -24,9 +28,17 @@ from credentials.models import (
     filter_safe_metadata,
     now_utc_iso,
 )
+from credentials.secret_store import (
+    SecretStore,
+    GOOGLE_ADS_SECRET_FIELDS,
+    assert_allowed_secret_fields,
+)
+from credentials.secret_store_factory import create_secret_store
 
 _INTEGRATION_TYPE = "google_ads"
 _VALID_STATUSES = frozenset(s.value for s in CredentialStatus)
+_GOOGLE_ADS_SECRET_FIELD_SET: frozenset = frozenset(GOOGLE_ADS_SECRET_FIELDS)
+_BUNDLE_METADATA_KEYS: frozenset = frozenset({"customer_id", "login_customer_id", "status", "metadata"})
 
 # Forbidden key substrings for write payload validation.
 # Superset of store.py's list — includes 'auth_header'.
@@ -231,3 +243,153 @@ def upsert_google_ads_credential_reference(
             "Failed to write credential reference. Check store configuration.",
             recoverable=True,
         )
+
+
+def write_google_ads_credential_bundle(
+    tenant_id: str,
+    client_id: str,
+    payload: Optional[Dict[str, Any]] = None,
+    secret_store: Optional[SecretStore] = None,
+) -> Dict[str, Any]:
+    """
+    Write a complete Google Ads credential bundle.
+
+    Metadata fields (customer_id, login_customer_id, status, metadata) are written
+    to LocalFileCredentialReferenceStore via upsert_google_ads_credential_reference().
+    Secret fields (developer_token, client_id as OAuth credential, client_secret,
+    refresh_token) are written to SecretStore via put_secret_bundle().
+
+    When secret_store is None, uses create_secret_store() which auto-selects
+    InMemorySecretStore (default) or GCPSecretManagerStore (when
+    GCP_SECRET_MANAGER_ENABLED=true).
+
+    Note on naming: the client_id parameter here is the OpenClaw client ID (route
+    identifier). The Google Ads OAuth client_id arrives as payload["client_id"] and
+    is secret material — it is never returned in any response field.
+
+    All four secret fields are required. Partial bundles are rejected with
+    secret_bundle_incomplete. Unknown or globally-forbidden fields (access_token,
+    oauth_code) in the secret position are rejected with secret_material_rejected.
+    Secret values never appear in any return value, error message, or log line.
+    """
+    # 1. Reject empty/None payload
+    if not payload:
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "invalid_request",
+            "Request body is required.",
+        )
+        err["secret_status"] = None
+        return err
+
+    # 2. Partition payload: known Google Ads secret fields vs everything else
+    secret_payload: Dict[str, Any] = {
+        k: payload[k] for k in _GOOGLE_ADS_SECRET_FIELD_SET if k in payload
+    }
+    other_payload: Dict[str, Any] = {
+        k: v for k, v in payload.items() if k not in _GOOGLE_ADS_SECRET_FIELD_SET
+    }
+
+    # 3. Run existing forbidden-field guard only on non-secret fields
+    clean, _offending = _check_no_forbidden_write_fields(other_payload)
+    if not clean:
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "secret_material_rejected",
+            "Request contains forbidden secret-like fields.",
+        )
+        err["secret_status"] = None
+        return err
+
+    # 4. Require all four secret fields — partial bundles are rejected
+    missing_fields = [
+        f for f in GOOGLE_ADS_SECRET_FIELDS
+        if not payload.get(f) or not str(payload[f]).strip()
+    ]
+    if missing_fields:
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "secret_bundle_incomplete",
+            f"Missing or empty required secret fields: {sorted(missing_fields)}",
+        )
+        err["secret_status"] = None
+        return err
+
+    # 5. Validate secret fields via SecretStore registry (rejects access_token, etc.)
+    allowed, _rejected = assert_allowed_secret_fields(secret_payload, _INTEGRATION_TYPE)
+    if not allowed:
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "secret_material_rejected",
+            "Secret bundle contains disallowed fields.",
+        )
+        err["secret_status"] = None
+        return err
+
+    # 6. Build metadata payload for CredentialReference upsert (no secrets)
+    metadata_payload: Dict[str, Any] = {
+        k: payload[k] for k in _BUNDLE_METADATA_KEYS if k in payload
+    }
+    if not metadata_payload:
+        # No metadata fields supplied — use minimum viable payload to create the reference
+        metadata_payload = {"status": CredentialStatus.CONFIGURED.value}
+
+    # 7. Upsert CredentialReference (metadata only — secrets are never passed here)
+    ref_result = upsert_google_ads_credential_reference(tenant_id, client_id, metadata_payload)
+    if not ref_result.get("ok"):
+        ref_result["secret_status"] = None
+        return ref_result
+
+    # 8. Resolve credential_ref from upsert result
+    credential_status = ref_result.get("credential_status") or {}
+    credential_ref: Optional[str] = credential_status.get("credential_ref")
+    if not credential_ref:
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "credential_reference_missing",
+            "Could not resolve credential reference after upsert.",
+            recoverable=False,
+        )
+        err["secret_status"] = None
+        return err
+
+    # 9. Resolve secret store (injected for tests; factory for production)
+    if secret_store is None:
+        secret_store = create_secret_store()
+
+    # 10. Write secret bundle — secret_payload lives only in this local scope
+    try:
+        secret_store.put_secret_bundle(
+            credential_ref=credential_ref,
+            integration_type=_INTEGRATION_TYPE,
+            secrets=secret_payload,
+        )
+    except Exception:
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "secret_write_failed",
+            "Failed to write secret bundle. Check secret store configuration.",
+            recoverable=True,
+        )
+        err["secret_status"] = None
+        return err
+
+    # 11–12. Get redacted secret status (no secret values — configured_fields booleans only)
+    try:
+        secret_status_result = secret_store.get_secret_status(
+            credential_ref=credential_ref,
+            integration_type=_INTEGRATION_TYPE,
+        )
+    except Exception:
+        secret_status_result = None
+
+    # 13. Return combined redacted response — no secret values anywhere
+    return {
+        "ok": True,
+        "tenant_id": tenant_id,
+        "client_id": client_id,
+        "integration_type": _INTEGRATION_TYPE,
+        "credential_status": ref_result.get("credential_status"),
+        "secret_status": secret_status_result,
+        "errors": [],
+    }
