@@ -360,7 +360,7 @@ Goal: Replace `InMemorySecretStore` with a production-grade `GCPSecretManagerSto
 
 ---
 
-## V5.13 — Manual GCP Validation (branch: `v5.13-manual-gcp-validation`)
+## V5.13 — Manual GCP Validation (branch: `v5.13-manual-gcp-validation` · tag: `v5.13.0-beta`)
 
 **Goal:** Validate the V5.12 `GCPSecretManagerStore` implementation against a real GCP project using operator-controlled credentials. No credentials committed. No automated GCP calls.
 
@@ -393,3 +393,27 @@ Goal: Replace `InMemorySecretStore` with a production-grade `GCPSecretManagerSto
 ### V5.12 non-goals
 
 Kubernetes, multi-region replication, cross-project secret sharing, frontend credential UI, OAuth consent screen, write access to Google Ads.
+
+---
+
+## V5.14 — Admin Credential Bundle GCP Wiring (branch: `v5.14-admin-gcp-wiring` · tag candidate: `v5.14.0-beta`)
+
+**Goal:** Wire the OpenClaw admin credential write endpoint to `SecretStore` — completing the deferred V5.12.6 item. `POST /credentials/google-ads` with known Google Ads secret fields now writes through the bundle write path; metadata-only payloads continue to use the existing upsert path.
+
+- [x] **Phase 2** — `write_google_ads_credential_bundle()` in `openclaw/admin.py` · server routing in `openclaw/server.py` · forbidden-field guard on non-secret partition · `secret_bundle_incomplete` for partial bundles · `secret_material_rejected` for disallowed fields · combined redacted response (`credential_status` + `secret_status`) · `run_admin_credentials_gcp_write_demo.py` (7 sections) · `smoke_test_v5_credentials.sh` section 9 · metadata-only path preserved
+- [x] **Phase 3** — API-level FastAPI TestClient smoke · `run_admin_credentials_api_write_demo.py` · scenarios A–E: metadata-only POST, full bundle POST, incomplete bundle rejection, forbidden field rejection, cross-response leak assertion · `smoke_test_v5_credentials.sh` section 10 · 10/10 PASS
+- [x] **Phase 4** — Live GCP endpoint validation · POST `/credentials/google-ads` → `GCPSecretManagerStore` via factory · fake values only · `status_code=200` · `ok=true` · `secret_status.configured=true` · all 4 fields confirmed · temporary secret deleted · `post_delete_configured=false` · `GOOGLE_ADS_LIVE_ENABLED=false` throughout · no fixed-cost infrastructure
+- [x] **Closure** — branch closure doc · release notes · ROADMAP update · README update · final smoke suites PASS · ready for merge and tag
+
+**V5.14 complete.** Recommended tag: `v5.14.0-beta`
+
+### V5.14 design notes
+
+- Payload routing is field-based: presence of any key from `GOOGLE_ADS_SECRET_FIELDS` routes to `write_google_ads_credential_bundle()`; all others fall through to `upsert_google_ads_credential_reference()`
+- `SecretStore` is factory-selected: `InMemorySecretStore` (default) or `GCPSecretManagerStore` (`GCP_SECRET_MANAGER_ENABLED=true`)
+- `secret_store=` injection bypasses the factory for test isolation
+- No secret values appear in any response, log, or demo output
+
+### V5.14 non-goals
+
+Production deployment, real Google Ads credentials, credential validation/rotation/delete endpoints, admin RBAC hardening, frontend UI, OAuth consent screen.

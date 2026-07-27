@@ -4,11 +4,11 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V5.13 — Manual GCP Validation complete** (branch: `v5.13-manual-gcp-validation` · tag candidate: `v5.13.0-beta`)
+**V5.14 — Admin Credential Bundle GCP Wiring complete** (branch: `v5.14-admin-gcp-wiring` · tag candidate: `v5.14.0-beta`)
 
-V5.13 validated `GCPSecretManagerStore` against a real GCP project. All six phases (config, write, read, list, delete, provider composition) passed using fake Google Ads values only — no real credentials, no live API calls, no fixed-cost infrastructure. Temporary test secrets were deleted. Smoke suites pass. Ready for merge and tag.
+V5.14 wires the OpenClaw admin credential write endpoint to `SecretStore`, completing the deferred V5.12.6 item. `POST /credentials/google-ads` now accepts full Google Ads credential bundles — secrets go to `SecretStore` (factory-selected: `InMemorySecretStore` by default, `GCPSecretManagerStore` when `GCP_SECRET_MANAGER_ENABLED=true`); metadata goes to `CredentialReference`. The metadata-only path is preserved. All three validation phases passed (helper demo, API TestClient, live GCP endpoint). Fake values only — no real credentials, no live Google Ads API calls, no fixed-cost infrastructure. Temporary GCP test secrets were deleted. Smoke suites 10/10 pass. Ready for merge and tag.
 
-See [V5.13 Branch Closure](docs/V5_13_BRANCH_CLOSURE.md), [v5.13.0-beta Release Notes](docs/RELEASE_NOTES_V5_13_0_BETA.md), [Validation Results](docs/V5_13_LIVE_GCP_VALIDATION_RESULTS.md), and [Runbook](docs/GCP_SECRET_MANAGER_RUNBOOK.md).
+See [V5.14 Branch Closure](docs/V5_14_BRANCH_CLOSURE.md), [v5.14.0-beta Release Notes](docs/RELEASE_NOTES_V5_14_0_BETA.md), and [Runbook](docs/GCP_SECRET_MANAGER_RUNBOOK.md).
 
 ## Architecture
 
@@ -62,6 +62,8 @@ cd ~/kaiju/projects/demo-client
 - [v5.13.0-beta Release Notes](docs/RELEASE_NOTES_V5_13_0_BETA.md)
 - [V5.13 Manual GCP Validation Plan](docs/V5_13_MANUAL_GCP_VALIDATION_PLAN.md)
 - [V5.13 Live GCP Validation Results](docs/V5_13_LIVE_GCP_VALIDATION_RESULTS.md)
+- [V5.14 Branch Closure](docs/V5_14_BRANCH_CLOSURE.md)
+- [v5.14.0-beta Release Notes](docs/RELEASE_NOTES_V5_14_0_BETA.md)
 
 ## Roadmap summary
 
@@ -76,4 +78,5 @@ cd ~/kaiju/projects/demo-client
 | V4.5.1 | Live Google Ads read-only fetch · GAQL · credential safety gates | **Alpha** — `v4.5.1-alpha` |
 | V5 | Tenant credentials · secure onboarding · secret store · OAuth | **Beta complete** — `v5.0.0-beta` |
 | V5.12 | GCP Secret Manager backend · `GCPSecretManagerStore` · IAM · rotation | **Beta complete** — `v5.12.0-beta` |
-| V5.13 | Live GCP validation · Phases A–F PASS · provider composition confirmed | **Beta complete** — `v5.13.0-beta` (tag candidate) |
+| V5.13 | Live GCP validation · Phases A–F PASS · provider composition confirmed | **Beta complete** — `v5.13.0-beta` |
+| V5.14 | Admin credential bundle GCP wiring · POST endpoint · TestClient smoke · live GCP validation | **Beta complete** — `v5.14.0-beta` (tag candidate) |
