@@ -1,13 +1,23 @@
 """
-V5.15 Phase 2 — Credential lifecycle validation API demo (FastAPI TestClient).
+V5.15 / V5.16 — Credential lifecycle validation and RBAC API demo (FastAPI TestClient).
 
-Verifies the POST /credentials/google-ads/validate endpoint via TestClient.
 No HTTP server. No GCP. No live Google Ads API calls. Fake values only.
 
-Scenarios:
+V5.15 scenarios:
   Validate A — after full bundle write: structurally_complete=true, status=active
   Validate B — before any write (credential_not_found): 404
   Validate C — after metadata-only write (no secrets): structurally_complete=false
+  Delete E/A/D/B/C — auth, gate, missing, success, idempotent
+
+V5.16 RBAC scenarios (A–H):
+  RBAC A — read key can read status (GET)
+  RBAC B — read key cannot write (POST bundle → 403 scope_not_granted)
+  RBAC C — read key cannot validate (POST validate → 403 scope_not_granted)
+  RBAC D — read key cannot delete even if OPENCLAW_ADMIN_DELETE_ENABLED=true
+  RBAC E — admin key can write, validate, delete
+  RBAC F — OPENCLAW_API_KEYS fallback grants read only
+  RBAC G — invalid token → 401 unauthorized
+  RBAC H — missing token → 401 unauthorized
 
 Env vars are set before importing server to avoid module-level config issues.
 """
@@ -255,6 +265,175 @@ def run_demo():
         ok_dc &= _no_fake_values(d_dc, "no fake values in idempotent delete response")
         all_pass = all_pass and ok_dc
 
+        # ── RBAC scenarios ────────────────────────────────────────────────────
+        # Enable auth for all RBAC scenarios; restore to false at the end.
+        _ADMIN_TOKEN = "rbac-admin-test-key"
+        _READ_TOKEN = "rbac-read-test-key"
+        _API_FALLBACK_TOKEN = "rbac-api-fallback-key"
+        _INVALID_TOKEN = "totally-invalid-token-xyz"
+
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "true"
+        os.environ["OPENCLAW_ADMIN_KEYS"] = _ADMIN_TOKEN
+        os.environ["OPENCLAW_READ_KEYS"] = _READ_TOKEN
+        os.environ.pop("OPENCLAW_API_KEYS", None)
+
+        _RBAC_TENANT = "rbac-test-tenant"
+        _RBAC_CLIENT = "rbac-test-client"
+        _RBAC_BASE = f"/openclaw/admin/tenants/{_RBAC_TENANT}/clients/{_RBAC_CLIENT}/credentials/google-ads"
+        _READ_HDR = {"Authorization": f"Bearer {_READ_TOKEN}"}
+        _ADMIN_HDR = {"Authorization": f"Bearer {_ADMIN_TOKEN}"}
+
+        # ── RBAC A — read token can read status ───────────────────────────────
+        print("\n" + "-" * 60)
+        print("  RBAC A. Read token can read status (GET /status)")
+        print("-" * 60)
+        r_ra = client.get(f"{_RBAC_BASE}/status", headers=_READ_HDR)
+        print(f"Status: {r_ra.status_code}")
+        d_ra = r_ra.json()
+        ok_ra = _check(r_ra.status_code == 200, "status 200 with read token")
+        ok_ra &= _check(d_ra.get("ok") is True, "ok=true")
+        ok_ra &= _no_fake_values(d_ra, "no fake values in RBAC A response")
+        all_pass = all_pass and ok_ra
+
+        # ── RBAC B — read token cannot write bundle ────────────────────────────
+        print("\n" + "-" * 60)
+        print("  RBAC B. Read token cannot write bundle (POST / → 403)")
+        print("-" * 60)
+        r_rb = client.post(_RBAC_BASE, json={"customer_id": "1111111111", **_FAKE_SECRETS},
+                           headers=_READ_HDR)
+        print(f"Status: {r_rb.status_code}")
+        d_rb = r_rb.json()
+        ok_rb = _check(r_rb.status_code == 403, "status 403 scope_not_granted for write")
+        ok_rb &= _check(d_rb.get("ok") is False, "ok=false")
+        codes_rb = [e.get("code") for e in d_rb.get("errors", []) if isinstance(e, dict)]
+        ok_rb &= _check("scope_not_granted" in codes_rb, "error code scope_not_granted")
+        ok_rb &= _no_fake_values(d_rb, "no fake values in RBAC B response")
+        all_pass = all_pass and ok_rb
+
+        # ── RBAC C — read token cannot validate ───────────────────────────────
+        print("\n" + "-" * 60)
+        print("  RBAC C. Read token cannot validate (POST /validate → 403)")
+        print("-" * 60)
+        r_rc = client.post(f"{_RBAC_BASE}/validate", headers=_READ_HDR)
+        print(f"Status: {r_rc.status_code}")
+        d_rc = r_rc.json()
+        ok_rc = _check(r_rc.status_code == 403, "status 403 scope_not_granted for validate")
+        ok_rc &= _check(d_rc.get("ok") is False, "ok=false")
+        codes_rc = [e.get("code") for e in d_rc.get("errors", []) if isinstance(e, dict)]
+        ok_rc &= _check("scope_not_granted" in codes_rc, "error code scope_not_granted")
+        ok_rc &= _no_fake_values(d_rc, "no fake values in RBAC C response")
+        all_pass = all_pass and ok_rc
+
+        # ── RBAC D — read token cannot delete even if gate enabled ────────────
+        print("\n" + "-" * 60)
+        print("  RBAC D. Read token cannot delete even when OPENCLAW_ADMIN_DELETE_ENABLED=true")
+        print("-" * 60)
+        os.environ["OPENCLAW_ADMIN_DELETE_ENABLED"] = "true"
+        r_rd = client.delete(_RBAC_BASE, headers=_READ_HDR)
+        print(f"Status: {r_rd.status_code}")
+        d_rd = r_rd.json()
+        ok_rd = _check(r_rd.status_code == 403, "status 403 (scope_not_granted, not delete_not_enabled)")
+        ok_rd &= _check(d_rd.get("ok") is False, "ok=false")
+        codes_rd = [e.get("code") for e in d_rd.get("errors", []) if isinstance(e, dict)]
+        ok_rd &= _check("scope_not_granted" in codes_rd, "error code scope_not_granted")
+        ok_rd &= _check("delete_not_enabled" not in codes_rd, "not delete_not_enabled")
+        ok_rd &= _no_fake_values(d_rd, "no fake values in RBAC D response")
+        os.environ.pop("OPENCLAW_ADMIN_DELETE_ENABLED", None)
+        all_pass = all_pass and ok_rd
+
+        # ── RBAC E — admin token can write, validate, and delete ──────────────
+        print("\n" + "-" * 60)
+        print("  RBAC E. Admin token can write, validate, and delete")
+        print("-" * 60)
+        _RE_TENANT = "rbac-e-tenant"
+        _RE_CLIENT = "rbac-e-client"
+        _RE_BASE = f"/openclaw/admin/tenants/{_RE_TENANT}/clients/{_RE_CLIENT}/credentials/google-ads"
+        ok_re = True
+        # write
+        r_re_w = client.post(_RE_BASE, json={"customer_id": "2222222222", **_FAKE_SECRETS},
+                             headers=_ADMIN_HDR)
+        print(f"  Write status: {r_re_w.status_code}")
+        ok_re &= _check(r_re_w.status_code == 200, "admin write → 200")
+        ok_re &= _no_fake_values(r_re_w.json(), "no fake values in RBAC E write")
+        # validate
+        r_re_v = client.post(f"{_RE_BASE}/validate", headers=_ADMIN_HDR)
+        print(f"  Validate status: {r_re_v.status_code}")
+        ok_re &= _check(r_re_v.status_code == 200, "admin validate → 200")
+        vr_re = r_re_v.json().get("validation_result") or {}
+        ok_re &= _check(vr_re.get("structurally_complete") is True, "structurally_complete=true")
+        ok_re &= _no_fake_values(r_re_v.json(), "no fake values in RBAC E validate")
+        # delete
+        os.environ["OPENCLAW_ADMIN_DELETE_ENABLED"] = "true"
+        r_re_d = client.delete(_RE_BASE, headers=_ADMIN_HDR)
+        print(f"  Delete status: {r_re_d.status_code}")
+        ok_re &= _check(r_re_d.status_code == 200, "admin delete → 200")
+        cred_re = r_re_d.json().get("credential_status") or {}
+        ok_re &= _check(cred_re.get("status") == "revoked", "status=revoked after delete")
+        ok_re &= _no_fake_values(r_re_d.json(), "no fake values in RBAC E delete")
+        os.environ.pop("OPENCLAW_ADMIN_DELETE_ENABLED", None)
+        all_pass = all_pass and ok_re
+
+        # ── RBAC F — OPENCLAW_API_KEYS fallback grants read only ──────────────
+        print("\n" + "-" * 60)
+        print("  RBAC F. OPENCLAW_API_KEYS fallback grants read only")
+        print("-" * 60)
+        os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
+        os.environ.pop("OPENCLAW_READ_KEYS", None)
+        os.environ["OPENCLAW_API_KEYS"] = _API_FALLBACK_TOKEN
+        _FALLBACK_HDR = {"Authorization": f"Bearer {_API_FALLBACK_TOKEN}"}
+        _RF_BASE = f"/openclaw/admin/tenants/rbac-f-tenant/clients/rbac-f-client/credentials/google-ads"
+        # read works
+        r_rf_r = client.get(f"{_RF_BASE}/status", headers=_FALLBACK_HDR)
+        print(f"  Status status: {r_rf_r.status_code}")
+        ok_rf = _check(r_rf_r.status_code == 200, "api_keys fallback token can read status")
+        # write denied
+        r_rf_w = client.post(_RF_BASE, json={"customer_id": "3333333333", **_FAKE_SECRETS},
+                              headers=_FALLBACK_HDR)
+        print(f"  Write status: {r_rf_w.status_code}")
+        ok_rf &= _check(r_rf_w.status_code == 403, "api_keys fallback token cannot write (403)")
+        codes_rf = [e.get("code") for e in r_rf_w.json().get("errors", []) if isinstance(e, dict)]
+        ok_rf &= _check("scope_not_granted" in codes_rf, "error code scope_not_granted")
+        ok_rf &= _no_fake_values(r_rf_w.json(), "no fake values in RBAC F response")
+        # restore
+        os.environ["OPENCLAW_ADMIN_KEYS"] = _ADMIN_TOKEN
+        os.environ["OPENCLAW_READ_KEYS"] = _READ_TOKEN
+        os.environ.pop("OPENCLAW_API_KEYS", None)
+        all_pass = all_pass and ok_rf
+
+        # ── RBAC G — invalid token → 401 ──────────────────────────────────────
+        print("\n" + "-" * 60)
+        print("  RBAC G. Invalid token → 401 unauthorized")
+        print("-" * 60)
+        _INVALID_HDR = {"Authorization": f"Bearer {_INVALID_TOKEN}"}
+        r_rg = client.get(f"{_RBAC_BASE}/status", headers=_INVALID_HDR)
+        print(f"Status: {r_rg.status_code}")
+        d_rg = r_rg.json()
+        ok_rg = _check(r_rg.status_code == 401, "status 401 for invalid token")
+        ok_rg &= _check(d_rg.get("ok") is False, "ok=false")
+        codes_rg = [e.get("code") for e in d_rg.get("errors", []) if isinstance(e, dict)]
+        ok_rg &= _check("unauthorized" in codes_rg, "error code unauthorized")
+        ok_rg &= _no_fake_values(d_rg, "no fake values in RBAC G response")
+        all_pass = all_pass and ok_rg
+
+        # ── RBAC H — missing token → 401 ──────────────────────────────────────
+        print("\n" + "-" * 60)
+        print("  RBAC H. Missing token → 401 unauthorized")
+        print("-" * 60)
+        r_rh = client.post(f"{_RBAC_BASE}/validate")
+        print(f"Status: {r_rh.status_code}")
+        d_rh = r_rh.json()
+        ok_rh = _check(r_rh.status_code == 401, "status 401 for missing token")
+        ok_rh &= _check(d_rh.get("ok") is False, "ok=false")
+        codes_rh = [e.get("code") for e in d_rh.get("errors", []) if isinstance(e, dict)]
+        ok_rh &= _check("unauthorized" in codes_rh, "error code unauthorized")
+        ok_rh &= _no_fake_values(d_rh, "no fake values in RBAC H response")
+        all_pass = all_pass and ok_rh
+
+        # Restore to no-auth state for final leak assertion
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "false"
+        os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
+        os.environ.pop("OPENCLAW_READ_KEYS", None)
+
         # ── Leak assertion across all API responses ───────────────────────────
         print("\n" + "-" * 60)
         print("  Leak assertion — all API responses")
@@ -264,6 +443,9 @@ def run_demo():
             (d_vb, "404-validate"), (d_va, "validate-A"), (d_vc, "validate-C"),
             (d_da, "403-delete-disabled"), (d_dd, "404-delete-missing"),
             (d_db, "delete-success"), (d_dc, "delete-idempotent"),
+            (d_ra, "rbac-A-read-status"), (d_rb, "rbac-B-write-denied"),
+            (d_rc, "rbac-C-validate-denied"), (d_rd, "rbac-D-delete-denied"),
+            (d_rg, "rbac-G-invalid-token"), (d_rh, "rbac-H-missing-token"),
         ]
         for resp_dict, label in all_responses:
             ok_leak &= _no_fake_values(resp_dict, f"no fake values in {label}")
@@ -284,6 +466,8 @@ def run_demo():
     finally:
         os.environ.pop("OPENCLAW_ADMIN_DELETE_ENABLED", None)
         os.environ.pop("OPENCLAW_API_KEYS", None)
+        os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
+        os.environ.pop("OPENCLAW_READ_KEYS", None)
         try:
             _admin_mod.create_secret_store = _original_create_secret_store
         except NameError:

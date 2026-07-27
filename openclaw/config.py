@@ -59,6 +59,8 @@ class OpenClawConfig:
     env: str
     api_auth_enabled: bool
     api_keys: list
+    admin_keys: list
+    read_keys: list
     allowed_origins: list
     default_tenant: str
     require_tenant_header: bool
@@ -85,6 +87,8 @@ def get_config() -> OpenClawConfig:
     api_auth_enabled = parse_bool(os.getenv("OPENCLAW_API_AUTH_ENABLED"), default=False)
 
     api_keys = parse_csv(os.getenv("OPENCLAW_API_KEYS"), default=[])
+    admin_keys = parse_csv(os.getenv("OPENCLAW_ADMIN_KEYS"), default=[])
+    read_keys = parse_csv(os.getenv("OPENCLAW_READ_KEYS"), default=[])
 
     allowed_origins = parse_csv(os.getenv("OPENCLAW_ALLOWED_ORIGINS"), default=["*"])
 
@@ -116,6 +120,8 @@ def get_config() -> OpenClawConfig:
         env=env,
         api_auth_enabled=api_auth_enabled,
         api_keys=api_keys,
+        admin_keys=admin_keys,
+        read_keys=read_keys,
         allowed_origins=allowed_origins,
         default_tenant=default_tenant,
         require_tenant_header=require_tenant_header,
@@ -138,6 +144,8 @@ def config_to_dict(config: OpenClawConfig) -> dict:
         "env": config.env,
         "api_auth_enabled": config.api_auth_enabled,
         "api_keys": config.api_keys,
+        "admin_keys": config.admin_keys,
+        "read_keys": config.read_keys,
         "allowed_origins": config.allowed_origins,
         "default_tenant": config.default_tenant,
         "require_tenant_header": config.require_tenant_header,
@@ -153,8 +161,7 @@ def config_to_dict(config: OpenClawConfig) -> dict:
 
 def redacted_config_dict(config: OpenClawConfig) -> dict:
     d = config_to_dict(config)
-    d["api_keys"] = {
-        "configured": len(config.api_keys) > 0,
-        "count": len(config.api_keys),
-    }
+    d["api_keys"] = {"configured": len(config.api_keys) > 0, "count": len(config.api_keys)}
+    d["admin_keys"] = {"configured": len(config.admin_keys) > 0, "count": len(config.admin_keys)}
+    d["read_keys"] = {"configured": len(config.read_keys) > 0, "count": len(config.read_keys)}
     return d

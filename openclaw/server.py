@@ -19,7 +19,7 @@ from schemas import (
     make_error,
     make_openclaw_envelope,
 )
-from auth import validate_api_auth
+from auth import validate_api_auth, AdminScope
 from config import get_config
 from admin import (
     get_google_ads_credential_status,
@@ -91,10 +91,13 @@ async def admin_google_ads_credential_status(
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
 
-    auth_ok, auth_errors = validate_api_auth(headers=dict(request.headers))
+    auth_ok, auth_errors = validate_api_auth(
+        headers=dict(request.headers), required_scope=AdminScope.READ
+    )
     if not auth_ok:
+        _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
         return JSONResponse(
-            status_code=401,
+            status_code=403 if "scope_not_granted" in _codes else 401,
             content={
                 "ok": False,
                 "request_id": request_id,
@@ -133,10 +136,13 @@ async def admin_upsert_google_ads_credential_reference(
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
 
-    auth_ok, auth_errors = validate_api_auth(headers=dict(request.headers))
+    auth_ok, auth_errors = validate_api_auth(
+        headers=dict(request.headers), required_scope=AdminScope.WRITE
+    )
     if not auth_ok:
+        _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
         return JSONResponse(
-            status_code=401,
+            status_code=403 if "scope_not_granted" in _codes else 401,
             content={
                 "ok": False,
                 "request_id": request_id,
@@ -216,10 +222,13 @@ async def admin_validate_google_ads_credentials(
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
 
-    auth_ok, auth_errors = validate_api_auth(headers=dict(request.headers))
+    auth_ok, auth_errors = validate_api_auth(
+        headers=dict(request.headers), required_scope=AdminScope.VALIDATE
+    )
     if not auth_ok:
+        _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
         return JSONResponse(
-            status_code=401,
+            status_code=403 if "scope_not_granted" in _codes else 401,
             content={
                 "ok": False,
                 "request_id": request_id,
@@ -268,10 +277,13 @@ async def admin_delete_google_ads_credentials(
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
 
-    auth_ok, auth_errors = validate_api_auth(headers=dict(request.headers))
+    auth_ok, auth_errors = validate_api_auth(
+        headers=dict(request.headers), required_scope=AdminScope.DELETE
+    )
     if not auth_ok:
+        _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
         return JSONResponse(
-            status_code=401,
+            status_code=403 if "scope_not_granted" in _codes else 401,
             content={
                 "ok": False,
                 "request_id": request_id,

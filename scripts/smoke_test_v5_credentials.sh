@@ -113,7 +113,7 @@ echo ""
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-echo "[1/14] Environment and import checks..."
+echo "[1/15] Environment and import checks..."
 # ---------------------------------------------------------------------------
 
 [ -f "$PYTHON" ] || fail "Python not found at $PYTHON"
@@ -140,7 +140,7 @@ done
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[2/14] CredentialReference model demo..."
+echo "[2/15] CredentialReference model demo..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_model_demo.py 2>&1)
@@ -150,7 +150,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[3/14] Credential stores..."
+echo "[3/15] Credential stores..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_store_demo.py 2>&1)
@@ -165,7 +165,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[4/14] Credential resolver..."
+echo "[4/15] Credential resolver..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_resolver_demo.py 2>&1)
@@ -175,7 +175,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[5/14] SecretStore and provider..."
+echo "[5/15] SecretStore and provider..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_secret_store_demo.py 2>&1)
@@ -190,7 +190,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[6/14] Adapter provider mode — non-live checks..."
+echo "[6/15] Adapter provider mode — non-live checks..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_google_ads_adapter_provider_demo.py 2>&1)
@@ -307,7 +307,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[7/14] OpenClaw admin credential endpoints..."
+echo "[7/15] OpenClaw admin credential endpoints..."
 # ---------------------------------------------------------------------------
 
 # Set up temp credential reference store to avoid touching any runtime file
@@ -433,7 +433,7 @@ fi
 cd "$OPENCLAW_DIR"
 CREDENTIAL_REFERENCE_STORE_PATH="$CRED_STORE_FILE" \
 OPENCLAW_API_AUTH_ENABLED=true \
-OPENCLAW_API_KEYS="smoke-test-key" \
+OPENCLAW_ADMIN_KEYS="smoke-test-key" \
 OPENCLAW_AUDIT_ENABLED=false \
 PORT="$PORT" \
     $PYTHON -m uvicorn server:app --host 127.0.0.1 --port "$PORT" --log-level warning \
@@ -496,7 +496,7 @@ rm -f "$CRED_STORE_FILE"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[8/14] Secret-safety and git hygiene..."
+echo "[8/15] Secret-safety and git hygiene..."
 # ---------------------------------------------------------------------------
 
 GREP_TARGETS="$REPO/scripts $REPO/docs $REPO/agents $REPO/openclaw $REPO/README.md $REPO/.env.example"
@@ -546,7 +546,7 @@ fi
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 echo ""
-echo "[9/14] Admin credential bundle write — mocked secret store..."
+echo "[9/15] Admin credential bundle write — mocked secret store..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -576,7 +576,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[10/14] Admin credential API write — FastAPI TestClient..."
+echo "[10/15] Admin credential API write — FastAPI TestClient..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -616,7 +616,7 @@ echo "$_OUT" | grep -q "secret_material_rejected" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[11/14] Credential lifecycle audit and validation events..."
+echo "[11/15] Credential lifecycle audit and validation events..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -672,7 +672,7 @@ echo "$_OUT" | grep -q "secret_already_absent" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[12/14] Credential lifecycle validation API (FastAPI TestClient)..."
+echo "[12/15] Credential lifecycle validation API (FastAPI TestClient)..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -725,7 +725,7 @@ echo "$_OUT" | grep -q "warnings includes secret_already_absent" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[13/14] Validate route — server-level auth checks..."
+echo "[13/15] Validate route — server-level auth checks..."
 # ---------------------------------------------------------------------------
 
 CRED_STORE_FILE2=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
@@ -737,7 +737,7 @@ fi
 cd "$OPENCLAW_DIR"
 CREDENTIAL_REFERENCE_STORE_PATH="$CRED_STORE_FILE2" \
 OPENCLAW_API_AUTH_ENABLED=true \
-OPENCLAW_API_KEYS="smoke-validate-key" \
+OPENCLAW_ADMIN_KEYS="smoke-validate-key" \
 OPENCLAW_AUDIT_ENABLED=false \
 PORT="$PORT" \
     $PYTHON -m uvicorn server:app --host 127.0.0.1 --port "$PORT" --log-level warning \
@@ -786,7 +786,7 @@ rm -f "$CRED_STORE_FILE2"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[14/14] Phase 3 delete/revoke — forbidden behavior and env gate checks..."
+echo "[14/15] Phase 3 delete/revoke — forbidden behavior and env gate checks..."
 # ---------------------------------------------------------------------------
 
 # delete_google_ads_credentials must not call get_secret_bundle (only delete_secret_bundle + get_secret_status)
@@ -855,6 +855,174 @@ for f in \
 done
 
 pass "Phase 3 delete/revoke forbidden behavior checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[15/15] Admin RBAC scope enforcement..."
+# ---------------------------------------------------------------------------
+
+# AdminScope enum importable from auth.py
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from auth import AdminScope
+for s in ('READ','WRITE','VALIDATE','ROTATE','DELETE','ADMIN'):
+    assert hasattr(AdminScope, s), f'Missing scope: {s}'
+" 2>&1); then
+    pass "AdminScope enum importable with all six scopes"
+else
+    fail "AdminScope enum missing or incomplete"
+fi
+
+# Config parses OPENCLAW_ADMIN_KEYS and OPENCLAW_READ_KEYS
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    OPENCLAW_ADMIN_KEYS="admin-a,admin-b" OPENCLAW_READ_KEYS="read-x" \
+    $PYTHON -c "
+from config import get_config
+c = get_config()
+assert 'admin-a' in c.admin_keys and 'admin-b' in c.admin_keys, 'admin_keys not parsed'
+assert 'read-x' in c.read_keys, 'read_keys not parsed'
+" 2>&1); then
+    pass "config parses OPENCLAW_ADMIN_KEYS and OPENCLAW_READ_KEYS"
+else
+    fail "config does not parse OPENCLAW_ADMIN_KEYS or OPENCLAW_READ_KEYS"
+fi
+
+# resolve_token_scope: admin_key → ADMIN, api_keys → READ, unknown → None
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    OPENCLAW_ADMIN_KEYS="admin-tok" OPENCLAW_READ_KEYS="read-tok" OPENCLAW_API_KEYS="old-tok" \
+    $PYTHON -c "
+from auth import AdminScope, resolve_token_scope
+from config import get_config
+c = get_config()
+assert resolve_token_scope('admin-tok', c) == AdminScope.ADMIN, 'admin_key should resolve ADMIN'
+assert resolve_token_scope('read-tok', c) == AdminScope.READ, 'read_key should resolve READ'
+assert resolve_token_scope('old-tok', c) == AdminScope.READ, 'api_key should resolve READ'
+assert resolve_token_scope('unknown', c) is None, 'unknown should resolve None'
+" 2>&1); then
+    pass "resolve_token_scope: ADMIN/READ/fallback/None all correct"
+else
+    fail "resolve_token_scope returned unexpected scope"
+fi
+
+# scope_allows: ADMIN allows all; READ allows READ only
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from auth import AdminScope, scope_allows
+assert scope_allows(AdminScope.ADMIN, AdminScope.READ)
+assert scope_allows(AdminScope.ADMIN, AdminScope.WRITE)
+assert scope_allows(AdminScope.ADMIN, AdminScope.VALIDATE)
+assert scope_allows(AdminScope.ADMIN, AdminScope.DELETE)
+assert scope_allows(AdminScope.READ, AdminScope.READ)
+assert not scope_allows(AdminScope.READ, AdminScope.WRITE)
+assert not scope_allows(AdminScope.READ, AdminScope.VALIDATE)
+assert not scope_allows(AdminScope.READ, AdminScope.DELETE)
+" 2>&1); then
+    pass "scope_allows: ADMIN grants all; READ grants READ only"
+else
+    fail "scope_allows returned unexpected result"
+fi
+
+# server.py routes pass required_scope to validate_api_auth
+if grep -q "required_scope=AdminScope" "$OPENCLAW_DIR/server.py"; then
+    pass "server.py routes pass required_scope to validate_api_auth"
+else
+    fail "server.py routes do not pass required_scope — RBAC not wired to routes"
+fi
+
+# TestClient: READ token on write route → 403 scope_not_granted
+RBAC_STORE=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    CREDENTIAL_REFERENCE_STORE_PATH="$RBAC_STORE" \
+    OPENCLAW_API_AUTH_ENABLED=true \
+    OPENCLAW_READ_KEYS="smoke-read-key" \
+    OPENCLAW_AUDIT_ENABLED=false \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON -c "
+import sys, os
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app)
+r = client.post(
+    '/openclaw/admin/tenants/rbac-smoke-t/clients/rbac-smoke-c/credentials/google-ads',
+    json={'customer_id': '1234', 'developer_token': 'fake-dev-token', 'client_id': 'fake-client-id',
+          'client_secret': 'fake-client-secret', 'refresh_token': 'fake-refresh-token'},
+    headers={'Authorization': 'Bearer smoke-read-key'},
+)
+assert r.status_code == 403, f'expected 403, got {r.status_code}: {r.text[:200]}'
+codes = [e.get('code') for e in r.json().get('errors', [])]
+assert 'scope_not_granted' in codes, f'expected scope_not_granted in {codes}'
+" 2>/dev/null); then
+    pass "TestClient: READ token on write route → 403 scope_not_granted"
+else
+    fail "TestClient: READ token on write route did not return 403 scope_not_granted"
+fi
+rm -f "$RBAC_STORE"
+
+# TestClient: ADMIN token on write route → 200 (scope granted, bundle accepted)
+RBAC_STORE2=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    CREDENTIAL_REFERENCE_STORE_PATH="$RBAC_STORE2" \
+    OPENCLAW_API_AUTH_ENABLED=true \
+    OPENCLAW_ADMIN_KEYS="smoke-admin-key" \
+    OPENCLAW_AUDIT_ENABLED=false \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON -c "
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app)
+r = client.post(
+    '/openclaw/admin/tenants/rbac-admin-t/clients/rbac-admin-c/credentials/google-ads',
+    json={'customer_id': '9999', 'developer_token': 'fake-dev-token', 'client_id': 'fake-client-id',
+          'client_secret': 'fake-client-secret', 'refresh_token': 'fake-refresh-token'},
+    headers={'Authorization': 'Bearer smoke-admin-key'},
+)
+assert r.status_code == 200, f'expected 200, got {r.status_code}: {r.text[:200]}'
+assert r.json().get('ok') is True, f'ok not True: {r.json()}'
+" 2>/dev/null); then
+    pass "TestClient: ADMIN token on write route → 200 ok=true"
+else
+    fail "TestClient: ADMIN token on write route did not return 200"
+fi
+rm -f "$RBAC_STORE2"
+
+# OPENCLAW_API_KEYS fallback: read works, write denied
+RBAC_STORE3=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    CREDENTIAL_REFERENCE_STORE_PATH="$RBAC_STORE3" \
+    OPENCLAW_API_AUTH_ENABLED=true \
+    OPENCLAW_API_KEYS="smoke-legacy-key" \
+    OPENCLAW_AUDIT_ENABLED=false \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON -c "
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app)
+# Read allowed
+r_read = client.get(
+    '/openclaw/admin/tenants/legacy-t/clients/legacy-c/credentials/google-ads/status',
+    headers={'Authorization': 'Bearer smoke-legacy-key'},
+)
+assert r_read.status_code == 200, f'expected 200 for read, got {r_read.status_code}'
+# Write denied
+r_write = client.post(
+    '/openclaw/admin/tenants/legacy-t/clients/legacy-c/credentials/google-ads',
+    json={'customer_id': '5555'},
+    headers={'Authorization': 'Bearer smoke-legacy-key'},
+)
+assert r_write.status_code == 403, f'expected 403 for write, got {r_write.status_code}: {r_write.text[:200]}'
+codes = [e.get('code') for e in r_write.json().get('errors', [])]
+assert 'scope_not_granted' in codes, f'expected scope_not_granted, got {codes}'
+" 2>/dev/null); then
+    pass "OPENCLAW_API_KEYS fallback: read allowed, write denied (scope_not_granted)"
+else
+    fail "OPENCLAW_API_KEYS fallback: unexpected scope behavior"
+fi
+rm -f "$RBAC_STORE3"
+
+pass "Admin RBAC scope enforcement checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
