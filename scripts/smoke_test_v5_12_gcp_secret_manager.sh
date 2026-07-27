@@ -486,7 +486,7 @@ else
     pass "runtime credential store file not tracked"
 fi
 
-if git status --porcelain | grep -E "credential_references\.json|memory/client-memory|openclaw/audit"; then
+if git status --porcelain | grep -E "credential_references\.json|memory/client-memory|openclaw/audit/"; then
     fail "runtime files appeared in git status"
 else
     pass "no runtime files in git status"

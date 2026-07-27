@@ -2,6 +2,7 @@ import os
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Dict, List, Optional
 
 
 def is_audit_enabled() -> bool:
@@ -48,6 +49,37 @@ def build_audit_event(
         event["tenant_id"] = tenant_id
 
     return event
+
+
+def build_credential_audit_event(
+    tenant_id: str,
+    client_id: str,
+    integration_type: str,
+    operation: str,
+    ok: bool,
+    request_id: str = "",
+    trace_id: str = "",
+    error_codes: Optional[List[str]] = None,
+) -> Dict:
+    """
+    Build a safe audit event for admin credential operations.
+
+    Never includes secret values, credential_ref, secret_id, customer_id,
+    login_customer_id, or any payload echo.
+    """
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "event_type": "credential_operation",
+        "tenant_id": tenant_id,
+        "client_id": client_id,
+        "integration_type": integration_type,
+        "operation": operation,
+        "ok": ok,
+        "error_codes": error_codes or [],
+        "request_id": request_id or "",
+        "trace_id": trace_id or "",
+        "source": "openclaw_admin",
+    }
 
 
 def append_audit_event(event: dict) -> dict:

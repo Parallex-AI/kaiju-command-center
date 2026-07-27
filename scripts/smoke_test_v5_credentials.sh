@@ -113,7 +113,7 @@ echo ""
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-echo "[1/8] Environment and import checks..."
+echo "[1/11] Environment and import checks..."
 # ---------------------------------------------------------------------------
 
 [ -f "$PYTHON" ] || fail "Python not found at $PYTHON"
@@ -140,7 +140,7 @@ done
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[2/8] CredentialReference model demo..."
+echo "[2/11] CredentialReference model demo..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_model_demo.py 2>&1)
@@ -150,7 +150,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[3/8] Credential stores..."
+echo "[3/11] Credential stores..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_store_demo.py 2>&1)
@@ -165,7 +165,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[4/8] Credential resolver..."
+echo "[4/11] Credential resolver..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_resolver_demo.py 2>&1)
@@ -175,7 +175,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[5/8] SecretStore and provider..."
+echo "[5/11] SecretStore and provider..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_secret_store_demo.py 2>&1)
@@ -190,7 +190,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[6/8] Adapter provider mode — non-live checks..."
+echo "[6/11] Adapter provider mode — non-live checks..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_google_ads_adapter_provider_demo.py 2>&1)
@@ -307,7 +307,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[7/8] OpenClaw admin credential endpoints..."
+echo "[7/11] OpenClaw admin credential endpoints..."
 # ---------------------------------------------------------------------------
 
 # Set up temp credential reference store to avoid touching any runtime file
@@ -496,7 +496,7 @@ rm -f "$CRED_STORE_FILE"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[8/10] Secret-safety and git hygiene..."
+echo "[8/11] Secret-safety and git hygiene..."
 # ---------------------------------------------------------------------------
 
 GREP_TARGETS="$REPO/scripts $REPO/docs $REPO/agents $REPO/openclaw $REPO/README.md $REPO/.env.example"
@@ -537,7 +537,7 @@ else
     pass "runtime credential store file not tracked"
 fi
 
-if git status --porcelain | grep -E "credential_references\.json|memory/client-memory|openclaw/audit"; then
+if git status --porcelain | grep -E "credential_references\.json|memory/client-memory|openclaw/audit/"; then
     fail "runtime files appeared in git status"
 else
     pass "no runtime files in git status"
@@ -546,7 +546,7 @@ fi
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 echo ""
-echo "[9/10] Admin credential bundle write — mocked secret store..."
+echo "[9/11] Admin credential bundle write — mocked secret store..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -576,7 +576,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[10/10] Admin credential API write — FastAPI TestClient..."
+echo "[10/11] Admin credential API write — FastAPI TestClient..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -613,6 +613,36 @@ echo "$_OUT" | grep -q "secret_bundle_incomplete" \
 echo "$_OUT" | grep -q "secret_material_rejected" \
     && pass "scenario D: forbidden field rejected with secret_material_rejected" \
     || { echo "  ✗ scenario D marker not found"; echo "$_OUT" | tail -30; exit 1; }
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[11/11] Credential lifecycle audit events..."
+# ---------------------------------------------------------------------------
+
+_OUT=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON run_admin_credentials_lifecycle_demo.py 2>&1)
+echo "$_OUT" | grep -q "All credential lifecycle audit assertions passed" \
+    && pass "run_admin_credentials_lifecycle_demo.py: All assertions passed" \
+    || { echo "  ✗ run_admin_credentials_lifecycle_demo.py: assertion not found"; echo "$_OUT" | tail -20; exit 1; }
+
+# Verify no fake secret values in lifecycle demo stdout
+for val in "fake-dev-token-lifecycle" "fake-client-secret-lifecycle" "fake-refresh-token-lifecycle" "fake-oauth-client-id-lifecycle"; do
+    if echo "$_OUT" | grep -q "$val"; then
+        fail "Fake secret value '$val' appeared in lifecycle demo stdout — possible secret leak"
+    fi
+done
+pass "no fake secret values in lifecycle demo stdout"
+
+# Verify forbidden fields not in lifecycle demo stdout
+for key in "credential_ref" "secret_id" "login_customer_id"; do
+    if echo "$_OUT" | grep -qE "\"${key}\""; then
+        fail "Forbidden key '${key}' appeared in lifecycle demo stdout"
+    fi
+done
+pass "no forbidden audit keys in lifecycle demo stdout"
 
 # ---------------------------------------------------------------------------
 echo ""

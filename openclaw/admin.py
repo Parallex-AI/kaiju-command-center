@@ -34,6 +34,7 @@ from credentials.secret_store import (
     assert_allowed_secret_fields,
 )
 from credentials.secret_store_factory import create_secret_store
+from audit import build_credential_audit_event, append_audit_event
 
 _INTEGRATION_TYPE = "google_ads"
 _VALID_STATUSES = frozenset(s.value for s in CredentialStatus)
@@ -52,6 +53,32 @@ _WRITE_FORBIDDEN_SUBSTRINGS: Tuple[str, ...] = (
     "refresh",
     "access",
 )
+
+
+def _emit_credential_audit_event(
+    tenant_id: str,
+    client_id: str,
+    operation: str,
+    ok: bool,
+    request_id: str = "",
+    trace_id: str = "",
+    error_codes: Optional[List[str]] = None,
+) -> None:
+    """Emit a credential audit event. Swallows all exceptions — never affects write outcome."""
+    try:
+        event = build_credential_audit_event(
+            tenant_id=tenant_id,
+            client_id=client_id,
+            integration_type=_INTEGRATION_TYPE,
+            operation=operation,
+            ok=ok,
+            request_id=request_id,
+            trace_id=trace_id,
+            error_codes=error_codes,
+        )
+        append_audit_event(event)
+    except Exception:
+        pass
 
 
 def _check_no_forbidden_write_fields(
@@ -221,6 +248,7 @@ def upsert_google_ads_credential_reference(
 
         store.put_reference(ref)
         credential_status = store.get_status(tenant_id, client_id, _INTEGRATION_TYPE)
+        _emit_credential_audit_event(tenant_id, client_id, operation="metadata_upsert", ok=True)
         return {
             "ok": True,
             "tenant_id": tenant_id,
@@ -231,12 +259,24 @@ def upsert_google_ads_credential_reference(
         }
 
     except ValueError:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="metadata_upsert",
+            ok=False,
+            error_codes=["invalid_credential_reference"],
+        )
         return _make_admin_error(
             tenant_id, client_id,
             "invalid_credential_reference",
             "Credential reference is invalid. Check field values.",
         )
     except Exception:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="metadata_upsert",
+            ok=False,
+            error_codes=["credential_write_failed"],
+        )
         return _make_admin_error(
             tenant_id, client_id,
             "credential_write_failed",
@@ -365,6 +405,12 @@ def write_google_ads_credential_bundle(
             secrets=secret_payload,
         )
     except Exception:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="bundle_write",
+            ok=False,
+            error_codes=["secret_write_failed"],
+        )
         err = _make_admin_error(
             tenant_id, client_id,
             "secret_write_failed",
@@ -373,6 +419,8 @@ def write_google_ads_credential_bundle(
         )
         err["secret_status"] = None
         return err
+
+    _emit_credential_audit_event(tenant_id, client_id, operation="bundle_write", ok=True)
 
     # 11–12. Get redacted secret status (no secret values — configured_fields booleans only)
     try:
