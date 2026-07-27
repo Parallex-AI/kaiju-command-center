@@ -1,12 +1,14 @@
 """
-V5.5 / V5.6 / V5.14 — OpenClaw admin helper for credential reference operations.
+V5.5 / V5.6 / V5.14 / V5.15 — OpenClaw admin helper for credential reference operations.
 
-V5.5: get_google_ads_credential_status — read-only status lookup
-V5.6: upsert_google_ads_credential_reference — create/update CredentialReference (no secrets)
+V5.5:  get_google_ads_credential_status — read-only status lookup
+V5.6:  upsert_google_ads_credential_reference — create/update CredentialReference (no secrets)
 V5.14: write_google_ads_credential_bundle — write full credential bundle (metadata →
   LocalFileCredentialReferenceStore, secrets → SecretStore). Routes to
   GCPSecretManagerStore or InMemorySecretStore based on GCP_SECRET_MANAGER_ENABLED.
-  Secret values are never returned, logged, or echoed.
+V5.15: validate_google_ads_credentials — structural validation via SecretStore.get_secret_status().
+  No secret values fetched. Updates CredentialReference status and last_validated_at.
+  Emits audit event operation="validate".
 
 No secret values are returned by any function in this module.
 """
@@ -27,6 +29,7 @@ from credentials.models import (
     create_credential_reference,
     filter_safe_metadata,
     now_utc_iso,
+    update_credential_status,
 )
 from credentials.secret_store import (
     SecretStore,
@@ -438,6 +441,136 @@ def write_google_ads_credential_bundle(
         "client_id": client_id,
         "integration_type": _INTEGRATION_TYPE,
         "credential_status": ref_result.get("credential_status"),
+        "secret_status": secret_status_result,
+        "errors": [],
+    }
+
+
+def validate_google_ads_credentials(
+    tenant_id: str,
+    client_id: str,
+    secret_store: Optional[SecretStore] = None,
+) -> Dict[str, Any]:
+    """
+    Structural validation of stored Google Ads credentials.
+
+    V5.15 Phase 2 — structural only. No Google Ads API call. No secret values fetched.
+
+    Steps:
+    A. Load CredentialReference — returns credential_not_found if missing.
+    B. Resolve SecretStore (injected or factory).
+    C. Call get_secret_status() — field presence check only, no raw values.
+    D. Compute structurally_complete and missing_fields (field names only).
+    E. Update CredentialReference: status → ACTIVE (complete) or VALIDATION_FAILED (incomplete).
+    F. Emit audit event operation="validate".
+    G. Return redacted validation result — no secret values, no raw exceptions.
+
+    Secret values, credential_ref, secret_id, customer_id, login_customer_id are
+    never included in the returned validation_result block.
+    """
+    _EMPTY_VALIDATION_RESULT: Dict[str, Any] = {
+        "structurally_complete": False,
+        "missing_fields": [],
+        "live_api_tested": False,
+    }
+
+    # A. Load CredentialReference
+    try:
+        ref_store = LocalFileCredentialReferenceStore()
+        ref = ref_store.get_reference(tenant_id, client_id, _INTEGRATION_TYPE)
+    except Exception:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="validate",
+            ok=False,
+            error_codes=["credential_store_failed"],
+        )
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "credential_store_failed",
+            "Failed to load credential reference store. Check configuration.",
+            recoverable=True,
+        )
+        err["validation_result"] = _EMPTY_VALIDATION_RESULT
+        err["secret_status"] = None
+        return err
+
+    if ref is None:
+        _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="validate",
+            ok=False,
+            error_codes=["credential_not_found"],
+        )
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "credential_not_found",
+            "No credential reference found for this tenant/client.",
+            recoverable=False,
+        )
+        err["validation_result"] = _EMPTY_VALIDATION_RESULT
+        err["secret_status"] = None
+        return err
+
+    # B. Resolve credential_ref (internal use only — never echoed in response)
+    _credential_ref: str = ref.credential_ref
+
+    # C. Resolve SecretStore (injected for tests; factory for production)
+    if secret_store is None:
+        secret_store = create_secret_store()
+
+    # D. Get redacted secret status — field presence booleans only, no raw values
+    try:
+        secret_status_result = secret_store.get_secret_status(
+            credential_ref=_credential_ref,
+            integration_type=_INTEGRATION_TYPE,
+        )
+    except Exception:
+        secret_status_result = {"configured": False, "configured_fields": {}}
+
+    configured_fields_map: Dict[str, bool] = secret_status_result.get("configured_fields") or {}
+    missing_fields: List[str] = [
+        f for f in GOOGLE_ADS_SECRET_FIELDS
+        if not configured_fields_map.get(f)
+    ]
+    structurally_complete: bool = len(missing_fields) == 0
+
+    # E. Update CredentialReference status and last_validated_at
+    last_validated_at: str = now_utc_iso()
+    new_status: str = (
+        CredentialStatus.ACTIVE.value if structurally_complete
+        else CredentialStatus.VALIDATION_FAILED.value
+    )
+    updated_credential_status: Optional[Dict[str, Any]] = None
+    try:
+        updated_ref = update_credential_status(ref, new_status, last_validated_at=last_validated_at)
+        ref_store.put_reference(updated_ref)
+        updated_credential_status = ref_store.get_status(tenant_id, client_id, _INTEGRATION_TYPE)
+    except Exception:
+        pass  # persist failure is non-fatal; validation result is still returned
+
+    # F. Emit audit event — ok=True means validation process ran; error_codes signal completeness
+    audit_error_codes: List[str] = [] if structurally_complete else ["secret_bundle_incomplete"]
+    _emit_credential_audit_event(
+        tenant_id, client_id,
+        operation="validate",
+        ok=True,
+        error_codes=audit_error_codes,
+    )
+
+    # G. Return redacted validation result — no secret values anywhere
+    return {
+        "ok": True,
+        "tenant_id": tenant_id,
+        "client_id": client_id,
+        "integration_type": _INTEGRATION_TYPE,
+        "validation_result": {
+            "structurally_complete": structurally_complete,
+            "missing_fields": missing_fields,
+            "last_validated_at": last_validated_at,
+            "live_api_tested": False,
+        },
+        "credential_status": updated_credential_status,
         "secret_status": secret_status_result,
         "errors": [],
     }

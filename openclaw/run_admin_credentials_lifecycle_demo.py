@@ -1,5 +1,5 @@
 """
-V5.15 Phase 1 — Credential lifecycle audit demo.
+V5.15 Phase 1 / Phase 2 — Credential lifecycle audit and validation demo.
 
 Verifies that credential write operations emit safe audit events to the JSONL
 audit log. Asserts:
@@ -188,6 +188,119 @@ def run_demo():
                 ev, _FAKE_SECRET_VALUES, f"event[{i}] clean"
             )
         all_pass = all_pass and ok_d
+
+        # ── Section E: validate complete bundle → ACTIVE ──────────────────────
+        print("\n── E: validate complete bundle → structurally_complete=true, status=active ──")
+        _T_E = "tenant-validate-complete"
+        _C_E = "client-validate-complete"
+        _FAKE_SECRETS_E = {
+            "developer_token": "fake-dev-token-lifecycle",
+            "client_id": "fake-oauth-client-id-lifecycle",
+            "client_secret": "fake-client-secret-lifecycle",
+            "refresh_token": "fake-refresh-token-lifecycle",
+        }
+        store_e = InMemorySecretStore()
+        write_e = adm.write_google_ads_credential_bundle(
+            _T_E, _C_E,
+            {"customer_id": "555-000-0001", **_FAKE_SECRETS_E},
+            secret_store=store_e,
+        )
+        ok_e = _assert(write_e.get("ok") is True, "bundle write ok=true before validate")
+
+        val_e = adm.validate_google_ads_credentials(_T_E, _C_E, secret_store=store_e)
+        ok_e &= _assert(val_e.get("ok") is True, "validate returns ok=true")
+        vr_e = val_e.get("validation_result") or {}
+        ok_e &= _assert(vr_e.get("structurally_complete") is True, "structurally_complete=true")
+        ok_e &= _assert(vr_e.get("missing_fields") == [], "missing_fields=[]")
+        ok_e &= _assert(vr_e.get("live_api_tested") is False, "live_api_tested=false")
+        ok_e &= _assert(vr_e.get("last_validated_at") is not None, "last_validated_at set")
+        ok_e &= _assert(val_e.get("errors") == [], "errors=[]")
+        cred_e = val_e.get("credential_status") or {}
+        ok_e &= _assert(cred_e.get("status") == "active", "status updated to active")
+        # Audit: validate event with ok=true and no error_codes
+        events_e = _read_audit_events(audit_root)
+        validate_events_e = [
+            ev for ev in events_e
+            if ev.get("operation") == "validate" and ev.get("tenant_id") == _T_E
+        ]
+        ok_e &= _assert(len(validate_events_e) >= 1, "validate audit event present")
+        if validate_events_e:
+            ev = validate_events_e[-1]
+            ok_e &= _assert(ev.get("ok") is True, "validate audit event ok=true")
+            ok_e &= _assert(ev.get("error_codes") == [], "validate audit error_codes=[]")
+            ok_e &= _assert_no_forbidden_content(ev, set(_FAKE_SECRETS_E.values()), "validate event clean")
+        # Leak check on entire validate response
+        import json as _json
+        val_e_str = _json.dumps(val_e)
+        for fv in _FAKE_SECRETS_E.values():
+            ok_e &= _assert(fv not in val_e_str, f"fake secret value not in validate response")
+        all_pass = all_pass and ok_e
+
+        # ── Section F: validate missing credential → credential_not_found ──────
+        print("\n── F: validate missing credential → credential_not_found ──")
+        _T_F = "tenant-validate-missing"
+        _C_F = "client-validate-missing"
+        events_before_f = _read_audit_events(audit_root)
+        val_f = adm.validate_google_ads_credentials(_T_F, _C_F)
+        ok_f = _assert(val_f.get("ok") is False, "validate returns ok=false")
+        error_codes_f = [e.get("code") for e in val_f.get("errors", []) if isinstance(e, dict)]
+        ok_f &= _assert("credential_not_found" in error_codes_f, "error credential_not_found")
+        vr_f = val_f.get("validation_result") or {}
+        ok_f &= _assert(vr_f.get("structurally_complete") is False, "structurally_complete=false")
+        ok_f &= _assert(vr_f.get("live_api_tested") is False, "live_api_tested=false")
+        # Audit: validate event emitted with ok=false and error_codes=["credential_not_found"]
+        events_after_f = _read_audit_events(audit_root)
+        new_events_f = events_after_f[len(events_before_f):]
+        validate_events_f = [ev for ev in new_events_f if ev.get("operation") == "validate"]
+        ok_f &= _assert(len(validate_events_f) >= 1, "validate audit event for missing ref present")
+        if validate_events_f:
+            ev = validate_events_f[-1]
+            ok_f &= _assert(ev.get("ok") is False, "validate audit event ok=false")
+            ok_f &= _assert("credential_not_found" in (ev.get("error_codes") or []),
+                            "validate audit error_codes includes credential_not_found")
+            ok_f &= _assert_no_forbidden_content(ev, set(), "validate event (missing) clean")
+        all_pass = all_pass and ok_f
+
+        # ── Section G: validate incomplete bundle → VALIDATION_FAILED ─────────
+        print("\n── G: validate incomplete bundle → structurally_complete=false ──")
+        _T_G = "tenant-validate-incomplete"
+        _C_G = "client-validate-incomplete"
+        # Write CredentialReference only — no secrets in store
+        upsert_g = adm.upsert_google_ads_credential_reference(
+            _T_G, _C_G, {"customer_id": "999-000-0001"}
+        )
+        ok_g = _assert(upsert_g.get("ok") is True, "upsert reference ok=true")
+        store_g = InMemorySecretStore()  # empty — no secrets written
+        val_g = adm.validate_google_ads_credentials(_T_G, _C_G, secret_store=store_g)
+        ok_g &= _assert(val_g.get("ok") is True, "validate returns ok=true (process ran)")
+        vr_g = val_g.get("validation_result") or {}
+        ok_g &= _assert(vr_g.get("structurally_complete") is False, "structurally_complete=false")
+        missing_g = vr_g.get("missing_fields") or []
+        ok_g &= _assert(len(missing_g) > 0, f"missing_fields non-empty (got {missing_g})")
+        for f in ("developer_token", "client_id", "client_secret", "refresh_token"):
+            ok_g &= _assert(f in missing_g, f"missing_fields includes {f}")
+        ok_g &= _assert(vr_g.get("live_api_tested") is False, "live_api_tested=false")
+        cred_g = val_g.get("credential_status") or {}
+        ok_g &= _assert(cred_g.get("status") == "validation_failed", "status=validation_failed")
+        # Audit: validate event with error_codes=["secret_bundle_incomplete"]
+        events_g = _read_audit_events(audit_root)
+        validate_events_g = [
+            ev for ev in events_g
+            if ev.get("operation") == "validate" and ev.get("tenant_id") == _T_G
+        ]
+        ok_g &= _assert(len(validate_events_g) >= 1, "validate audit event present")
+        if validate_events_g:
+            ev = validate_events_g[-1]
+            ok_g &= _assert(ev.get("ok") is True, "validate audit event ok=true")
+            ok_g &= _assert(
+                "secret_bundle_incomplete" in (ev.get("error_codes") or []),
+                "validate audit error_codes includes secret_bundle_incomplete",
+            )
+            ok_g &= _assert_no_forbidden_content(ev, set(), "validate event (incomplete) clean")
+        # Leak check on validate response
+        val_g_str = _json.dumps(val_g)
+        ok_g &= _assert("fake-" not in val_g_str, "no fake values in incomplete validate response")
+        all_pass = all_pass and ok_g
 
         print()
         if all_pass:
