@@ -113,7 +113,7 @@ echo ""
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-echo "[1/16] Environment and import checks..."
+echo "[1/17] Environment and import checks..."
 # ---------------------------------------------------------------------------
 
 [ -f "$PYTHON" ] || fail "Python not found at $PYTHON"
@@ -140,7 +140,7 @@ done
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[2/16] CredentialReference model demo..."
+echo "[2/17] CredentialReference model demo..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_model_demo.py 2>&1)
@@ -150,7 +150,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[3/16] Credential stores..."
+echo "[3/17] Credential stores..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_store_demo.py 2>&1)
@@ -165,7 +165,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[4/16] Credential resolver..."
+echo "[4/17] Credential resolver..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_resolver_demo.py 2>&1)
@@ -175,7 +175,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[5/16] SecretStore and provider..."
+echo "[5/17] SecretStore and provider..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_secret_store_demo.py 2>&1)
@@ -190,7 +190,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[6/16] Adapter provider mode — non-live checks..."
+echo "[6/17] Adapter provider mode — non-live checks..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_google_ads_adapter_provider_demo.py 2>&1)
@@ -307,7 +307,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[7/16] OpenClaw admin credential endpoints..."
+echo "[7/17] OpenClaw admin credential endpoints..."
 # ---------------------------------------------------------------------------
 
 # Set up temp credential reference store to avoid touching any runtime file
@@ -496,7 +496,7 @@ rm -f "$CRED_STORE_FILE"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[8/16] Secret-safety and git hygiene..."
+echo "[8/17] Secret-safety and git hygiene..."
 # ---------------------------------------------------------------------------
 
 GREP_TARGETS="$REPO/scripts $REPO/docs $REPO/agents $REPO/openclaw $REPO/README.md $REPO/.env.example"
@@ -546,7 +546,7 @@ fi
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 echo ""
-echo "[9/16] Admin credential bundle write — mocked secret store..."
+echo "[9/17] Admin credential bundle write — mocked secret store..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -576,7 +576,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[10/16] Admin credential API write — FastAPI TestClient..."
+echo "[10/17] Admin credential API write — FastAPI TestClient..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -616,7 +616,7 @@ echo "$_OUT" | grep -q "secret_material_rejected" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[11/16] Credential lifecycle audit and validation events..."
+echo "[11/17] Credential lifecycle audit and validation events..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -672,7 +672,7 @@ echo "$_OUT" | grep -q "secret_already_absent" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[12/16] Credential lifecycle validation API (FastAPI TestClient)..."
+echo "[12/17] Credential lifecycle validation API (FastAPI TestClient)..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -725,7 +725,7 @@ echo "$_OUT" | grep -q "warnings includes secret_already_absent" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[13/16] Validate route — server-level auth checks..."
+echo "[13/17] Validate route — server-level auth checks..."
 # ---------------------------------------------------------------------------
 
 CRED_STORE_FILE2=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
@@ -786,7 +786,7 @@ rm -f "$CRED_STORE_FILE2"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[14/16] Phase 3 delete/revoke — forbidden behavior and env gate checks..."
+echo "[14/17] Phase 3 delete/revoke — forbidden behavior and env gate checks..."
 # ---------------------------------------------------------------------------
 
 # delete_google_ads_credentials must not call get_secret_bundle (only delete_secret_bundle + get_secret_status)
@@ -858,7 +858,7 @@ pass "Phase 3 delete/revoke forbidden behavior checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[15/16] Admin RBAC scope enforcement..."
+echo "[15/17] Admin RBAC scope enforcement..."
 # ---------------------------------------------------------------------------
 
 # AdminScope enum importable from auth.py
@@ -904,20 +904,22 @@ else
     fail "resolve_token_scope returned unexpected scope"
 fi
 
-# scope_allows: ADMIN allows all; READ allows READ only
+# scope_allows: ADMIN allows all; READ allows READ only; ROTATE requires ADMIN
 if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
     $PYTHON -c "
 from auth import AdminScope, scope_allows
 assert scope_allows(AdminScope.ADMIN, AdminScope.READ)
 assert scope_allows(AdminScope.ADMIN, AdminScope.WRITE)
 assert scope_allows(AdminScope.ADMIN, AdminScope.VALIDATE)
+assert scope_allows(AdminScope.ADMIN, AdminScope.ROTATE)
 assert scope_allows(AdminScope.ADMIN, AdminScope.DELETE)
 assert scope_allows(AdminScope.READ, AdminScope.READ)
 assert not scope_allows(AdminScope.READ, AdminScope.WRITE)
 assert not scope_allows(AdminScope.READ, AdminScope.VALIDATE)
+assert not scope_allows(AdminScope.READ, AdminScope.ROTATE)
 assert not scope_allows(AdminScope.READ, AdminScope.DELETE)
 " 2>&1); then
-    pass "scope_allows: ADMIN grants all; READ grants READ only"
+    pass "scope_allows: ADMIN grants all; READ grants READ only; ROTATE requires ADMIN"
 else
     fail "scope_allows returned unexpected result"
 fi
@@ -1026,7 +1028,7 @@ pass "Admin RBAC scope enforcement checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[16/16] Audit seq/digest hardening and maintenance..."
+echo "[16/17] Audit seq/digest hardening and maintenance..."
 # ---------------------------------------------------------------------------
 
 # audit_maintenance.py importable with both functions
@@ -1141,7 +1143,7 @@ else
     fail "verify_audit_file: tampered file not detected"
 fi
 
-# Lifecycle demo includes L/M/N/O sections (lifecycle demo already ran in [11/16])
+# Lifecycle demo includes L/M/N/O sections (lifecycle demo already ran in [11/17])
 # Re-run just to capture output for marker checks
 _OUT_PHASE2=$(cd "$OPENCLAW_DIR" && \
     PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
@@ -1165,6 +1167,241 @@ echo "$_OUT_PHASE2" | grep -q "old file was deleted" \
     || { echo "  ✗ lifecycle demo O: prune marker not found"; echo "$_OUT_PHASE2" | tail -20; exit 1; }
 
 pass "Audit seq/digest hardening and maintenance checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[17/17] Rotate credential endpoint..."
+# ---------------------------------------------------------------------------
+
+# rotate_google_ads_credentials importable from admin
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "from admin import rotate_google_ads_credentials" 2>&1); then
+    pass "rotate_google_ads_credentials importable from admin"
+else
+    fail "rotate_google_ads_credentials not importable from admin"
+fi
+
+# server.py has rotate route
+if grep -q "credentials/google-ads/rotate" "$OPENCLAW_DIR/server.py"; then
+    pass "server.py has /rotate route"
+else
+    fail "server.py missing /rotate route"
+fi
+
+# rotate route uses AdminScope.ROTATE
+if grep -A 30 "credentials/google-ads/rotate" "$OPENCLAW_DIR/server.py" | grep -q "AdminScope.ROTATE"; then
+    pass "rotate route uses AdminScope.ROTATE"
+else
+    fail "rotate route does not use AdminScope.ROTATE"
+fi
+
+# rotate_google_ads_credentials must not call get_secret_bundle (match method call syntax)
+if grep -A 120 "def rotate_google_ads_credentials" "$OPENCLAW_DIR/admin.py" | grep -q "\.get_secret_bundle"; then
+    fail "rotate_google_ads_credentials calls .get_secret_bundle() — must not fetch secrets"
+else
+    pass "rotate_google_ads_credentials does not call .get_secret_bundle()"
+fi
+
+# TestClient: full rotate success → 200, ok=true, status=active
+ROTATE_STORE=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    CREDENTIAL_REFERENCE_STORE_PATH="$ROTATE_STORE" \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=false \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON -c "
+from fastapi.testclient import TestClient
+from server import app
+import admin as adm
+from credentials.secret_store import InMemorySecretStore
+_store = InMemorySecretStore()
+adm.create_secret_store = lambda: _store
+client = TestClient(app)
+_FAKE = {
+    'developer_token': 'fake-dt',
+    'client_id': 'fake-ci',
+    'client_secret': 'fake-cs',
+    'refresh_token': 'fake-rt',
+}
+base = '/openclaw/admin/tenants/smoke-rotate-t/clients/smoke-rotate-c/credentials/google-ads'
+r_w = client.post(base, json={'customer_id': '1111111111', **_FAKE})
+assert r_w.status_code == 200, f'write failed: {r_w.text[:200]}'
+r_rot = client.post(f'{base}/rotate', json=_FAKE)
+assert r_rot.status_code == 200, f'rotate failed: {r_rot.status_code} {r_rot.text[:200]}'
+d = r_rot.json()
+assert d['ok'] is True, f'ok not True: {d}'
+rr = d.get('rotation_result') or {}
+assert rr['structurally_complete'] is True, f'not complete: {rr}'
+cred = d.get('credential_status') or {}
+assert cred['status'] == 'active', f'status not active: {cred}'
+import json as _json
+resp_str = _json.dumps(d)
+for v in ('fake-dt', 'fake-ci', 'fake-cs', 'fake-rt'):
+    assert v not in resp_str, f'secret value leaked: {v}'
+" 2>/dev/null); then
+    pass "TestClient: rotate full success → 200, ok=true, status=active"
+else
+    fail "TestClient: rotate full success failed"
+fi
+rm -f "$ROTATE_STORE"
+
+# TestClient: rotate missing credential → 404
+ROTATE_STORE2=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    CREDENTIAL_REFERENCE_STORE_PATH="$ROTATE_STORE2" \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=false \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    $PYTHON -c "
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app)
+_FAKE = {
+    'developer_token': 'fake-dt',
+    'client_id': 'fake-ci',
+    'client_secret': 'fake-cs',
+    'refresh_token': 'fake-rt',
+}
+r = client.post(
+    '/openclaw/admin/tenants/smoke-nomatch-t/clients/smoke-nomatch-c/credentials/google-ads/rotate',
+    json=_FAKE,
+)
+assert r.status_code == 404, f'expected 404, got {r.status_code}: {r.text[:200]}'
+d = r.json()
+assert d['ok'] is False, f'ok not False: {d}'
+codes = [e.get('code') for e in d.get('errors', [])]
+assert 'credential_not_found' in codes, f'expected credential_not_found: {codes}'
+" 2>/dev/null); then
+    pass "TestClient: rotate missing credential → 404 credential_not_found"
+else
+    fail "TestClient: rotate missing credential did not return 404"
+fi
+rm -f "$ROTATE_STORE2"
+
+# TestClient: rotate revoked → 409
+ROTATE_STORE3=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    CREDENTIAL_REFERENCE_STORE_PATH="$ROTATE_STORE3" \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=false \
+    OPENCLAW_ADMIN_DELETE_ENABLED=true \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    $PYTHON -c "
+from fastapi.testclient import TestClient
+from server import app
+import admin as adm
+from credentials.secret_store import InMemorySecretStore
+_store = InMemorySecretStore()
+adm.create_secret_store = lambda: _store
+client = TestClient(app)
+_FAKE = {
+    'developer_token': 'fake-dt',
+    'client_id': 'fake-ci',
+    'client_secret': 'fake-cs',
+    'refresh_token': 'fake-rt',
+}
+base = '/openclaw/admin/tenants/smoke-revoke-t/clients/smoke-revoke-c/credentials/google-ads'
+r_w = client.post(base, json={'customer_id': '2222222222', **_FAKE})
+assert r_w.status_code == 200, f'write failed: {r_w.text[:200]}'
+r_d = client.delete(base)
+assert r_d.status_code == 200, f'delete failed: {r_d.text[:200]}'
+r_rot = client.post(f'{base}/rotate', json=_FAKE)
+assert r_rot.status_code == 409, f'expected 409, got {r_rot.status_code}: {r_rot.text[:200]}'
+d = r_rot.json()
+assert d['ok'] is False, f'ok not False: {d}'
+codes = [e.get('code') for e in d.get('errors', [])]
+assert 'invalid_status_for_rotation' in codes, f'expected invalid_status_for_rotation: {codes}'
+" 2>/dev/null); then
+    pass "TestClient: rotate revoked → 409 invalid_status_for_rotation"
+else
+    fail "TestClient: rotate revoked did not return 409"
+fi
+rm -f "$ROTATE_STORE3"
+
+# TestClient: READ token on rotate route → 403 scope_not_granted
+ROTATE_STORE4=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    CREDENTIAL_REFERENCE_STORE_PATH="$ROTATE_STORE4" \
+    OPENCLAW_API_AUTH_ENABLED=true \
+    OPENCLAW_READ_KEYS="smoke-read-key" \
+    OPENCLAW_AUDIT_ENABLED=false \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    $PYTHON -c "
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app)
+_FAKE = {
+    'developer_token': 'fake-dt',
+    'client_id': 'fake-ci',
+    'client_secret': 'fake-cs',
+    'refresh_token': 'fake-rt',
+}
+r = client.post(
+    '/openclaw/admin/tenants/smoke-rbac-t/clients/smoke-rbac-c/credentials/google-ads/rotate',
+    json=_FAKE,
+    headers={'Authorization': 'Bearer smoke-read-key'},
+)
+assert r.status_code == 403, f'expected 403, got {r.status_code}: {r.text[:200]}'
+codes = [e.get('code') for e in r.json().get('errors', [])]
+assert 'scope_not_granted' in codes, f'expected scope_not_granted: {codes}'
+" 2>/dev/null); then
+    pass "TestClient: READ token on rotate route → 403 scope_not_granted"
+else
+    fail "TestClient: READ token on rotate route did not return 403"
+fi
+rm -f "$ROTATE_STORE4"
+
+# Lifecycle demo P-T markers
+_OUT_PHASE3=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON run_admin_credentials_lifecycle_demo.py 2>&1)
+echo "$_OUT_PHASE3" | grep -q "rotate returns ok=true" \
+    && pass "lifecycle demo P: rotate success confirmed" \
+    || { echo "  ✗ lifecycle demo P: rotate success not found"; echo "$_OUT_PHASE3" | tail -20; exit 1; }
+
+echo "$_OUT_PHASE3" | grep -q "rotate from CONFIGURED ok=true" \
+    && pass "lifecycle demo Q: rotate from CONFIGURED confirmed" \
+    || { echo "  ✗ lifecycle demo Q: rotate from CONFIGURED not found"; echo "$_OUT_PHASE3" | tail -20; exit 1; }
+
+echo "$_OUT_PHASE3" | grep -q "incomplete rotate returns ok=false" \
+    && pass "lifecycle demo R: incomplete rotate ok=false confirmed" \
+    || { echo "  ✗ lifecycle demo R: incomplete rotate not found"; echo "$_OUT_PHASE3" | tail -20; exit 1; }
+
+echo "$_OUT_PHASE3" | grep -q "invalid_status_for_rotation" \
+    && pass "lifecycle demo S: invalid_status_for_rotation confirmed" \
+    || { echo "  ✗ lifecycle demo S: invalid_status_for_rotation not found"; echo "$_OUT_PHASE3" | tail -20; exit 1; }
+
+echo "$_OUT_PHASE3" | grep -q "rotate missing credential ok=false" \
+    && pass "lifecycle demo T: missing credential rotate confirmed" \
+    || { echo "  ✗ lifecycle demo T: missing credential rotate not found"; echo "$_OUT_PHASE3" | tail -20; exit 1; }
+
+# API demo rotate scenarios (run API demo, check rotate markers)
+_OUT_ROT_API=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    $PYTHON run_admin_credentials_lifecycle_api_demo.py 2>&1)
+echo "$_OUT_ROT_API" | grep -q "rotate A: status 200" \
+    && pass "API demo rotate A: 200 success confirmed" \
+    || { echo "  ✗ API demo rotate A: not found"; echo "$_OUT_ROT_API" | tail -20; exit 1; }
+
+echo "$_OUT_ROT_API" | grep -q "rotate B: status 404 for missing credential" \
+    && pass "API demo rotate B: 404 not-found confirmed" \
+    || { echo "  ✗ API demo rotate B: not found"; echo "$_OUT_ROT_API" | tail -20; exit 1; }
+
+echo "$_OUT_ROT_API" | grep -q "rotate C: status 409 for revoked credential" \
+    && pass "API demo rotate C: 409 revoked confirmed" \
+    || { echo "  ✗ API demo rotate C: not found"; echo "$_OUT_ROT_API" | tail -20; exit 1; }
+
+echo "$_OUT_ROT_API" | grep -q "rotate E: status 403 for read token" \
+    && pass "API demo rotate E: 403 scope_not_granted confirmed" \
+    || { echo "  ✗ API demo rotate E: not found"; echo "$_OUT_ROT_API" | tail -20; exit 1; }
+
+pass "Rotate credential endpoint checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

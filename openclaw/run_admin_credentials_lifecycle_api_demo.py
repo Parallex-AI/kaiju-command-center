@@ -1,5 +1,5 @@
 """
-V5.15 / V5.16 — Credential lifecycle validation and RBAC API demo (FastAPI TestClient).
+V5.15 / V5.16 — Credential lifecycle validation, RBAC, and rotation API demo (FastAPI TestClient).
 
 No HTTP server. No GCP. No live Google Ads API calls. Fake values only.
 
@@ -21,6 +21,14 @@ V5.16 RBAC scenarios (A–H):
 
 V5.16 Phase 2 audit warning:
   Audit Warning API — audit failure → HTTP 200 with warnings=['audit_append_failed']
+
+V5.16 Phase 3 rotate scenarios (A–F):
+  Rotate A — full bundle write, then rotate → 200, ok=true, status=active
+  Rotate B — rotate before any write → 404 credential_not_found
+  Rotate C — rotate REVOKED credential → 409 invalid_status_for_rotation
+  Rotate D — rotate with incomplete payload → 400, missing_fields
+  Rotate E — read token cannot rotate → 403 scope_not_granted
+  Rotate F — admin token can rotate → 200 ok=true
 
 Env vars are set before importing server to avoid module-level config issues.
 """
@@ -467,6 +475,151 @@ def run_demo():
             _admin_mod.append_audit_event = _original_append_audit
         all_pass = all_pass and ok_aw
 
+        # ── Rotate scenarios (A–F) ────────────────────────────────────────────
+        # Auth is disabled at this point (restored after RBAC and Audit Warning).
+        _ROTATE_TENANT = "rotate-api-tenant"
+        _ROTATE_CLIENT = "rotate-api-client"
+        _ROTATE_BASE = (
+            f"/openclaw/admin/tenants/{_ROTATE_TENANT}/clients/{_ROTATE_CLIENT}"
+            f"/credentials/google-ads"
+        )
+
+        # ── Rotate A — full bundle then rotate → 200, ok=true, active ────────
+        print("\n" + "-" * 60)
+        print("  Rotate A. Full bundle then rotate → 200, ok=true, status=active")
+        print("-" * 60)
+        r_rot_init = client.post(_ROTATE_BASE, json={"customer_id": "5050505050", **_FAKE_SECRETS})
+        assert r_rot_init.status_code == 200, f"initial bundle write failed: {r_rot_init.text[:200]}"
+        r_rot_a = client.post(f"{_ROTATE_BASE}/rotate", json={**_FAKE_SECRETS})
+        print(f"Status: {r_rot_a.status_code}")
+        d_rot_a = r_rot_a.json()
+        print(json.dumps(d_rot_a, indent=2))
+        ok_rot_a = _check(r_rot_a.status_code == 200, "rotate A: status 200")
+        ok_rot_a &= _check(d_rot_a.get("ok") is True, "rotate A: ok=true")
+        rr_a = d_rot_a.get("rotation_result") or {}
+        ok_rot_a &= _check(rr_a.get("structurally_complete") is True, "rotate A: structurally_complete=true")
+        ok_rot_a &= _check(rr_a.get("missing_fields") == [], "rotate A: missing_fields=[]")
+        ok_rot_a &= _check(rr_a.get("last_validated_at") is not None, "rotate A: last_validated_at set")
+        cred_rot_a = d_rot_a.get("credential_status") or {}
+        ok_rot_a &= _check(cred_rot_a.get("status") == "active", "rotate A: status=active")
+        ss_rot_a = d_rot_a.get("secret_status") or {}
+        ok_rot_a &= _check(ss_rot_a.get("configured") is True, "rotate A: secret_status.configured=true")
+        ok_rot_a &= _no_fake_values(d_rot_a, "rotate A: no fake values")
+        all_pass = all_pass and ok_rot_a
+
+        # ── Rotate B — rotate before any write → 404 ─────────────────────────
+        print("\n" + "-" * 60)
+        print("  Rotate B. Rotate before any write → 404 credential_not_found")
+        print("-" * 60)
+        _ROT_B_BASE = (
+            "/openclaw/admin/tenants/rotate-api-notfound-t"
+            "/clients/rotate-api-notfound-c/credentials/google-ads"
+        )
+        r_rot_b = client.post(f"{_ROT_B_BASE}/rotate", json={**_FAKE_SECRETS})
+        print(f"Status: {r_rot_b.status_code}")
+        d_rot_b = r_rot_b.json()
+        print(json.dumps(d_rot_b, indent=2))
+        ok_rot_b = _check(r_rot_b.status_code == 404, "rotate B: status 404 for missing credential")
+        ok_rot_b &= _check(d_rot_b.get("ok") is False, "rotate B: ok=false")
+        codes_rot_b = [e.get("code") for e in d_rot_b.get("errors", []) if isinstance(e, dict)]
+        ok_rot_b &= _check("credential_not_found" in codes_rot_b, "rotate B: error credential_not_found")
+        ok_rot_b &= _no_fake_values(d_rot_b, "rotate B: no fake values in 404 response")
+        all_pass = all_pass and ok_rot_b
+
+        # ── Rotate C — rotate REVOKED credential → 409 ───────────────────────
+        print("\n" + "-" * 60)
+        print("  Rotate C. Rotate REVOKED credential → 409 invalid_status_for_rotation")
+        print("-" * 60)
+        _ROT_C_TENANT = "rotate-api-revoked-t"
+        _ROT_C_CLIENT = "rotate-api-revoked-c"
+        _ROT_C_BASE = (
+            f"/openclaw/admin/tenants/{_ROT_C_TENANT}/clients/{_ROT_C_CLIENT}"
+            f"/credentials/google-ads"
+        )
+        r_rot_c_w = client.post(_ROT_C_BASE, json={"customer_id": "6060606060", **_FAKE_SECRETS})
+        assert r_rot_c_w.status_code == 200, f"rotate-C bundle write failed: {r_rot_c_w.text[:200]}"
+        os.environ["OPENCLAW_ADMIN_DELETE_ENABLED"] = "true"
+        r_rot_c_d = client.delete(_ROT_C_BASE)
+        assert r_rot_c_d.status_code == 200, f"rotate-C delete failed: {r_rot_c_d.text[:200]}"
+        os.environ.pop("OPENCLAW_ADMIN_DELETE_ENABLED", None)
+        r_rot_c = client.post(f"{_ROT_C_BASE}/rotate", json={**_FAKE_SECRETS})
+        print(f"Status: {r_rot_c.status_code}")
+        d_rot_c = r_rot_c.json()
+        print(json.dumps(d_rot_c, indent=2))
+        ok_rot_c = _check(r_rot_c.status_code == 409, "rotate C: status 409 for revoked credential")
+        ok_rot_c &= _check(d_rot_c.get("ok") is False, "rotate C: ok=false")
+        codes_rot_c = [e.get("code") for e in d_rot_c.get("errors", []) if isinstance(e, dict)]
+        ok_rot_c &= _check(
+            "invalid_status_for_rotation" in codes_rot_c,
+            "rotate C: error invalid_status_for_rotation"
+        )
+        ok_rot_c &= _no_fake_values(d_rot_c, "rotate C: no fake values in 409 response")
+        all_pass = all_pass and ok_rot_c
+
+        # ── Rotate D — incomplete payload → 400, missing_fields ──────────────
+        print("\n" + "-" * 60)
+        print("  Rotate D. Incomplete payload → 400, missing_fields")
+        print("-" * 60)
+        r_rot_d = client.post(
+            f"{_ROTATE_BASE}/rotate",
+            json={"developer_token": "fake-dev-token", "client_id": "fake-client-id"},
+        )
+        print(f"Status: {r_rot_d.status_code}")
+        d_rot_d = r_rot_d.json()
+        print(json.dumps(d_rot_d, indent=2))
+        ok_rot_d = _check(r_rot_d.status_code == 400, "rotate D: status 400 for incomplete payload")
+        ok_rot_d &= _check(d_rot_d.get("ok") is False, "rotate D: ok=false")
+        codes_rot_d = [e.get("code") for e in d_rot_d.get("errors", []) if isinstance(e, dict)]
+        ok_rot_d &= _check("secret_bundle_incomplete" in codes_rot_d, "rotate D: error secret_bundle_incomplete")
+        rr_d = d_rot_d.get("rotation_result") or {}
+        missing_rot_d = rr_d.get("missing_fields") or []
+        ok_rot_d &= _check(len(missing_rot_d) > 0, f"rotate D: missing_fields non-empty (got {missing_rot_d})")
+        ok_rot_d &= _no_fake_values(d_rot_d, "rotate D: no fake values in 400 response")
+        all_pass = all_pass and ok_rot_d
+
+        # ── Rotate E — read token cannot rotate → 403 ────────────────────────
+        print("\n" + "-" * 60)
+        print("  Rotate E. Read token cannot rotate → 403 scope_not_granted")
+        print("-" * 60)
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "true"
+        os.environ["OPENCLAW_ADMIN_KEYS"] = _ADMIN_TOKEN
+        os.environ["OPENCLAW_READ_KEYS"] = _READ_TOKEN
+        r_rot_e = client.post(
+            f"{_ROTATE_BASE}/rotate",
+            json={**_FAKE_SECRETS},
+            headers=_READ_HDR,
+        )
+        print(f"Status: {r_rot_e.status_code}")
+        d_rot_e = r_rot_e.json()
+        ok_rot_e = _check(r_rot_e.status_code == 403, "rotate E: status 403 for read token")
+        ok_rot_e &= _check(d_rot_e.get("ok") is False, "rotate E: ok=false")
+        codes_rot_e = [e.get("code") for e in d_rot_e.get("errors", []) if isinstance(e, dict)]
+        ok_rot_e &= _check("scope_not_granted" in codes_rot_e, "rotate E: error scope_not_granted")
+        ok_rot_e &= _no_fake_values(d_rot_e, "rotate E: no fake values in 403 response")
+        all_pass = all_pass and ok_rot_e
+
+        # ── Rotate F — admin token can rotate → 200 ──────────────────────────
+        print("\n" + "-" * 60)
+        print("  Rotate F. Admin token can rotate → 200 ok=true")
+        print("-" * 60)
+        r_rot_f = client.post(
+            f"{_ROTATE_BASE}/rotate",
+            json={**_FAKE_SECRETS},
+            headers=_ADMIN_HDR,
+        )
+        print(f"Status: {r_rot_f.status_code}")
+        d_rot_f = r_rot_f.json()
+        print(json.dumps(d_rot_f, indent=2))
+        ok_rot_f = _check(r_rot_f.status_code == 200, "rotate F: status 200 for admin token")
+        ok_rot_f &= _check(d_rot_f.get("ok") is True, "rotate F: ok=true")
+        ok_rot_f &= _no_fake_values(d_rot_f, "rotate F: no fake values in admin rotate response")
+        all_pass = all_pass and ok_rot_f
+
+        # Restore to no-auth state
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "false"
+        os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
+        os.environ.pop("OPENCLAW_READ_KEYS", None)
+
         # ── Leak assertion across all API responses ───────────────────────────
         print("\n" + "-" * 60)
         print("  Leak assertion — all API responses")
@@ -480,6 +633,9 @@ def run_demo():
             (d_rc, "rbac-C-validate-denied"), (d_rd, "rbac-D-delete-denied"),
             (d_rg, "rbac-G-invalid-token"), (d_rh, "rbac-H-missing-token"),
             (d_aw, "audit-warn-write"),
+            (d_rot_a, "rotate-A-success"), (d_rot_b, "rotate-B-notfound"),
+            (d_rot_c, "rotate-C-revoked"), (d_rot_d, "rotate-D-incomplete"),
+            (d_rot_e, "rotate-E-read-denied"), (d_rot_f, "rotate-F-admin-ok"),
         ]
         for resp_dict, label in all_responses:
             ok_leak &= _no_fake_values(resp_dict, f"no fake values in {label}")

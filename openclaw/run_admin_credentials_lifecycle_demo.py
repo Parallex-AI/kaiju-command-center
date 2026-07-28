@@ -1,5 +1,5 @@
 """
-V5.15 Phase 1 / Phase 2 — Credential lifecycle audit and validation demo.
+V5.15 Phase 1 / Phase 2 / V5.16 Phase 3 — Credential lifecycle audit, validation, and rotation demo.
 
 Verifies that credential write operations emit safe audit events to the JSONL
 audit log. Asserts:
@@ -542,6 +542,243 @@ def run_demo():
         ok_o &= _assert(recent_file.exists(), "recent file was kept")
         ok_o &= _assert(prune_result.get("errors") == [], f"no prune errors (got {prune_result.get('errors')})")
         all_pass = all_pass and ok_o
+
+        # ── Section P: rotate active credential → ok=true, status=active ─────
+        print("\n── P: rotate active credential → ok=true, status=active ──")
+        _T_P = "tenant-rotate-p"
+        _C_P = "client-rotate-p"
+        _FAKE_SECRETS_P = {
+            "developer_token": "fake-dev-token-rotate-p",
+            "client_id": "fake-oauth-client-id-rotate-p",
+            "client_secret": "fake-client-secret-rotate-p",
+            "refresh_token": "fake-refresh-token-rotate-p",
+        }
+        _FAKE_SECRETS_P2 = {
+            "developer_token": "fake-dev-token-rotate-p-new",
+            "client_id": "fake-oauth-client-id-rotate-p-new",
+            "client_secret": "fake-client-secret-rotate-p-new",
+            "refresh_token": "fake-refresh-token-rotate-p-new",
+        }
+        _FAKE_VALS_P = set(_FAKE_SECRETS_P.values()) | set(_FAKE_SECRETS_P2.values())
+        store_p = InMemorySecretStore()
+        write_p = adm.write_google_ads_credential_bundle(
+            _T_P, _C_P,
+            {"customer_id": "100-200-3001", **_FAKE_SECRETS_P},
+            secret_store=store_p,
+        )
+        ok_p = _assert(write_p.get("ok") is True, "P: initial bundle write ok=true")
+        val_p = adm.validate_google_ads_credentials(_T_P, _C_P, secret_store=store_p)
+        ok_p &= _assert(
+            (val_p.get("credential_status") or {}).get("status") == "active",
+            "P: initial status=active after validate"
+        )
+        events_before_p = _read_audit_events(audit_root)
+        rot_p = adm.rotate_google_ads_credentials(
+            _T_P, _C_P,
+            _FAKE_SECRETS_P2,
+            secret_store=store_p,
+        )
+        ok_p &= _assert(rot_p.get("ok") is True, "rotate returns ok=true")
+        rr_p = rot_p.get("rotation_result") or {}
+        ok_p &= _assert(rr_p.get("structurally_complete") is True, "P: structurally_complete=true")
+        ok_p &= _assert(rr_p.get("missing_fields") == [], "P: missing_fields=[]")
+        ok_p &= _assert(rr_p.get("last_validated_at") is not None, "P: last_validated_at set")
+        ok_p &= _assert(rot_p.get("errors") == [], "P: errors=[]")
+        cred_p = rot_p.get("credential_status") or {}
+        ok_p &= _assert(cred_p.get("status") == "active", "P: status=active after rotate")
+        ss_p = rot_p.get("secret_status") or {}
+        ok_p &= _assert(ss_p.get("configured") is True, "P: secret_status.configured=true")
+        events_after_p = _read_audit_events(audit_root)
+        rotate_ev_p = [
+            ev for ev in events_after_p[len(events_before_p):]
+            if ev.get("operation") == "rotate" and ev.get("tenant_id") == _T_P
+        ]
+        ok_p &= _assert(len(rotate_ev_p) >= 1, "P: rotate audit event present")
+        if rotate_ev_p:
+            ev = rotate_ev_p[-1]
+            ok_p &= _assert(ev.get("ok") is True, "P: rotate audit event ok=true")
+            ok_p &= _assert(ev.get("error_codes") == [], "P: rotate audit error_codes=[]")
+            ok_p &= _assert_no_forbidden_content(ev, _FAKE_VALS_P, "P: rotate audit event clean")
+        rot_p_str = _json.dumps(rot_p)
+        for fv in _FAKE_VALS_P:
+            ok_p &= _assert(fv not in rot_p_str, "P: no fake secret value in rotate response")
+        all_pass = all_pass and ok_p
+
+        # ── Section Q: rotate CONFIGURED (not yet validated) → ok=true ────────
+        print("\n── Q: rotate CONFIGURED credential → ok=true, status=active ──")
+        _T_Q = "tenant-rotate-q"
+        _C_Q = "client-rotate-q"
+        _FAKE_SECRETS_Q = {
+            "developer_token": "fake-dev-token-rotate-q",
+            "client_id": "fake-oauth-client-id-rotate-q",
+            "client_secret": "fake-client-secret-rotate-q",
+            "refresh_token": "fake-refresh-token-rotate-q",
+        }
+        store_q = InMemorySecretStore()
+        write_q = adm.write_google_ads_credential_bundle(
+            _T_Q, _C_Q,
+            {"customer_id": "100-200-3002", **_FAKE_SECRETS_Q},
+            secret_store=store_q,
+        )
+        ok_q = _assert(write_q.get("ok") is True, "Q: bundle write ok=true")
+        # Rotate directly from CONFIGURED (no prior validate)
+        events_before_q = _read_audit_events(audit_root)
+        rot_q = adm.rotate_google_ads_credentials(
+            _T_Q, _C_Q,
+            _FAKE_SECRETS_Q,
+            secret_store=store_q,
+        )
+        ok_q &= _assert(rot_q.get("ok") is True, "rotate from CONFIGURED ok=true")
+        cred_q = rot_q.get("credential_status") or {}
+        ok_q &= _assert(cred_q.get("status") == "active", "Q: status=active after rotate from CONFIGURED")
+        events_after_q = _read_audit_events(audit_root)
+        rotate_ev_q = [
+            ev for ev in events_after_q[len(events_before_q):]
+            if ev.get("operation") == "rotate" and ev.get("tenant_id") == _T_Q
+        ]
+        ok_q &= _assert(len(rotate_ev_q) >= 1, "Q: rotate audit event present for CONFIGURED path")
+        if rotate_ev_q:
+            ok_q &= _assert(rotate_ev_q[-1].get("ok") is True, "Q: rotate audit ok=true for CONFIGURED")
+        ok_q &= _assert("fake-" not in _json.dumps(rot_q), "Q: no fake values in rotate response")
+        all_pass = all_pass and ok_q
+
+        # ── Section R: rotate with incomplete payload → ok=false, missing_fields
+        print("\n── R: rotate with incomplete payload → ok=false, missing_fields, no status change ──")
+        _T_R = "tenant-rotate-r"
+        _C_R = "client-rotate-r"
+        _FAKE_SECRETS_R = {
+            "developer_token": "fake-dev-token-rotate-r",
+            "client_id": "fake-oauth-client-id-rotate-r",
+            "client_secret": "fake-client-secret-rotate-r",
+            "refresh_token": "fake-refresh-token-rotate-r",
+        }
+        store_r = InMemorySecretStore()
+        adm.write_google_ads_credential_bundle(
+            _T_R, _C_R,
+            {"customer_id": "100-200-3003", **_FAKE_SECRETS_R},
+            secret_store=store_r,
+        )
+        adm.validate_google_ads_credentials(_T_R, _C_R, secret_store=store_r)
+        ok_r = _assert(
+            (adm.get_google_ads_credential_status(_T_R, _C_R).get("credential_status") or {}).get("status") == "active",
+            "R: initial status=active"
+        )
+        events_before_r = _read_audit_events(audit_root)
+        # Rotate with only 2 of 4 fields — pre-write rejection
+        rot_r = adm.rotate_google_ads_credentials(
+            _T_R, _C_R,
+            {
+                "developer_token": "fake-dev-token-rotate-r-new",
+                "client_id": "fake-oauth-client-id-rotate-r-new",
+            },
+            secret_store=store_r,
+        )
+        ok_r &= _assert(rot_r.get("ok") is False, "incomplete rotate returns ok=false")
+        rr_r = rot_r.get("rotation_result") or {}
+        missing_r = rr_r.get("missing_fields") or []
+        ok_r &= _assert(len(missing_r) > 0, f"R: missing_fields non-empty (got {missing_r})")
+        ok_r &= _assert("client_secret" in missing_r, "R: missing_fields includes client_secret")
+        ok_r &= _assert("refresh_token" in missing_r, "R: missing_fields includes refresh_token")
+        codes_r = [e.get("code") for e in rot_r.get("errors", []) if isinstance(e, dict)]
+        ok_r &= _assert("secret_bundle_incomplete" in codes_r, "R: error secret_bundle_incomplete")
+        # Status must NOT have changed (no write occurred)
+        status_r = (adm.get_google_ads_credential_status(_T_R, _C_R).get("credential_status") or {}).get("status")
+        ok_r &= _assert(status_r == "active", "R: credential status still active (no write occurred)")
+        events_after_r = _read_audit_events(audit_root)
+        rotate_ev_r = [
+            ev for ev in events_after_r[len(events_before_r):]
+            if ev.get("operation") == "rotate" and ev.get("tenant_id") == _T_R
+        ]
+        ok_r &= _assert(len(rotate_ev_r) >= 1, "R: rotate audit event present for incomplete payload")
+        if rotate_ev_r:
+            ev = rotate_ev_r[-1]
+            ok_r &= _assert(ev.get("ok") is False, "R: rotate audit event ok=false for incomplete")
+            ok_r &= _assert(
+                "secret_bundle_incomplete" in (ev.get("error_codes") or []),
+                "R: rotate audit error_codes includes secret_bundle_incomplete"
+            )
+            ok_r &= _assert_no_forbidden_content(ev, set(_FAKE_SECRETS_R.values()), "R: rotate audit event clean")
+        ok_r &= _assert("fake-" not in _json.dumps(rot_r), "R: no fake values in incomplete rotate response")
+        all_pass = all_pass and ok_r
+
+        # ── Section S: rotate REVOKED credential → invalid_status_for_rotation ─
+        print("\n── S: rotate REVOKED credential → ok=false, invalid_status_for_rotation ──")
+        _T_S = "tenant-rotate-s"
+        _C_S = "client-rotate-s"
+        _FAKE_SECRETS_S = {
+            "developer_token": "fake-dev-token-rotate-s",
+            "client_id": "fake-oauth-client-id-rotate-s",
+            "client_secret": "fake-client-secret-rotate-s",
+            "refresh_token": "fake-refresh-token-rotate-s",
+        }
+        store_s = InMemorySecretStore()
+        write_s = adm.write_google_ads_credential_bundle(
+            _T_S, _C_S,
+            {"customer_id": "100-200-3004", **_FAKE_SECRETS_S},
+            secret_store=store_s,
+        )
+        ok_s = _assert(write_s.get("ok") is True, "S: bundle write ok=true before revoke")
+        # OPENCLAW_ADMIN_DELETE_ENABLED still true from section I
+        del_s = adm.delete_google_ads_credentials(_T_S, _C_S, secret_store=store_s)
+        ok_s &= _assert(del_s.get("ok") is True, "S: delete ok=true")
+        ok_s &= _assert(
+            (del_s.get("credential_status") or {}).get("status") == "revoked",
+            "S: status=revoked after delete"
+        )
+        events_before_s = _read_audit_events(audit_root)
+        rot_s = adm.rotate_google_ads_credentials(
+            _T_S, _C_S,
+            _FAKE_SECRETS_S,
+            secret_store=store_s,
+        )
+        ok_s &= _assert(rot_s.get("ok") is False, "rotate REVOKED returns ok=false")
+        codes_s = [e.get("code") for e in rot_s.get("errors", []) if isinstance(e, dict)]
+        ok_s &= _assert("invalid_status_for_rotation" in codes_s, "S: error invalid_status_for_rotation")
+        events_after_s = _read_audit_events(audit_root)
+        rotate_ev_s = [
+            ev for ev in events_after_s[len(events_before_s):]
+            if ev.get("operation") == "rotate" and ev.get("tenant_id") == _T_S
+        ]
+        ok_s &= _assert(len(rotate_ev_s) >= 1, "S: rotate audit event present for REVOKED")
+        if rotate_ev_s:
+            ev = rotate_ev_s[-1]
+            ok_s &= _assert(ev.get("ok") is False, "S: rotate audit event ok=false for REVOKED")
+            ok_s &= _assert(
+                "invalid_status_for_rotation" in (ev.get("error_codes") or []),
+                "S: rotate audit error_codes includes invalid_status_for_rotation"
+            )
+            ok_s &= _assert_no_forbidden_content(ev, set(_FAKE_SECRETS_S.values()), "S: rotate-revoked audit event clean")
+        ok_s &= _assert("fake-" not in _json.dumps(rot_s), "S: no fake values in REVOKED rotate response")
+        all_pass = all_pass and ok_s
+
+        # ── Section T: rotate missing credential → credential_not_found ────────
+        print("\n── T: rotate missing credential → credential_not_found ──")
+        _T_T = "tenant-rotate-missing-t"
+        _C_T = "client-rotate-missing-t"
+        events_before_t = _read_audit_events(audit_root)
+        rot_t = adm.rotate_google_ads_credentials(
+            _T_T, _C_T,
+            _FAKE_SECRETS,  # complete payload but no credential reference exists
+        )
+        ok_t = _assert(rot_t.get("ok") is False, "rotate missing credential ok=false")
+        codes_t = [e.get("code") for e in rot_t.get("errors", []) if isinstance(e, dict)]
+        ok_t &= _assert("credential_not_found" in codes_t, "T: error credential_not_found")
+        events_after_t = _read_audit_events(audit_root)
+        rotate_ev_t = [
+            ev for ev in events_after_t[len(events_before_t):]
+            if ev.get("operation") == "rotate" and ev.get("tenant_id") == _T_T
+        ]
+        ok_t &= _assert(len(rotate_ev_t) >= 1, "T: rotate audit event present for missing credential")
+        if rotate_ev_t:
+            ev = rotate_ev_t[-1]
+            ok_t &= _assert(ev.get("ok") is False, "T: rotate audit event ok=false for missing")
+            ok_t &= _assert(
+                "credential_not_found" in (ev.get("error_codes") or []),
+                "T: rotate audit error_codes includes credential_not_found"
+            )
+            ok_t &= _assert_no_forbidden_content(ev, set(), "T: rotate-missing audit event clean")
+        ok_t &= _assert("fake-" not in _json.dumps(rot_t), "T: no fake values in missing-cred rotate response")
+        all_pass = all_pass and ok_t
 
         print()
         if all_pass:
