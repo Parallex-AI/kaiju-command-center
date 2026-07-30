@@ -442,3 +442,41 @@ Production deployment, real Google Ads credentials, credential validation/rotati
 ### V5.15 non-goals
 
 Production deployment, real Google Ads credentials, live API validation, RBAC hardening, audit log tamper-resistance, secret rotation endpoint, live GCP delete validation, frontend UI.
+
+---
+
+## V5.16 — Admin RBAC and Audit Hardening (branch: `v5.16-admin-rbac-audit-hardening` · tag candidate: `v5.16.0-beta`)
+
+**Goal:** Harden the OpenClaw admin credential lifecycle across three dimensions: token-scoped RBAC, audit sequence/digest hardening, and a credential rotation endpoint.
+
+- [x] **Phase 1** — Token-scoped RBAC · `AdminScope` enum (`READ`, `WRITE`, `VALIDATE`, `ROTATE`, `DELETE`, `ADMIN`) · `OPENCLAW_ADMIN_KEYS` / `OPENCLAW_READ_KEYS` env vars · per-endpoint minimum-scope enforcement · `401 unauthorized` / `403 scope_not_granted` distinction · backward-compatible `OPENCLAW_API_KEYS` fallback (`READ`-only)
+- [x] **Phase 2** — Audit seq/digest hardening · `seq` (1-based, monotonic per file) + `file_digest` (SHA-256 pre-append) on every credential audit event · `verify_audit_file()` · `prune_audit_files()` · `OPENCLAW_AUDIT_RETAIN_DAYS` (default 90) · `audit_append_failed` warning visibility on all five write paths
+- [x] **Phase 3** — Credential rotation endpoint · `rotate_google_ads_credentials()` in `openclaw/admin.py` · `POST /credentials/google-ads/rotate` route · `AdminScope.ROTATE` required · `put_secret_bundle()` only — no `get_secret_bundle()` · `get_secret_status()` structural validation · `operation="rotate"` audit event · lifecycle demo sections P–T · API demo scenarios A–F
+- [x] **Closure** — branch closure doc · release notes · ROADMAP update · README update · `smoke_test_v5_credentials.sh` extended to 17/17 · final smoke suites PASS · ready for merge and tag
+
+**V5.16 complete.** Recommended tag: `v5.16.0-beta`
+
+### V5.16 design notes
+
+- `AdminScope.ADMIN` grants all scopes; all other scopes are discrete (no implicit promotion)
+- `OPENCLAW_API_KEYS` is now `READ`-only; callers needing WRITE/VALIDATE/ROTATE/DELETE must use `OPENCLAW_ADMIN_KEYS`
+- Rotate path: pre-write validation requires all four fields before any write occurs; `REVOKED` credentials return `409 invalid_status_for_rotation`
+- Audit `seq`/`file_digest` is tamper-evident but not cryptographically signed; not concurrent-writer safe
+
+### V5.16 non-goals
+
+Production deployment, real Google Ads credentials, live API validation, per-tenant IAM RBAC, cryptographic audit signing, BigQuery audit replication, GCP Secret Manager version destruction on rotate, rate limiting, frontend UI.
+
+---
+
+## V5.17 — Production Readiness Hardening (recommended next milestone)
+
+**Goal:** Prepare OpenClaw admin credential lifecycle for controlled real-credential onboarding, with operator runbook, live GCP lifecycle validation, and hardened audit/auth foundations.
+
+- [ ] **Operator runbook** — step-by-step lifecycle guide: onboard, validate, rotate, revoke; fake-values-only rehearsal; real credential readiness checklist
+- [ ] **Controlled live GCP lifecycle validation** — write → validate → rotate → delete through `GCPSecretManagerStore` with fake secrets only; confirm rotate behavior with prior secret version
+- [ ] **Optional GCP Secret Manager version policy** — disable prior secret version on rotate; version destruction policy configuration
+- [ ] **Per-tenant admin permission model** — scope tokens to specific tenant namespaces; prevent cross-tenant credential access
+- [ ] **Rate limiting and abuse protection** — per-IP or per-token rate limits on admin endpoints
+- [ ] **Audit persistence hardening** — concurrent-writer-safe append; optional HMAC chain or cryptographic signing; BigQuery sink option
+- [ ] **Production readiness checklist** — before any real Google Ads OAuth credential onboarding

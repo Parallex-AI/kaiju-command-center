@@ -1,3 +1,4 @@
+import hashlib
 import os
 import json
 from datetime import datetime, timezone
@@ -16,6 +17,28 @@ def get_audit_root() -> Path:
         return Path(env_root)
     # Default: openclaw/audit/ under repo root
     return Path(__file__).resolve().parent / "audit"
+
+
+def _compute_file_digest(path: Path) -> str:
+    """SHA-256 of all file bytes; empty string if file is missing or empty."""
+    try:
+        data = path.read_bytes()
+        if not data:
+            return ""
+        return hashlib.sha256(data).hexdigest()
+    except (FileNotFoundError, OSError):
+        return ""
+
+
+def _next_audit_seq(path: Path) -> int:
+    """Count of non-empty lines in file plus 1; returns 1 if file is missing or empty."""
+    try:
+        count = sum(
+            1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+        )
+        return count + 1
+    except (FileNotFoundError, OSError):
+        return 1
 
 
 def build_audit_event(
@@ -93,9 +116,14 @@ def append_audit_event(event: dict) -> dict:
         date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         audit_file = audit_root / f"{date_str}.jsonl"
 
+        file_digest = _compute_file_digest(audit_file)
+        seq = _next_audit_seq(audit_file)
+        event["seq"] = seq
+        event["file_digest"] = file_digest
+
         with open(audit_file, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(event, default=str) + "\n")
 
-        return {"ok": True, "path": str(audit_file)}
+        return {"ok": True, "path": str(audit_file), "seq": seq, "file_digest": file_digest}
     except Exception as exc:
-        return {"ok": False, "error": str(exc)}
+        return {"ok": False, "error": type(exc).__name__}

@@ -1,5 +1,5 @@
 """
-V5.5 / V5.6 / V5.14 / V5.15 — OpenClaw admin helper for credential reference operations.
+V5.5 / V5.6 / V5.14 / V5.15 / V5.16 — OpenClaw admin helper for credential reference operations.
 
 V5.5:  get_google_ads_credential_status — read-only status lookup
 V5.6:  upsert_google_ads_credential_reference — create/update CredentialReference (no secrets)
@@ -12,6 +12,11 @@ V5.15: validate_google_ads_credentials — structural validation via SecretStore
   delete_google_ads_credentials — delete credential bundle and mark CredentialReference REVOKED.
   Requires OPENCLAW_ADMIN_DELETE_ENABLED=true. Idempotent on already-absent secrets.
   Emits audit event operation="delete".
+V5.16: rotate_google_ads_credentials — replace secret bundle for an existing CredentialReference.
+  Requires AdminScope.ROTATE (only ADMIN tokens satisfy this). Allowed current statuses:
+  ACTIVE, CONFIGURED, VALIDATION_FAILED. REVOKED credentials are rejected with
+  invalid_status_for_rotation. Uses put_secret_bundle() only — no get_secret_bundle().
+  Validates structurally via get_secret_status(). Emits audit event operation="rotate".
 
 No secret values are returned by any function in this module.
 """
@@ -70,8 +75,8 @@ def _emit_credential_audit_event(
     request_id: str = "",
     trace_id: str = "",
     error_codes: Optional[List[str]] = None,
-) -> None:
-    """Emit a credential audit event. Swallows all exceptions — never affects write outcome."""
+) -> Dict:
+    """Emit a credential audit event. Never raises — never affects operation outcome."""
     try:
         event = build_credential_audit_event(
             tenant_id=tenant_id,
@@ -83,9 +88,9 @@ def _emit_credential_audit_event(
             trace_id=trace_id,
             error_codes=error_codes,
         )
-        append_audit_event(event)
+        return append_audit_event(event)
     except Exception:
-        pass
+        return {"ok": False, "error": "audit_append_failed"}
 
 
 def _check_no_forbidden_write_fields(
@@ -255,8 +260,8 @@ def upsert_google_ads_credential_reference(
 
         store.put_reference(ref)
         credential_status = store.get_status(tenant_id, client_id, _INTEGRATION_TYPE)
-        _emit_credential_audit_event(tenant_id, client_id, operation="metadata_upsert", ok=True)
-        return {
+        _ar = _emit_credential_audit_event(tenant_id, client_id, operation="metadata_upsert", ok=True)
+        result = {
             "ok": True,
             "tenant_id": tenant_id,
             "client_id": client_id,
@@ -264,32 +269,41 @@ def upsert_google_ads_credential_reference(
             "credential_status": credential_status,
             "errors": [],
         }
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            result["warnings"] = ["audit_append_failed"]
+        return result
 
     except ValueError:
-        _emit_credential_audit_event(
+        _ar = _emit_credential_audit_event(
             tenant_id, client_id,
             operation="metadata_upsert",
             ok=False,
             error_codes=["invalid_credential_reference"],
         )
-        return _make_admin_error(
+        err = _make_admin_error(
             tenant_id, client_id,
             "invalid_credential_reference",
             "Credential reference is invalid. Check field values.",
         )
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err["warnings"] = ["audit_append_failed"]
+        return err
     except Exception:
-        _emit_credential_audit_event(
+        _ar = _emit_credential_audit_event(
             tenant_id, client_id,
             operation="metadata_upsert",
             ok=False,
             error_codes=["credential_write_failed"],
         )
-        return _make_admin_error(
+        err = _make_admin_error(
             tenant_id, client_id,
             "credential_write_failed",
             "Failed to write credential reference. Check store configuration.",
             recoverable=True,
         )
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err["warnings"] = ["audit_append_failed"]
+        return err
 
 
 def write_google_ads_credential_bundle(
@@ -412,7 +426,7 @@ def write_google_ads_credential_bundle(
             secrets=secret_payload,
         )
     except Exception:
-        _emit_credential_audit_event(
+        _ar = _emit_credential_audit_event(
             tenant_id, client_id,
             operation="bundle_write",
             ok=False,
@@ -425,9 +439,11 @@ def write_google_ads_credential_bundle(
             recoverable=True,
         )
         err["secret_status"] = None
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err["warnings"] = ["audit_append_failed"]
         return err
 
-    _emit_credential_audit_event(tenant_id, client_id, operation="bundle_write", ok=True)
+    _ar = _emit_credential_audit_event(tenant_id, client_id, operation="bundle_write", ok=True)
 
     # 11–12. Get redacted secret status (no secret values — configured_fields booleans only)
     try:
@@ -439,7 +455,7 @@ def write_google_ads_credential_bundle(
         secret_status_result = None
 
     # 13. Return combined redacted response — no secret values anywhere
-    return {
+    result = {
         "ok": True,
         "tenant_id": tenant_id,
         "client_id": client_id,
@@ -448,6 +464,9 @@ def write_google_ads_credential_bundle(
         "secret_status": secret_status_result,
         "errors": [],
     }
+    if not _ar.get("ok") and not _ar.get("skipped"):
+        result["warnings"] = ["audit_append_failed"]
+    return result
 
 
 def validate_google_ads_credentials(
@@ -483,7 +502,7 @@ def validate_google_ads_credentials(
         ref_store = LocalFileCredentialReferenceStore()
         ref = ref_store.get_reference(tenant_id, client_id, _INTEGRATION_TYPE)
     except Exception:
-        _emit_credential_audit_event(
+        _ar = _emit_credential_audit_event(
             tenant_id, client_id,
             operation="validate",
             ok=False,
@@ -497,10 +516,12 @@ def validate_google_ads_credentials(
         )
         err["validation_result"] = _EMPTY_VALIDATION_RESULT
         err["secret_status"] = None
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err["warnings"] = ["audit_append_failed"]
         return err
 
     if ref is None:
-        _emit_credential_audit_event(
+        _ar = _emit_credential_audit_event(
             tenant_id, client_id,
             operation="validate",
             ok=False,
@@ -514,6 +535,8 @@ def validate_google_ads_credentials(
         )
         err["validation_result"] = _EMPTY_VALIDATION_RESULT
         err["secret_status"] = None
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err["warnings"] = ["audit_append_failed"]
         return err
 
     # B. Resolve credential_ref (internal use only — never echoed in response)
@@ -555,7 +578,7 @@ def validate_google_ads_credentials(
 
     # F. Emit audit event — ok=True means validation process ran; error_codes signal completeness
     audit_error_codes: List[str] = [] if structurally_complete else ["secret_bundle_incomplete"]
-    _emit_credential_audit_event(
+    _ar = _emit_credential_audit_event(
         tenant_id, client_id,
         operation="validate",
         ok=True,
@@ -563,7 +586,7 @@ def validate_google_ads_credentials(
     )
 
     # G. Return redacted validation result — no secret values anywhere
-    return {
+    result = {
         "ok": True,
         "tenant_id": tenant_id,
         "client_id": client_id,
@@ -578,6 +601,9 @@ def validate_google_ads_credentials(
         "secret_status": secret_status_result,
         "errors": [],
     }
+    if not _ar.get("ok") and not _ar.get("skipped"):
+        result["warnings"] = ["audit_append_failed"]
+    return result
 
 
 def _is_admin_delete_enabled() -> bool:
@@ -609,12 +635,13 @@ def delete_google_ads_credentials(
     """
     # A. Check env gate first — do not load or delete anything when disabled
     if not _is_admin_delete_enabled():
-        _emit_credential_audit_event(
+        _ar = _emit_credential_audit_event(
             tenant_id, client_id,
             operation="delete",
             ok=False,
             error_codes=["delete_not_enabled"],
         )
+        _aw = [] if (_ar.get("ok") or _ar.get("skipped")) else ["audit_append_failed"]
         return {
             "ok": False,
             "tenant_id": tenant_id,
@@ -622,7 +649,7 @@ def delete_google_ads_credentials(
             "integration_type": _INTEGRATION_TYPE,
             "credential_status": None,
             "secret_status": None,
-            "warnings": [],
+            "warnings": _aw,
             "errors": [
                 {
                     "code": "delete_not_enabled",
@@ -638,12 +665,13 @@ def delete_google_ads_credentials(
         ref_store = LocalFileCredentialReferenceStore()
         ref = ref_store.get_reference(tenant_id, client_id, _INTEGRATION_TYPE)
     except Exception:
-        _emit_credential_audit_event(
+        _ar = _emit_credential_audit_event(
             tenant_id, client_id,
             operation="delete",
             ok=False,
             error_codes=["credential_store_failed"],
         )
+        _aw = [] if (_ar.get("ok") or _ar.get("skipped")) else ["audit_append_failed"]
         return {
             "ok": False,
             "tenant_id": tenant_id,
@@ -651,7 +679,7 @@ def delete_google_ads_credentials(
             "integration_type": _INTEGRATION_TYPE,
             "credential_status": None,
             "secret_status": None,
-            "warnings": [],
+            "warnings": _aw,
             "errors": [
                 {
                     "code": "credential_store_failed",
@@ -663,12 +691,13 @@ def delete_google_ads_credentials(
         }
 
     if ref is None:
-        _emit_credential_audit_event(
+        _ar = _emit_credential_audit_event(
             tenant_id, client_id,
             operation="delete",
             ok=False,
             error_codes=["credential_not_found"],
         )
+        _aw = [] if (_ar.get("ok") or _ar.get("skipped")) else ["audit_append_failed"]
         return {
             "ok": False,
             "tenant_id": tenant_id,
@@ -676,7 +705,7 @@ def delete_google_ads_credentials(
             "integration_type": _INTEGRATION_TYPE,
             "credential_status": None,
             "secret_status": None,
-            "warnings": [],
+            "warnings": _aw,
             "errors": [
                 {
                     "code": "credential_not_found",
@@ -705,12 +734,13 @@ def delete_google_ads_credentials(
             # Idempotent — secret was already absent; still mark REVOKED
             warnings.append("secret_already_absent")
     except Exception:
-        _emit_credential_audit_event(
+        _ar = _emit_credential_audit_event(
             tenant_id, client_id,
             operation="delete",
             ok=False,
             error_codes=["secret_delete_failed"],
         )
+        _aw = [] if (_ar.get("ok") or _ar.get("skipped")) else ["audit_append_failed"]
         return {
             "ok": False,
             "tenant_id": tenant_id,
@@ -718,7 +748,7 @@ def delete_google_ads_credentials(
             "integration_type": _INTEGRATION_TYPE,
             "credential_status": None,
             "secret_status": None,
-            "warnings": [],
+            "warnings": _aw,
             "errors": [
                 {
                     "code": "secret_delete_failed",
@@ -752,12 +782,14 @@ def delete_google_ads_credentials(
 
     # G. Emit audit event — ok=true; error_codes reflects idempotent case
     audit_error_codes: List[str] = ["secret_already_absent"] if warnings else []
-    _emit_credential_audit_event(
+    _ar = _emit_credential_audit_event(
         tenant_id, client_id,
         operation="delete",
         ok=True,
         error_codes=audit_error_codes,
     )
+    if not _ar.get("ok") and not _ar.get("skipped"):
+        warnings.append("audit_append_failed")
 
     # H. Return redacted response — no secret values anywhere
     return {
@@ -770,3 +802,276 @@ def delete_google_ads_credentials(
         "warnings": warnings,
         "errors": [],
     }
+
+
+def rotate_google_ads_credentials(
+    tenant_id: str,
+    client_id: str,
+    payload: Optional[Dict[str, Any]] = None,
+    secret_store: Optional[SecretStore] = None,
+) -> Dict[str, Any]:
+    """
+    Rotate Google Ads credentials for an existing CredentialReference.
+
+    V5.16 Phase 3 — Requires AdminScope.ROTATE (only ADMIN tokens satisfy this).
+
+    Allowed current statuses: ACTIVE, CONFIGURED, VALIDATION_FAILED.
+    REVOKED credentials are rejected — create a new credential instead.
+
+    Steps:
+    A. Load CredentialReference — credential_not_found if missing.
+    B. Reject REVOKED status — invalid_status_for_rotation.
+    C. Validate payload — all four secret fields required (pre-write; no write occurs on failure).
+    D. Resolve SecretStore (injected or factory).
+    E. Write new bundle via put_secret_bundle() — no get_secret_bundle() call.
+    F. Validate structurally via get_secret_status() only — no Google Ads API.
+    G. Update CredentialReference: ACTIVE (complete) or VALIDATION_FAILED (incomplete).
+    H. Emit audit event operation="rotate".
+    I. Return redacted result.
+
+    No secret values, credential_ref, secret_id, customer_id, or login_customer_id
+    in any response or audit event.
+    """
+    _EMPTY_ROTATION_RESULT: Dict[str, Any] = {
+        "structurally_complete": False,
+        "missing_fields": [],
+    }
+
+    # A. Load CredentialReference
+    try:
+        ref_store = LocalFileCredentialReferenceStore()
+        ref = ref_store.get_reference(tenant_id, client_id, _INTEGRATION_TYPE)
+    except Exception:
+        _ar = _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="rotate",
+            ok=False,
+            error_codes=["credential_store_failed"],
+        )
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "credential_store_failed",
+            "Failed to load credential reference store. Check configuration.",
+            recoverable=True,
+        )
+        err["rotation_result"] = _EMPTY_ROTATION_RESULT
+        err["secret_status"] = None
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err["warnings"] = ["audit_append_failed"]
+        return err
+
+    if ref is None:
+        _ar = _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="rotate",
+            ok=False,
+            error_codes=["credential_not_found"],
+        )
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "credential_not_found",
+            "No credential reference found for this tenant/client.",
+            recoverable=False,
+        )
+        err["rotation_result"] = _EMPTY_ROTATION_RESULT
+        err["secret_status"] = None
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err["warnings"] = ["audit_append_failed"]
+        return err
+
+    # B. Reject REVOKED credentials — rotation is not permitted
+    if ref.status == CredentialStatus.REVOKED.value:
+        _ar = _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="rotate",
+            ok=False,
+            error_codes=["invalid_status_for_rotation"],
+        )
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "invalid_status_for_rotation",
+            "Cannot rotate a revoked credential. Create a new credential instead.",
+            recoverable=False,
+        )
+        err["rotation_result"] = _EMPTY_ROTATION_RESULT
+        err["secret_status"] = None
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err["warnings"] = ["audit_append_failed"]
+        return err
+
+    # Resolve credential_ref (internal only — never echoed in response)
+    _credential_ref: str = ref.credential_ref
+
+    # C. Validate payload — all four secret fields required (pre-write)
+    if not payload:
+        _ar = _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="rotate",
+            ok=False,
+            error_codes=["invalid_request"],
+        )
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "invalid_request",
+            "Request body with all four secret fields is required for rotation.",
+        )
+        err["rotation_result"] = _EMPTY_ROTATION_RESULT
+        err["secret_status"] = None
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err["warnings"] = ["audit_append_failed"]
+        return err
+
+    secret_payload: Dict[str, Any] = {
+        k: payload[k] for k in _GOOGLE_ADS_SECRET_FIELD_SET if k in payload
+    }
+    pre_write_missing: List[str] = [
+        f for f in GOOGLE_ADS_SECRET_FIELDS
+        if not payload.get(f) or not str(payload[f]).strip()
+    ]
+    if pre_write_missing:
+        _ar = _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="rotate",
+            ok=False,
+            error_codes=["secret_bundle_incomplete"],
+        )
+        err_body: Dict[str, Any] = {
+            "ok": False,
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "integration_type": _INTEGRATION_TYPE,
+            "credential_status": None,
+            "rotation_result": {
+                "structurally_complete": False,
+                "missing_fields": sorted(pre_write_missing),
+            },
+            "secret_status": None,
+            "errors": [
+                {
+                    "code": "secret_bundle_incomplete",
+                    "message": f"Missing or empty required secret fields: {sorted(pre_write_missing)}",
+                    "recoverable": True,
+                    "source": "openclaw_admin",
+                }
+            ],
+        }
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err_body["warnings"] = ["audit_append_failed"]
+        return err_body
+
+    allowed, _rejected = assert_allowed_secret_fields(secret_payload, _INTEGRATION_TYPE)
+    if not allowed:
+        _ar = _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="rotate",
+            ok=False,
+            error_codes=["secret_material_rejected"],
+        )
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "secret_material_rejected",
+            "Secret bundle contains disallowed fields.",
+        )
+        err["rotation_result"] = _EMPTY_ROTATION_RESULT
+        err["secret_status"] = None
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err["warnings"] = ["audit_append_failed"]
+        return err
+
+    # D. Resolve SecretStore (injected for tests; factory for production)
+    if secret_store is None:
+        secret_store = create_secret_store()
+
+    # E. Write new bundle — secret_payload lives only in this local scope; no get_secret_bundle()
+    try:
+        secret_store.put_secret_bundle(
+            credential_ref=_credential_ref,
+            integration_type=_INTEGRATION_TYPE,
+            secrets=secret_payload,
+        )
+    except Exception:
+        _ar = _emit_credential_audit_event(
+            tenant_id, client_id,
+            operation="rotate",
+            ok=False,
+            error_codes=["secret_write_failed"],
+        )
+        err = _make_admin_error(
+            tenant_id, client_id,
+            "secret_write_failed",
+            "Failed to write new secret bundle. Check secret store configuration.",
+            recoverable=True,
+        )
+        err["rotation_result"] = _EMPTY_ROTATION_RESULT
+        err["secret_status"] = None
+        if not _ar.get("ok") and not _ar.get("skipped"):
+            err["warnings"] = ["audit_append_failed"]
+        return err
+
+    # F. Validate structurally via get_secret_status() only — no get_secret_bundle(), no API
+    try:
+        secret_status_result = secret_store.get_secret_status(
+            credential_ref=_credential_ref,
+            integration_type=_INTEGRATION_TYPE,
+        )
+    except Exception:
+        secret_status_result = {"configured": False, "configured_fields": {}}
+
+    configured_fields_map: Dict[str, bool] = secret_status_result.get("configured_fields") or {}
+    post_write_missing: List[str] = [
+        f for f in GOOGLE_ADS_SECRET_FIELDS
+        if not configured_fields_map.get(f)
+    ]
+    structurally_complete: bool = len(post_write_missing) == 0
+
+    # G. Update CredentialReference status and last_validated_at
+    last_validated_at: str = now_utc_iso()
+    new_status: str = (
+        CredentialStatus.ACTIVE.value if structurally_complete
+        else CredentialStatus.VALIDATION_FAILED.value
+    )
+    updated_credential_status: Optional[Dict[str, Any]] = None
+    try:
+        updated_ref = update_credential_status(ref, new_status, last_validated_at=last_validated_at)
+        ref_store.put_reference(updated_ref)
+        updated_credential_status = ref_store.get_status(tenant_id, client_id, _INTEGRATION_TYPE)
+    except Exception:
+        pass  # persist failure is non-fatal
+
+    # H. Emit audit event — ok reflects structural completeness
+    rotate_ok: bool = structurally_complete
+    audit_error_codes: List[str] = [] if structurally_complete else ["secret_bundle_incomplete"]
+    _ar = _emit_credential_audit_event(
+        tenant_id, client_id,
+        operation="rotate",
+        ok=rotate_ok,
+        error_codes=audit_error_codes,
+    )
+
+    # I. Return redacted result — no secret values, no credential_ref, no secret_id
+    result: Dict[str, Any] = {
+        "ok": rotate_ok,
+        "tenant_id": tenant_id,
+        "client_id": client_id,
+        "integration_type": _INTEGRATION_TYPE,
+        "rotation_result": {
+            "structurally_complete": structurally_complete,
+            "missing_fields": post_write_missing,
+            "last_validated_at": last_validated_at,
+        },
+        "credential_status": updated_credential_status,
+        "secret_status": secret_status_result,
+        "errors": [],
+    }
+    if not structurally_complete:
+        result["errors"] = [
+            {
+                "code": "secret_bundle_incomplete",
+                "message": f"Secret bundle incomplete after rotation: {sorted(post_write_missing)}",
+                "recoverable": True,
+                "source": "openclaw_admin",
+            }
+        ]
+    if not _ar.get("ok") and not _ar.get("skipped"):
+        result.setdefault("warnings", []).append("audit_append_failed")
+    return result

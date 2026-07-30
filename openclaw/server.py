@@ -19,7 +19,7 @@ from schemas import (
     make_error,
     make_openclaw_envelope,
 )
-from auth import validate_api_auth
+from auth import validate_api_auth, AdminScope
 from config import get_config
 from admin import (
     get_google_ads_credential_status,
@@ -27,6 +27,7 @@ from admin import (
     write_google_ads_credential_bundle,
     validate_google_ads_credentials,
     delete_google_ads_credentials,
+    rotate_google_ads_credentials,
     GOOGLE_ADS_SECRET_FIELDS,
 )
 
@@ -91,10 +92,13 @@ async def admin_google_ads_credential_status(
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
 
-    auth_ok, auth_errors = validate_api_auth(headers=dict(request.headers))
+    auth_ok, auth_errors = validate_api_auth(
+        headers=dict(request.headers), required_scope=AdminScope.READ
+    )
     if not auth_ok:
+        _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
         return JSONResponse(
-            status_code=401,
+            status_code=403 if "scope_not_granted" in _codes else 401,
             content={
                 "ok": False,
                 "request_id": request_id,
@@ -133,10 +137,13 @@ async def admin_upsert_google_ads_credential_reference(
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
 
-    auth_ok, auth_errors = validate_api_auth(headers=dict(request.headers))
+    auth_ok, auth_errors = validate_api_auth(
+        headers=dict(request.headers), required_scope=AdminScope.WRITE
+    )
     if not auth_ok:
+        _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
         return JSONResponse(
-            status_code=401,
+            status_code=403 if "scope_not_granted" in _codes else 401,
             content={
                 "ok": False,
                 "request_id": request_id,
@@ -216,10 +223,13 @@ async def admin_validate_google_ads_credentials(
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
 
-    auth_ok, auth_errors = validate_api_auth(headers=dict(request.headers))
+    auth_ok, auth_errors = validate_api_auth(
+        headers=dict(request.headers), required_scope=AdminScope.VALIDATE
+    )
     if not auth_ok:
+        _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
         return JSONResponse(
-            status_code=401,
+            status_code=403 if "scope_not_granted" in _codes else 401,
             content={
                 "ok": False,
                 "request_id": request_id,
@@ -268,10 +278,13 @@ async def admin_delete_google_ads_credentials(
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
 
-    auth_ok, auth_errors = validate_api_auth(headers=dict(request.headers))
+    auth_ok, auth_errors = validate_api_auth(
+        headers=dict(request.headers), required_scope=AdminScope.DELETE
+    )
     if not auth_ok:
+        _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
         return JSONResponse(
-            status_code=401,
+            status_code=403 if "scope_not_granted" in _codes else 401,
             content={
                 "ok": False,
                 "request_id": request_id,
@@ -295,6 +308,95 @@ async def admin_delete_google_ads_credentials(
         status_code = 403
     elif "credential_not_found" in error_codes:
         status_code = 404
+    elif result.get("ok"):
+        status_code = 200
+    else:
+        status_code = 400
+    return JSONResponse(status_code=status_code, content=result)
+
+
+@app.post(
+    "/openclaw/admin/tenants/{tenant_id}/clients/{client_id}/credentials/google-ads/rotate"
+)
+async def admin_rotate_google_ads_credentials(
+    tenant_id: str,
+    client_id: str,
+    request: Request,
+):
+    """
+    V5.16 Phase 3 — Rotate Google Ads credentials for a tenant/client.
+
+    Replaces the stored secret bundle for an existing CredentialReference.
+    Credential must exist and must not be REVOKED.
+    Allowed current statuses: ACTIVE, CONFIGURED, VALIDATION_FAILED.
+    Validates structurally via get_secret_status() only — no Google Ads API.
+    Updates CredentialReference status to ACTIVE (complete) or VALIDATION_FAILED (incomplete).
+    Emits audit event operation="rotate".
+    Requires AdminScope.ROTATE — only admin tokens satisfy this scope.
+    """
+    request_id = request.headers.get("x-request-id") or generate_request_id()
+    trace_id = request.headers.get("x-trace-id") or generate_trace_id()
+
+    auth_ok, auth_errors = validate_api_auth(
+        headers=dict(request.headers), required_scope=AdminScope.ROTATE
+    )
+    if not auth_ok:
+        _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
+        return JSONResponse(
+            status_code=403 if "scope_not_granted" in _codes else 401,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "rotation_result": None,
+                "credential_status": None,
+                "secret_status": None,
+                "errors": auth_errors,
+            },
+        )
+
+    try:
+        body = await request.body()
+        if not body:
+            payload = None
+        else:
+            payload = json.loads(body)
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "rotation_result": None,
+                "credential_status": None,
+                "secret_status": None,
+                "errors": [
+                    {
+                        "code": "invalid_json",
+                        "message": "Request body is not valid JSON.",
+                        "recoverable": False,
+                        "source": "openclaw_admin",
+                    }
+                ],
+            },
+        )
+
+    result = rotate_google_ads_credentials(tenant_id, client_id, payload)
+    result["request_id"] = request_id
+    result["trace_id"] = trace_id
+
+    error_codes = [e.get("code") for e in result.get("errors", []) if isinstance(e, dict)]
+    if "credential_not_found" in error_codes:
+        status_code = 404
+    elif "invalid_status_for_rotation" in error_codes:
+        status_code = 409
     elif result.get("ok"):
         status_code = 200
     else:
