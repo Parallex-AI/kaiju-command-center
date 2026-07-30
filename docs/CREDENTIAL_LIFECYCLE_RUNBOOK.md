@@ -680,6 +680,8 @@ Only proceed with real credential onboarding when all boxes above are checked.
 | [docs/V5_16_BRANCH_CLOSURE.md](V5_16_BRANCH_CLOSURE.md) | V5.16 implementation summary: RBAC, audit hardening, rotation endpoint |
 | [docs/V5_15_BRANCH_CLOSURE.md](V5_15_BRANCH_CLOSURE.md) | V5.15 implementation summary: validate, delete, audit events |
 | [docs/V5_12_GCP_SECRET_MANAGER_DESIGN.md](V5_12_GCP_SECRET_MANAGER_DESIGN.md) | Full design specification for GCPSecretManagerStore |
+| [docs/V5_17_LIVE_GCP_VALIDATION_PLAN.md](V5_17_LIVE_GCP_VALIDATION_PLAN.md) | Operator-run fake-secret lifecycle validation plan: write → validate → rotate → delete through GCPSecretManagerStore |
+| [docs/V5_17_LIVE_GCP_VALIDATION_RESULTS.md](V5_17_LIVE_GCP_VALIDATION_RESULTS.md) | Results template for V5.17 live GCP validation — fill in after operator-run execution |
 | [docs/ROADMAP.md](ROADMAP.md) | V5.17 and beyond: per-tenant isolation, audit locking, live GCP validation plan |
 | [openclaw/audit_maintenance.py](../openclaw/audit_maintenance.py) | `verify_audit_file()` and `prune_audit_files()` implementation |
 | [openclaw/admin.py](../openclaw/admin.py) | All credential lifecycle function implementations |
