@@ -532,6 +532,7 @@ Live testing of the Google Ads API integration requires real credentials and mus
 | [docs/V5_12_GCP_SECRET_MANAGER_DESIGN.md](V5_12_GCP_SECRET_MANAGER_DESIGN.md) | Full design specification, error codes, API surface, implementation phases |
 | [docs/ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) | All environment variable reference including GCP Secret Manager variables |
 | [docs/GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md](GOOGLE_ADS_LIVE_INTEGRATION_RUNBOOK.md) | OAuth2 credential setup, GAQL queries, live adapter test plan |
+| [docs/CREDENTIAL_LIFECYCLE_RUNBOOK.md](CREDENTIAL_LIFECYCLE_RUNBOOK.md) | Operator guide for V5.14–V5.16 credential lifecycle: token setup, onboard, validate, rotate, revoke, audit |
 | [docs/GCP_DEPLOYMENT_PLAN.md](GCP_DEPLOYMENT_PLAN.md) | Cloud Run deployment overview for OpenClaw service |
 | [docs/V5_BETA_RELEASE_NOTES.md](V5_BETA_RELEASE_NOTES.md) | V5 beta summary including credential architecture |
 | [scripts/smoke_test_v5_12_gcp_secret_manager.sh](../scripts/smoke_test_v5_12_gcp_secret_manager.sh) | Mocked smoke test — run before any production deployment |
