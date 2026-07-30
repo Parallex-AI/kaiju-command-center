@@ -133,3 +133,39 @@ def validate_api_auth(
         )]
 
     return True, []
+
+
+# ---------------------------------------------------------------------------
+# Tenant access validation (V5.17 Phase 3)
+# ---------------------------------------------------------------------------
+
+def validate_tenant_access(
+    token: Optional[str],
+    tenant_id: str,
+    config=None,
+) -> tuple:
+    """
+    Check whether a token is permitted to access the given tenant_id.
+
+    Rules:
+    - If OPENCLAW_TENANT_KEYS is unset/empty → no restriction, always allowed.
+    - If token is None or not listed in tenant_keys → global access (backward compat).
+    - If token is listed and tenant_id is in its allowed set → allowed.
+    - If token is listed but tenant_id is not in its allowed set → 403 tenant_access_denied.
+
+    Must be called AFTER validate_api_auth succeeds (auth/scope check first).
+    """
+    if config is None:
+        config = get_config()
+    if not config.tenant_keys:
+        return True, []
+    if token is None or token not in config.tenant_keys:
+        return True, []
+    if tenant_id in config.tenant_keys[token]:
+        return True, []
+    return False, [make_error(
+        "tenant_access_denied",
+        "Token is not authorized to access this tenant.",
+        recoverable=False,
+        source="openclaw",
+    )]

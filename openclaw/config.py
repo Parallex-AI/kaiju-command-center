@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Optional, Set
 
 
 # ---------------------------------------------------------------------------
@@ -38,6 +38,27 @@ def parse_float(value: Optional[str], default: float, min_value: Optional[float]
     return parsed
 
 
+def parse_tenant_keys(value: Optional[str]) -> Dict[str, Set[str]]:
+    if not value:
+        return {}
+    result: Dict[str, Set[str]] = {}
+    for item in value.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if ":" not in item:
+            continue
+        token, _, tenant = item.partition(":")
+        token = token.strip()
+        tenant = tenant.strip()
+        if not token or not tenant:
+            continue
+        if token not in result:
+            result[token] = set()
+        result[token].add(tenant)
+    return result
+
+
 def parse_int(value: Optional[str], default: int, min_value: Optional[int] = None) -> int:
     if value is None:
         return default
@@ -72,6 +93,7 @@ class OpenClawConfig:
     n8n_webhook_timeout: float
     port: int
     audit_retain_days: int
+    tenant_keys: Dict[str, Set[str]]
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +143,8 @@ def get_config() -> OpenClawConfig:
         os.getenv("OPENCLAW_AUDIT_RETAIN_DAYS"), default=90, min_value=0
     )
 
+    tenant_keys = parse_tenant_keys(os.getenv("OPENCLAW_TENANT_KEYS"))
+
     return OpenClawConfig(
         env=env,
         api_auth_enabled=api_auth_enabled,
@@ -138,6 +162,7 @@ def get_config() -> OpenClawConfig:
         n8n_webhook_timeout=n8n_webhook_timeout,
         port=port,
         audit_retain_days=audit_retain_days,
+        tenant_keys=tenant_keys,
     )
 
 
@@ -163,6 +188,7 @@ def config_to_dict(config: OpenClawConfig) -> dict:
         "n8n_webhook_timeout": config.n8n_webhook_timeout,
         "port": config.port,
         "audit_retain_days": config.audit_retain_days,
+        "tenant_keys": {token: list(tenants) for token, tenants in config.tenant_keys.items()},
     }
 
 
@@ -171,4 +197,8 @@ def redacted_config_dict(config: OpenClawConfig) -> dict:
     d["api_keys"] = {"configured": len(config.api_keys) > 0, "count": len(config.api_keys)}
     d["admin_keys"] = {"configured": len(config.admin_keys) > 0, "count": len(config.admin_keys)}
     d["read_keys"] = {"configured": len(config.read_keys) > 0, "count": len(config.read_keys)}
+    d["tenant_keys"] = {
+        "restriction_enabled": len(config.tenant_keys) > 0,
+        "restricted_token_count": len(config.tenant_keys),
+    }
     return d

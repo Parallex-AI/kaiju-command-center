@@ -46,6 +46,7 @@ These 12 variables control the V5.14–V5.16 credential lifecycle. All must be r
 | `OPENCLAW_READ_KEYS` | `` | **Yes** | Comma-separated read-only tokens — grants status check only (READ scope) |
 | `OPENCLAW_API_KEYS` | `` | **Yes** | Backward-compat API keys — treated as READ scope; cannot perform WRITE/VALIDATE/ROTATE/DELETE |
 | `OPENCLAW_ADMIN_DELETE_ENABLED` | `false` | No | Enable the DELETE endpoint — disabled by default; must be set explicitly |
+| `OPENCLAW_TENANT_KEYS` | `` | No | Per-token tenant allow-list: `token-a:tenant-a,token-a:tenant-b,token-b:tenant-c`. Unset = no restriction. See Section 3a. |
 | `OPENCLAW_AUDIT_ENABLED` | `true` | No | Enable append-only JSONL audit log writes |
 | `OPENCLAW_AUDIT_ROOT` | `openclaw/audit` | No | Directory for audit JSONL files |
 | `OPENCLAW_AUDIT_RETAIN_DAYS` | `90` | No | Days to retain audit files before pruning |
@@ -102,6 +103,30 @@ All admin endpoints expect an `Authorization: Bearer <token>` header:
 curl -H "Authorization: Bearer <ADMIN_TOKEN>" \
   http://localhost:8100/openclaw/admin/tenants/<TENANT_ID>/clients/<CLIENT_ID>/credentials/google-ads/status
 ```
+
+### Section 3a. Tenant-scoped tokens (V5.17)
+
+`OPENCLAW_TENANT_KEYS` restricts individual tokens to specific tenant IDs. Format:
+
+```
+OPENCLAW_TENANT_KEYS=<token-a>:<tenant-a>,<token-a>:<tenant-b>,<token-b>:<tenant-c>
+```
+
+**Rules:**
+
+| Condition | Behavior |
+|---|---|
+| `OPENCLAW_TENANT_KEYS` unset or empty | No restriction — all tokens may access all tenants |
+| Token not listed in the map | Global access (backward compatible) |
+| Token listed, `tenant_id` in its set | Access allowed |
+| Token listed, `tenant_id` not in its set | 403 `tenant_access_denied` |
+
+Tenant access is always checked **after** scope succeeds. An invalid token returns 401
+`unauthorized`; an insufficient-scope token returns 403 `scope_not_granted`. Neither
+reaches the tenant check.
+
+See `docs/V5_17_PER_TENANT_PERMISSION_DESIGN.md` for the full design, backward
+compatibility rules, error model, and planned future IAM/OAuth path.
 
 ### Rotating tokens
 
@@ -685,4 +710,5 @@ Only proceed with real credential onboarding when all boxes above are checked.
 | [docs/ROADMAP.md](ROADMAP.md) | V5.17 and beyond: per-tenant isolation, audit locking, live GCP validation plan |
 | [openclaw/audit_maintenance.py](../openclaw/audit_maintenance.py) | `verify_audit_file()` and `prune_audit_files()` implementation |
 | [openclaw/admin.py](../openclaw/admin.py) | All credential lifecycle function implementations |
-| [openclaw/auth.py](../openclaw/auth.py) | Token-scoped RBAC: `AdminScope`, `resolve_token_scope()`, `validate_api_auth()` |
+| [openclaw/auth.py](../openclaw/auth.py) | Token-scoped RBAC: `AdminScope`, `resolve_token_scope()`, `validate_api_auth()`, `validate_tenant_access()` |
+| [docs/V5_17_PER_TENANT_PERMISSION_DESIGN.md](V5_17_PER_TENANT_PERMISSION_DESIGN.md) | V5.17 Phase 3 design: `OPENCLAW_TENANT_KEYS` format, request evaluation order, backward compat, future IAM path |

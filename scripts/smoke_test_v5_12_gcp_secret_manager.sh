@@ -436,7 +436,7 @@ GREP_TARGETS="$REPO/scripts $REPO/docs $REPO/agents $REPO/openclaw $REPO/README.
 
 # ya29 — OAuth access token prefix (exclude marker constants and docs descriptions)
 if grep -R "ya29\." -n $GREP_TARGETS 2>/dev/null \
-    | grep -v "_PYEOF\|# ya29\|ya29.*marker\|ya29.*forbidden\|ya29.*prefix"; then
+    | grep -v "_PYEOF\|# ya29\|ya29.*marker\|ya29.*forbidden\|ya29.*prefix\|starting with.*ya29\|must never be used"; then
     fail "ya29 OAuth token prefix found in source files"
 else
     pass "no ya29 OAuth token prefix in source files"

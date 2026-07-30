@@ -1,5 +1,6 @@
 """
-V5.15 / V5.16 — Credential lifecycle validation, RBAC, and rotation API demo (FastAPI TestClient).
+V5.15 / V5.16 / V5.17 — Credential lifecycle validation, RBAC, rotation, and per-tenant
+token isolation API demo (FastAPI TestClient).
 
 No HTTP server. No GCP. No live Google Ads API calls. Fake values only.
 
@@ -29,6 +30,15 @@ V5.16 Phase 3 rotate scenarios (A–F):
   Rotate D — rotate with incomplete payload → 400, missing_fields
   Rotate E — read token cannot rotate → 403 scope_not_granted
   Rotate F — admin token can rotate → 200 ok=true
+
+V5.17 Phase 3 per-tenant token isolation scenarios (A–G):
+  Tenant A — no OPENCLAW_TENANT_KEYS → backward compat, all tenants accessible
+  Tenant B — token restricted to tenant-a → allowed; tenant-b → 403 tenant_access_denied
+  Tenant C — token for multiple tenants → all listed tenants allowed
+  Tenant D — token not listed while map is set → global access (backward compat)
+  Tenant E — scope check before tenant check: read token on WRITE → scope_not_granted
+  Tenant F — invalid token → 401 unauthorized (not tenant_access_denied)
+  Tenant G — no token values or allow-list strings in any tenant scenario response
 
 Env vars are set before importing server to avoid module-level config issues.
 """
@@ -620,6 +630,149 @@ def run_demo():
         os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
         os.environ.pop("OPENCLAW_READ_KEYS", None)
 
+        # ── Tenant A–G: Per-tenant token isolation (V5.17 Phase 3) ──────────
+        _ADMIN_TENANT_TOKEN = "admin-tenant-token"
+        _READ_TENANT_TOKEN = "read-tenant-token"
+        _OTHER_TOKEN = "other-tenant-token"
+        _TENANT_TOKEN_VALUES = {_ADMIN_TENANT_TOKEN, _READ_TENANT_TOKEN, _OTHER_TOKEN}
+        _ISO_CLIENT = "tenant-iso-client"
+        _TENANT_A_HDR = {"Authorization": f"Bearer {_ADMIN_TENANT_TOKEN}"}
+        _TENANT_R_HDR = {"Authorization": f"Bearer {_READ_TENANT_TOKEN}"}
+        _TENANT_O_HDR = {"Authorization": f"Bearer {_OTHER_TOKEN}"}
+
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "true"
+        os.environ["OPENCLAW_ADMIN_KEYS"] = _ADMIN_TENANT_TOKEN
+        os.environ["OPENCLAW_READ_KEYS"] = _READ_TENANT_TOKEN
+
+        # ── Tenant A — no OPENCLAW_TENANT_KEYS → backward compat ─────────────
+        print("\n" + "-" * 60)
+        print("  Tenant A. No OPENCLAW_TENANT_KEYS → all tenants accessible")
+        print("-" * 60)
+        os.environ.pop("OPENCLAW_TENANT_KEYS", None)
+        _TA_URL = f"/openclaw/admin/tenants/tenant-a/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        r_ta = client.get(_TA_URL, headers=_TENANT_A_HDR)
+        print(f"Status: {r_ta.status_code}")
+        d_ta = r_ta.json()
+        ok_ta = _check(r_ta.status_code == 200, "tenant A: no restriction → 200")
+        ok_ta &= _check(d_ta.get("ok") is True, "tenant A: ok=true")
+        all_pass = all_pass and ok_ta
+
+        # ── Tenant B — token restricted to one tenant ─────────────────────────
+        print("\n" + "-" * 60)
+        print("  Tenant B. Token restricted to tenant-a → allowed; tenant-b → 403")
+        print("-" * 60)
+        os.environ["OPENCLAW_TENANT_KEYS"] = f"{_ADMIN_TENANT_TOKEN}:tenant-a"
+        _TB_OK_URL = f"/openclaw/admin/tenants/tenant-a/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        _TB_DENY_URL = f"/openclaw/admin/tenants/tenant-b/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        r_tb_ok = client.get(_TB_OK_URL, headers=_TENANT_A_HDR)
+        print(f"  tenant-a status: {r_tb_ok.status_code}")
+        d_tb_ok = r_tb_ok.json()
+        ok_tb = _check(r_tb_ok.status_code == 200, "tenant B: allowed tenant → 200")
+        ok_tb &= _check(d_tb_ok.get("ok") is True, "tenant B: ok=true for allowed tenant")
+        r_tb_deny = client.get(_TB_DENY_URL, headers=_TENANT_A_HDR)
+        print(f"  tenant-b status: {r_tb_deny.status_code}")
+        d_tb_deny = r_tb_deny.json()
+        ok_tb &= _check(r_tb_deny.status_code == 403, "tenant B: unlisted tenant → 403")
+        ok_tb &= _check(d_tb_deny.get("ok") is False, "tenant B: ok=false for denied tenant")
+        codes_tb = [e.get("code") for e in d_tb_deny.get("errors", []) if isinstance(e, dict)]
+        ok_tb &= _check("tenant_access_denied" in codes_tb, "tenant B: error code tenant_access_denied")
+        all_pass = all_pass and ok_tb
+
+        # ── Tenant C — token allowed for multiple tenants ─────────────────────
+        print("\n" + "-" * 60)
+        print("  Tenant C. Token for two tenants → both allowed")
+        print("-" * 60)
+        os.environ["OPENCLAW_TENANT_KEYS"] = (
+            f"{_ADMIN_TENANT_TOKEN}:tenant-a,{_ADMIN_TENANT_TOKEN}:tenant-b"
+        )
+        _TC_A_URL = f"/openclaw/admin/tenants/tenant-a/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        _TC_B_URL = f"/openclaw/admin/tenants/tenant-b/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        r_tc_a = client.get(_TC_A_URL, headers=_TENANT_A_HDR)
+        r_tc_b = client.get(_TC_B_URL, headers=_TENANT_A_HDR)
+        print(f"  tenant-a status: {r_tc_a.status_code}, tenant-b status: {r_tc_b.status_code}")
+        d_tc_a = r_tc_a.json()
+        d_tc_b = r_tc_b.json()
+        ok_tc = _check(r_tc_a.status_code == 200, "tenant C: tenant-a allowed → 200")
+        ok_tc &= _check(r_tc_b.status_code == 200, "tenant C: tenant-b allowed → 200")
+        all_pass = all_pass and ok_tc
+
+        # ── Tenant D — token not listed while map is set → global access ──────
+        print("\n" + "-" * 60)
+        print("  Tenant D. Unlisted token while map set → global access")
+        print("-" * 60)
+        os.environ["OPENCLAW_TENANT_KEYS"] = f"{_READ_TENANT_TOKEN}:tenant-x"
+        _TD_URL = f"/openclaw/admin/tenants/tenant-y/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        r_td = client.get(_TD_URL, headers=_TENANT_A_HDR)
+        print(f"Status: {r_td.status_code}")
+        d_td = r_td.json()
+        ok_td = _check(r_td.status_code == 200, "tenant D: unlisted admin token → global access → 200")
+        ok_td &= _check(d_td.get("ok") is True, "tenant D: ok=true")
+        all_pass = all_pass and ok_td
+
+        # ── Tenant E — scope checked before tenant; read token on WRITE → 403 scope
+        print("\n" + "-" * 60)
+        print("  Tenant E. Read token on WRITE route → scope_not_granted (not tenant_access_denied)")
+        print("-" * 60)
+        os.environ["OPENCLAW_TENANT_KEYS"] = f"{_READ_TENANT_TOKEN}:tenant-x"
+        _TE_URL = f"/openclaw/admin/tenants/tenant-y/clients/{_ISO_CLIENT}/credentials/google-ads"
+        r_te = client.post(_TE_URL, json={"customer_id": "1234509876"}, headers=_TENANT_R_HDR)
+        print(f"Status: {r_te.status_code}")
+        d_te = r_te.json()
+        ok_te = _check(r_te.status_code == 403, "tenant E: scope check → 403")
+        ok_te &= _check(d_te.get("ok") is False, "tenant E: ok=false")
+        codes_te = [e.get("code") for e in d_te.get("errors", []) if isinstance(e, dict)]
+        ok_te &= _check("scope_not_granted" in codes_te, "tenant E: error scope_not_granted (not tenant_access_denied)")
+        ok_te &= _check("tenant_access_denied" not in codes_te, "tenant E: no tenant_access_denied in scope failure")
+        all_pass = all_pass and ok_te
+
+        # ── Tenant F — invalid token → 401 even if listed in tenant_keys ──────
+        print("\n" + "-" * 60)
+        print("  Tenant F. Invalid token (not in any key list) → 401 unauthorized")
+        print("-" * 60)
+        os.environ["OPENCLAW_TENANT_KEYS"] = f"{_OTHER_TOKEN}:tenant-a"
+        _TF_URL = f"/openclaw/admin/tenants/tenant-a/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        r_tf = client.get(_TF_URL, headers=_TENANT_O_HDR)
+        print(f"Status: {r_tf.status_code}")
+        d_tf = r_tf.json()
+        ok_tf = _check(r_tf.status_code == 401, "tenant F: invalid token → 401 (not tenant_access_denied)")
+        ok_tf &= _check(d_tf.get("ok") is False, "tenant F: ok=false")
+        codes_tf = [e.get("code") for e in d_tf.get("errors", []) if isinstance(e, dict)]
+        ok_tf &= _check("unauthorized" in codes_tf, "tenant F: error unauthorized")
+        ok_tf &= _check("tenant_access_denied" not in codes_tf, "tenant F: no tenant_access_denied for invalid token")
+        all_pass = all_pass and ok_tf
+
+        # ── Tenant G — no token values or allow-list in tenant scenario responses
+        print("\n" + "-" * 60)
+        print("  Tenant G. No token values or allow-list strings in tenant scenario responses")
+        print("-" * 60)
+        ok_tg = True
+        tenant_responses = [
+            (d_ta, "tenant-A-backward-compat"),
+            (d_tb_ok, "tenant-B-allowed"),
+            (d_tb_deny, "tenant-B-denied"),
+            (d_tc_a, "tenant-C-a-allowed"),
+            (d_tc_b, "tenant-C-b-allowed"),
+            (d_td, "tenant-D-global"),
+            (d_te, "tenant-E-scope-first"),
+            (d_tf, "tenant-F-invalid-token"),
+        ]
+        for resp_dict, label in tenant_responses:
+            raw = json.dumps(resp_dict)
+            leaked_tokens = [v for v in _TENANT_TOKEN_VALUES if v in raw]
+            ok_one = len(leaked_tokens) == 0
+            tag = _PASS if ok_one else _FAIL
+            detail = f" — leaked: {leaked_tokens}" if leaked_tokens else ""
+            print(f"  {tag}: no token values in {label}{detail}")
+            ok_tg &= ok_one
+            ok_tg &= _no_fake_values(resp_dict, f"no credential values in {label}")
+        all_pass = all_pass and ok_tg
+
+        # Restore to no-auth state
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "false"
+        os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
+        os.environ.pop("OPENCLAW_READ_KEYS", None)
+        os.environ.pop("OPENCLAW_TENANT_KEYS", None)
+
         # ── Leak assertion across all API responses ───────────────────────────
         print("\n" + "-" * 60)
         print("  Leak assertion — all API responses")
@@ -636,6 +789,10 @@ def run_demo():
             (d_rot_a, "rotate-A-success"), (d_rot_b, "rotate-B-notfound"),
             (d_rot_c, "rotate-C-revoked"), (d_rot_d, "rotate-D-incomplete"),
             (d_rot_e, "rotate-E-read-denied"), (d_rot_f, "rotate-F-admin-ok"),
+            (d_ta, "tenant-A-backward-compat"), (d_tb_ok, "tenant-B-allowed"),
+            (d_tb_deny, "tenant-B-denied"), (d_tc_a, "tenant-C-a-allowed"),
+            (d_tc_b, "tenant-C-b-allowed"), (d_td, "tenant-D-global"),
+            (d_te, "tenant-E-scope-first"), (d_tf, "tenant-F-invalid-token"),
         ]
         for resp_dict, label in all_responses:
             ok_leak &= _no_fake_values(resp_dict, f"no fake values in {label}")
@@ -658,6 +815,7 @@ def run_demo():
         os.environ.pop("OPENCLAW_API_KEYS", None)
         os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
         os.environ.pop("OPENCLAW_READ_KEYS", None)
+        os.environ.pop("OPENCLAW_TENANT_KEYS", None)
         try:
             _admin_mod.create_secret_store = _original_create_secret_store
         except NameError:
