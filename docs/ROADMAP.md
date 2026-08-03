@@ -469,14 +469,26 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 
 ---
 
-## V5.17 — Production Readiness Hardening (recommended next milestone)
+## V5.17 — Production Readiness Hardening (branch: `v5.17-production-readiness` · tag candidate: `v5.17.0-beta`)
 
-**Goal:** Prepare OpenClaw admin credential lifecycle for controlled real-credential onboarding, with operator runbook, live GCP lifecycle validation, and hardened audit/auth foundations.
+**Goal:** Prepare OpenClaw admin credential lifecycle for controlled real-credential onboarding, with operator runbook, live GCP lifecycle validation plan, per-tenant token isolation, local rate limiting, and concurrent-writer-safe audit append.
 
-- [ ] **Operator runbook** — step-by-step lifecycle guide: onboard, validate, rotate, revoke; fake-values-only rehearsal; real credential readiness checklist
-- [ ] **Controlled live GCP lifecycle validation** — write → validate → rotate → delete through `GCPSecretManagerStore` with fake secrets only; confirm rotate behavior with prior secret version
-- [ ] **Optional GCP Secret Manager version policy** — disable prior secret version on rotate; version destruction policy configuration
-- [ ] **Per-tenant admin permission model** — scope tokens to specific tenant namespaces; prevent cross-tenant credential access
-- [ ] **Rate limiting and abuse protection** — per-IP or per-token rate limits on admin endpoints
-- [ ] **Audit persistence hardening** — concurrent-writer-safe append; optional HMAC chain or cryptographic signing; BigQuery sink option
-- [ ] **Production readiness checklist** — before any real Google Ads OAuth credential onboarding
+- [x] **Phase 1 — Operator runbook** — `docs/CREDENTIAL_LIFECYCLE_RUNBOOK.md` · step-by-step lifecycle guide: onboard, validate, rotate, revoke · fake-values-only rehearsal checklist · real credential readiness gates · full error reference
+- [x] **Phase 2 — Controlled live GCP lifecycle validation plan** — `docs/V5_17_LIVE_GCP_VALIDATION_PLAN.md` (eight-phase fake-secret plan A–H) · `docs/V5_17_LIVE_GCP_VALIDATION_RESULTS.md` (unfilled operator template — not yet executed)
+- [x] **Phase 3 — Per-tenant admin permission model** — `OPENCLAW_TENANT_KEYS` env var · `parse_tenant_keys()` in `config.py` · `validate_tenant_access()` in `auth.py` · `403 tenant_access_denied` · backward-compatible default (unlisted tokens retain global access)
+- [x] **Phase 4 — Rate limiting and abuse protection** — `openclaw/rate_limit.py` · STANDARD and SENSITIVE categories · sliding 60s window per token · `OPENCLAW_ADMIN_RATE_LIMIT_RPM` / `OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM` · `HTTP 429` with `retry_after_seconds` · denied requests do not consume budget
+- [x] **Phase 5 — Audit persistence hardening** — `fcntl.flock(LOCK_EX)` on Linux/Unix · seq/digest computed and written atomically under lock · `lock_used` return field · safe fallback for non-Unix
+- [x] **Closure** — branch closure doc · release notes · ROADMAP update · README update · `smoke_test_v5_credentials.sh` 20/20 · `smoke_test_v5_12_gcp_secret_manager.sh` 8/8 · ready for merge and tag
+
+**V5.17 complete.** Recommended tag: `v5.17.0-beta`
+
+### V5.17 deferred items (future branches)
+
+- Cloud Run deployment (requires service account, IAM, billing authorization)
+- GCP Secret Manager version destruction / disable policy on rotate
+- Redis/Memorystore distributed rate limiting (rate limiter is currently process-local)
+- BigQuery audit replication / Cloud Storage audit archival with optional object lock
+- KMS/HSM cryptographic audit signing
+- OAuth2 / admin identity provider integration
+- Real Google Ads OAuth credential onboarding and live API validation
+- Live GCP lifecycle validation execution (results template is unfilled)
