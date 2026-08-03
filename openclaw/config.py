@@ -94,6 +94,8 @@ class OpenClawConfig:
     port: int
     audit_retain_days: int
     tenant_keys: Dict[str, Set[str]]
+    admin_rate_limit_rpm: int
+    admin_rate_limit_sensitive_rpm: int
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +147,13 @@ def get_config() -> OpenClawConfig:
 
     tenant_keys = parse_tenant_keys(os.getenv("OPENCLAW_TENANT_KEYS"))
 
+    admin_rate_limit_rpm = max(0, parse_int(
+        os.getenv("OPENCLAW_ADMIN_RATE_LIMIT_RPM"), default=0
+    ))
+    admin_rate_limit_sensitive_rpm = max(0, parse_int(
+        os.getenv("OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM"), default=0
+    ))
+
     return OpenClawConfig(
         env=env,
         api_auth_enabled=api_auth_enabled,
@@ -163,6 +172,8 @@ def get_config() -> OpenClawConfig:
         port=port,
         audit_retain_days=audit_retain_days,
         tenant_keys=tenant_keys,
+        admin_rate_limit_rpm=admin_rate_limit_rpm,
+        admin_rate_limit_sensitive_rpm=admin_rate_limit_sensitive_rpm,
     )
 
 
@@ -189,6 +200,8 @@ def config_to_dict(config: OpenClawConfig) -> dict:
         "port": config.port,
         "audit_retain_days": config.audit_retain_days,
         "tenant_keys": {token: list(tenants) for token, tenants in config.tenant_keys.items()},
+        "admin_rate_limit_rpm": config.admin_rate_limit_rpm,
+        "admin_rate_limit_sensitive_rpm": config.admin_rate_limit_sensitive_rpm,
     }
 
 

@@ -1,6 +1,6 @@
 # Credential Lifecycle Runbook
 
-**Kaiju Command Center — V5.14 / V5.15 / V5.16**
+**Kaiju Command Center — V5.14 / V5.15 / V5.16 / V5.17**
 
 This runbook documents the operator-facing procedures for managing Google Ads credentials through the OpenClaw admin API. It covers token setup, credential onboarding, validation, rotation, deletion, and audit maintenance. All curl examples use placeholder values only.
 
@@ -37,7 +37,7 @@ These rules apply to every operation in this runbook. Read them before proceedin
 
 ## 3. Required Environment Variables
 
-These 12 variables control the V5.14–V5.16 credential lifecycle. All must be reviewed before any credential operation.
+These 14 variables control the V5.14–V5.17 credential lifecycle. All must be reviewed before any credential operation.
 
 | Variable | Default | Secret | Purpose |
 |---|---|---|---|
@@ -47,6 +47,8 @@ These 12 variables control the V5.14–V5.16 credential lifecycle. All must be r
 | `OPENCLAW_API_KEYS` | `` | **Yes** | Backward-compat API keys — treated as READ scope; cannot perform WRITE/VALIDATE/ROTATE/DELETE |
 | `OPENCLAW_ADMIN_DELETE_ENABLED` | `false` | No | Enable the DELETE endpoint — disabled by default; must be set explicitly |
 | `OPENCLAW_TENANT_KEYS` | `` | No | Per-token tenant allow-list: `token-a:tenant-a,token-a:tenant-b,token-b:tenant-c`. Unset = no restriction. See Section 3a. |
+| `OPENCLAW_ADMIN_RATE_LIMIT_RPM` | `0` | No | Max requests/minute per token for STANDARD routes (status, write, validate). `0` = disabled. See Section 3b. |
+| `OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM` | `0` | No | Max requests/minute per token for SENSITIVE routes (rotate, delete). `0` = disabled. See Section 3b. |
 | `OPENCLAW_AUDIT_ENABLED` | `true` | No | Enable append-only JSONL audit log writes |
 | `OPENCLAW_AUDIT_ROOT` | `openclaw/audit` | No | Directory for audit JSONL files |
 | `OPENCLAW_AUDIT_RETAIN_DAYS` | `90` | No | Days to retain audit files before pruning |
@@ -127,6 +129,55 @@ reaches the tenant check.
 
 See `docs/V5_17_PER_TENANT_PERMISSION_DESIGN.md` for the full design, backward
 compatibility rules, error model, and planned future IAM/OAuth path.
+
+### Section 3b. Rate limiting (V5.17 Phase 4)
+
+`OPENCLAW_ADMIN_RATE_LIMIT_RPM` and `OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM` enable
+per-token sliding-window rate limiting on admin endpoints. Both default to `0` (disabled)
+for backward compatibility.
+
+**Route categories:**
+
+| Category | Variable | Routes |
+|---|---|---|
+| STANDARD | `OPENCLAW_ADMIN_RATE_LIMIT_RPM` | GET /status, POST (write), POST /validate |
+| SENSITIVE | `OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM` | POST /rotate, DELETE |
+
+**Rules:**
+
+- Each token has an independent budget per category. Exhausting one token's STANDARD budget
+  does not affect another token or the SENSITIVE budget for the same token.
+- Auth failures (401), scope failures (403 `scope_not_granted`), and tenant failures
+  (403 `tenant_access_denied`) are rejected before the rate check runs and do not consume budget.
+- Rate limit state is in-process only. State resets on service restart or Cloud Run
+  instance recycling. Not suitable as a hard quota.
+- When `OPENCLAW_API_AUTH_ENABLED=false`, all requests share a single anonymous bucket.
+
+**Example configuration (modest protection, not a hard quota):**
+
+```
+OPENCLAW_ADMIN_RATE_LIMIT_RPM=60
+OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM=10
+```
+
+**Rate limit exceeded response (HTTP 429):**
+
+```json
+{
+  "ok": false,
+  "errors": [
+    {
+      "code": "rate_limit_exceeded",
+      "message": "Rate limit exceeded. Retry after 47 seconds.",
+      "recoverable": true,
+      "source": "openclaw",
+      "retry_after_seconds": 47
+    }
+  ]
+}
+```
+
+See `docs/V5_17_RATE_LIMITING_DESIGN.md` for the full design.
 
 ### Rotating tokens
 
@@ -624,6 +675,7 @@ result = prune_audit_files(root="openclaw/audit", retain_days=90)
 | `secret_delete_failed` | 400 | DELETE | `delete_secret_bundle()` raised an exception | Check SecretStore configuration; check GCP IAM bindings |
 | `credential_status_failed` | 400 | GET status | Store read failed during status lookup | Check store configuration |
 | `audit_append_failed` | warning only | All write paths | Audit JSONL write failed | Check `OPENCLAW_AUDIT_ROOT` path and file permissions; credential operation itself was not affected |
+| `rate_limit_exceeded` | 429 | All admin routes | Token exceeded its per-minute request budget | Back off for `retry_after_seconds` before retrying; check `OPENCLAW_ADMIN_RATE_LIMIT_RPM` / `OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM` configuration |
 
 ---
 
@@ -712,3 +764,4 @@ Only proceed with real credential onboarding when all boxes above are checked.
 | [openclaw/admin.py](../openclaw/admin.py) | All credential lifecycle function implementations |
 | [openclaw/auth.py](../openclaw/auth.py) | Token-scoped RBAC: `AdminScope`, `resolve_token_scope()`, `validate_api_auth()`, `validate_tenant_access()` |
 | [docs/V5_17_PER_TENANT_PERMISSION_DESIGN.md](V5_17_PER_TENANT_PERMISSION_DESIGN.md) | V5.17 Phase 3 design: `OPENCLAW_TENANT_KEYS` format, request evaluation order, backward compat, future IAM path |
+| [docs/V5_17_RATE_LIMITING_DESIGN.md](V5_17_RATE_LIMITING_DESIGN.md) | V5.17 Phase 4 design: sliding-window rate limiting, env vars, route categories, anonymous bucket, interaction with RBAC/tenant isolation |
