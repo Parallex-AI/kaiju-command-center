@@ -575,7 +575,15 @@ Possible error strings:
 - `"seq_mismatch:lineN:expectedE:gotA"` — sequence number mismatch
 - `"digest_mismatch:lineN"` — digest does not match accumulated bytes
 
-**Known limitation:** `seq` and `file_digest` are computed outside any file lock. In environments with concurrent audit writers (e.g., multiple server processes), sequence collisions are possible. This is a known gap targeted for V5.17 Phase 5.
+**V5.17 Phase 5 — File locking:** On Linux/Unix platforms (including Cloud Run), `seq` and `file_digest` are now computed and written under an exclusive `fcntl.flock(LOCK_EX)` advisory file lock. This prevents seq/digest races between concurrent writers in the same process group. The return value of `append_audit_event()` includes `"lock_used": true` when locking is applied, or `"lock_used": false` on non-Unix platforms (automatic fallback — no locking, existing behavior).
+
+**Remaining limitations of local file audit:**
+- The file lock is advisory; it does not protect against privileged direct filesystem writes outside the locking protocol.
+- The seq/file_digest chain is tamper-evident, not cryptographically signed.
+- Multiple Cloud Run instances writing to separate ephemeral container filesystems maintain separate audit chains; there is no cross-instance lock.
+- Local audit files are lost on container restart. External archival is a future option (see `docs/V5_17_AUDIT_HARDENING_DECISION.md`).
+
+See `docs/V5_17_AUDIT_HARDENING_DECISION.md` for the full options analysis and design rationale.
 
 ---
 
@@ -765,3 +773,4 @@ Only proceed with real credential onboarding when all boxes above are checked.
 | [openclaw/auth.py](../openclaw/auth.py) | Token-scoped RBAC: `AdminScope`, `resolve_token_scope()`, `validate_api_auth()`, `validate_tenant_access()` |
 | [docs/V5_17_PER_TENANT_PERMISSION_DESIGN.md](V5_17_PER_TENANT_PERMISSION_DESIGN.md) | V5.17 Phase 3 design: `OPENCLAW_TENANT_KEYS` format, request evaluation order, backward compat, future IAM path |
 | [docs/V5_17_RATE_LIMITING_DESIGN.md](V5_17_RATE_LIMITING_DESIGN.md) | V5.17 Phase 4 design: sliding-window rate limiting, env vars, route categories, anonymous bucket, interaction with RBAC/tenant isolation |
+| [docs/V5_17_AUDIT_HARDENING_DECISION.md](V5_17_AUDIT_HARDENING_DECISION.md) | V5.17 Phase 5 design decision: fcntl file locking for audit append, options evaluated, limitations, future paths |

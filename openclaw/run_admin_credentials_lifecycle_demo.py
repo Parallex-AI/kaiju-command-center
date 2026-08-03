@@ -780,6 +780,67 @@ def run_demo():
         ok_t &= _assert("fake-" not in _json.dumps(rot_t), "T: no fake values in missing-cred rotate response")
         all_pass = all_pass and ok_t
 
+        # ── Section U: audit file locking ─────────────────────────────────────
+        print("\n── U: audit file locking ──")
+        import audit as _audit_mod
+        from audit import build_credential_audit_event as _build_audit_ev
+        from audit import append_audit_event as _append_audit_ev
+
+        _T_U = "tenant-lock-u"
+        _C_U = "client-lock-u"
+
+        tmp_lock_root = Path(tmp_dir) / "lock_audit"
+        tmp_lock_root.mkdir(parents=True, exist_ok=True)
+        os.environ["OPENCLAW_AUDIT_ROOT"] = str(tmp_lock_root)
+
+        ev_u1 = _build_audit_ev(_T_U, _C_U, "google_ads", "lock_test_1", True)
+        r_u1 = _append_audit_ev(ev_u1)
+        ok_u = _assert(r_u1.get("ok") is True, f"U: first append ok=true (got {r_u1})")
+
+        ev_u2 = _build_audit_ev(_T_U, _C_U, "google_ads", "lock_test_2", True)
+        r_u2 = _append_audit_ev(ev_u2)
+        ok_u &= _assert(r_u2.get("ok") is True, f"U: second append ok=true (got {r_u2})")
+
+        ok_u &= _assert(
+            r_u1.get("seq") == 1,
+            f"U: seq=1 for first event (got {r_u1.get('seq')!r})",
+        )
+        ok_u &= _assert(
+            r_u2.get("seq") == 2,
+            f"U: seq=2 for second event (got {r_u2.get('seq')!r})",
+        )
+
+        if _audit_mod._HAS_FCNTL:
+            ok_u &= _assert(r_u1.get("lock_used") is True, "U: lock_used=true (fcntl available)")
+        else:
+            ok_u &= _assert(
+                r_u1.get("lock_used") is False,
+                "U: lock_used=false (fcntl unavailable — expected on non-Unix)",
+            )
+
+        lock_files_u = sorted(tmp_lock_root.glob("*.jsonl"))
+        ok_u &= _assert(len(lock_files_u) >= 1, "U: audit file created by locking path")
+        if lock_files_u:
+            vr_u = _am.verify_audit_file(lock_files_u[0])
+            ok_u &= _assert(
+                vr_u.get("ok") is True,
+                f"U: verify_audit_file ok=true (got {vr_u})",
+            )
+            ok_u &= _assert(
+                vr_u.get("events_checked") == 2,
+                f"U: 2 events verified (got {vr_u.get('events_checked')})",
+            )
+            ok_u &= _assert(
+                vr_u.get("errors") == [],
+                f"U: no verify errors (got {vr_u.get('errors')!r})",
+            )
+
+        lock_events_u = _read_audit_events(tmp_lock_root)
+        for i, ev_u in enumerate(lock_events_u):
+            ok_u &= _assert_no_forbidden_content(ev_u, set(), f"U: lock event[{i}] clean")
+
+        all_pass = all_pass and ok_u
+
         print()
         if all_pass:
             print(_PASS + " All credential lifecycle audit assertions passed.")

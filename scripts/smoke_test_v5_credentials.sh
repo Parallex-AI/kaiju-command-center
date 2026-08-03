@@ -1840,4 +1840,79 @@ pass "Rate limiting checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
+echo "[20/20] Audit file locking (fcntl)..."
+# ---------------------------------------------------------------------------
+
+# _HAS_FCNTL constant importable from audit module
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import audit
+assert hasattr(audit, '_HAS_FCNTL'), '_HAS_FCNTL missing from audit module'
+" 2>&1); then
+    pass "audit.py: _HAS_FCNTL constant present"
+else
+    fail "audit.py: _HAS_FCNTL not found"
+fi
+
+# LOCK_EX wired in audit.py when fcntl available
+if grep -q "LOCK_EX" "$OPENCLAW_DIR/audit.py"; then
+    pass "audit.py: LOCK_EX present in locking path"
+else
+    fail "audit.py: LOCK_EX not found"
+fi
+
+# append_audit_event returns lock_used field
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import tempfile, os, shutil
+tmp = tempfile.mkdtemp(prefix='kaiju_lock_smoke_')
+os.environ['OPENCLAW_AUDIT_ROOT'] = tmp
+os.environ['OPENCLAW_AUDIT_ENABLED'] = 'true'
+from audit import append_audit_event
+ev = {'event_type': 'smoke_test', 'ok': True}
+r = append_audit_event(ev)
+assert r.get('ok') is True, f'ok not True: {r}'
+assert 'lock_used' in r, f'lock_used missing: {r}'
+assert r.get('seq') == 1, f'seq != 1: {r}'
+shutil.rmtree(tmp, ignore_errors=True)
+" 2>&1); then
+    pass "append_audit_event: lock_used field present, seq=1 on first append"
+else
+    fail "append_audit_event: lock_used or seq check failed"
+fi
+
+# lifecycle demo Section U passes
+_OUT_LOCK=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON run_admin_credentials_lifecycle_demo.py 2>&1)
+echo "$_OUT_LOCK" | grep -q "All credential lifecycle audit assertions passed" \
+    && pass "lifecycle demo with Section U: All assertions passed" \
+    || { echo "  ✗ lifecycle demo Section U: All assertions not found"; echo "$_OUT_LOCK" | tail -25; exit 1; }
+
+echo "$_OUT_LOCK" | grep -q "U: first append ok=true" \
+    && pass "lifecycle demo Section U: append ok=true confirmed" \
+    || { echo "  ✗ Section U append marker not found"; echo "$_OUT_LOCK" | tail -25; exit 1; }
+
+echo "$_OUT_LOCK" | grep -q "U: seq=1 for first event" \
+    && pass "lifecycle demo Section U: seq=1 confirmed" \
+    || { echo "  ✗ Section U seq=1 marker not found"; echo "$_OUT_LOCK" | tail -25; exit 1; }
+
+echo "$_OUT_LOCK" | grep -q "U: verify_audit_file ok=true" \
+    && pass "lifecycle demo Section U: verify_audit_file ok=true confirmed" \
+    || { echo "  ✗ Section U verify_audit_file marker not found"; echo "$_OUT_LOCK" | tail -25; exit 1; }
+
+# No forbidden fields in Section U output
+for key in "credential_ref" "secret_id" "login_customer_id"; do
+    if echo "$_OUT_LOCK" | grep -A60 "── U:" | grep -qE "\"${key}\""; then
+        fail "Forbidden field '${key}' appeared in Section U output"
+    fi
+done
+pass "Section U: no forbidden fields in audit locking output"
+
+pass "Audit file locking checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
 echo "=== V5 credential chain smoke test passed. ==="

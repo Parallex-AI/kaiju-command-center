@@ -5,6 +5,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
+try:
+    import fcntl as _fcntl
+    _HAS_FCNTL = True
+except ImportError:
+    _fcntl = None
+    _HAS_FCNTL = False
+
 
 def is_audit_enabled() -> bool:
     val = os.getenv("OPENCLAW_AUDIT_ENABLED", "true").strip().lower()
@@ -116,14 +123,48 @@ def append_audit_event(event: dict) -> dict:
         date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         audit_file = audit_root / f"{date_str}.jsonl"
 
-        file_digest = _compute_file_digest(audit_file)
-        seq = _next_audit_seq(audit_file)
-        event["seq"] = seq
-        event["file_digest"] = file_digest
+        lock_used = False
 
-        with open(audit_file, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(event, default=str) + "\n")
+        if _HAS_FCNTL:
+            # Compute seq and file_digest while holding an exclusive file lock so
+            # concurrent writers in the same process group cannot race on the chain.
+            audit_file.touch(exist_ok=True)
+            with open(audit_file, "r+b") as fh:
+                _fcntl.flock(fh.fileno(), _fcntl.LOCK_EX)
+                current_bytes = fh.read()
+                file_digest = hashlib.sha256(current_bytes).hexdigest() if current_bytes else ""
+                seq = (
+                    sum(
+                        1
+                        for line in current_bytes.decode("utf-8", errors="replace").splitlines()
+                        if line.strip()
+                    )
+                    + 1
+                )
+                event["seq"] = seq
+                event["file_digest"] = file_digest
+                line_bytes = (json.dumps(event, default=str) + "\n").encode("utf-8")
+                fh.seek(0, 2)
+                fh.write(line_bytes)
+                fh.flush()
+                _fcntl.flock(fh.fileno(), _fcntl.LOCK_UN)
+            lock_used = True
+        else:
+            # Fallback: no locking available (non-Unix platforms).
+            # seq/file_digest may have gaps if multiple writers race.
+            file_digest = _compute_file_digest(audit_file)
+            seq = _next_audit_seq(audit_file)
+            event["seq"] = seq
+            event["file_digest"] = file_digest
+            with open(audit_file, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(event, default=str) + "\n")
 
-        return {"ok": True, "path": str(audit_file), "seq": seq, "file_digest": file_digest}
+        return {
+            "ok": True,
+            "path": str(audit_file),
+            "seq": seq,
+            "file_digest": file_digest,
+            "lock_used": lock_used,
+        }
     except Exception as exc:
         return {"ok": False, "error": type(exc).__name__}
