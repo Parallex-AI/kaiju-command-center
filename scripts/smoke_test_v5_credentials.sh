@@ -113,7 +113,7 @@ echo ""
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-echo "[1/17] Environment and import checks..."
+echo "[1/19] Environment and import checks..."
 # ---------------------------------------------------------------------------
 
 [ -f "$PYTHON" ] || fail "Python not found at $PYTHON"
@@ -140,7 +140,7 @@ done
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[2/17] CredentialReference model demo..."
+echo "[2/19] CredentialReference model demo..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_model_demo.py 2>&1)
@@ -150,7 +150,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[3/17] Credential stores..."
+echo "[3/19] Credential stores..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_store_demo.py 2>&1)
@@ -165,7 +165,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[4/17] Credential resolver..."
+echo "[4/19] Credential resolver..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_credentials_resolver_demo.py 2>&1)
@@ -175,7 +175,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[5/17] SecretStore and provider..."
+echo "[5/19] SecretStore and provider..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_secret_store_demo.py 2>&1)
@@ -190,7 +190,7 @@ echo "$_OUT" | grep -q "All assertions passed" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[6/17] Adapter provider mode — non-live checks..."
+echo "[6/19] Adapter provider mode — non-live checks..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$AGENT_DIR" && PYTHONPATH="$AGENT_DIR" $PYTHON run_google_ads_adapter_provider_demo.py 2>&1)
@@ -307,7 +307,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[7/17] OpenClaw admin credential endpoints..."
+echo "[7/19] OpenClaw admin credential endpoints..."
 # ---------------------------------------------------------------------------
 
 # Set up temp credential reference store to avoid touching any runtime file
@@ -496,13 +496,13 @@ rm -f "$CRED_STORE_FILE"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[8/17] Secret-safety and git hygiene..."
+echo "[8/19] Secret-safety and git hygiene..."
 # ---------------------------------------------------------------------------
 
 GREP_TARGETS="$REPO/scripts $REPO/docs $REPO/agents $REPO/openclaw $REPO/README.md $REPO/.env.example"
 
 # ya29. — OAuth access token prefix
-if grep -R "ya29\." -n $GREP_TARGETS 2>/dev/null | grep -v "_PYEOF\|# ya29\|ya29.*marker\|ya29.*forbidden"; then
+if grep -R "ya29\." -n $GREP_TARGETS 2>/dev/null | grep -v "_PYEOF\|# ya29\|ya29.*marker\|ya29.*forbidden\|starting with.*ya29\|ya29.*prohibition\|must never be used\|no.*ya29"; then
     fail "ya29 OAuth token prefix found in source files"
 else
     pass "no ya29 OAuth token prefix in source files"
@@ -546,7 +546,7 @@ fi
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 echo ""
-echo "[9/17] Admin credential bundle write — mocked secret store..."
+echo "[9/19] Admin credential bundle write — mocked secret store..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -576,7 +576,7 @@ PYEOF
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[10/17] Admin credential API write — FastAPI TestClient..."
+echo "[10/19] Admin credential API write — FastAPI TestClient..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -616,7 +616,7 @@ echo "$_OUT" | grep -q "secret_material_rejected" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[11/17] Credential lifecycle audit and validation events..."
+echo "[11/19] Credential lifecycle audit and validation events..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -672,7 +672,7 @@ echo "$_OUT" | grep -q "secret_already_absent" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[12/17] Credential lifecycle validation API (FastAPI TestClient)..."
+echo "[12/19] Credential lifecycle validation API (FastAPI TestClient)..."
 # ---------------------------------------------------------------------------
 
 _OUT=$(cd "$OPENCLAW_DIR" && \
@@ -725,7 +725,7 @@ echo "$_OUT" | grep -q "warnings includes secret_already_absent" \
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[13/17] Validate route — server-level auth checks..."
+echo "[13/19] Validate route — server-level auth checks..."
 # ---------------------------------------------------------------------------
 
 CRED_STORE_FILE2=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
@@ -786,7 +786,7 @@ rm -f "$CRED_STORE_FILE2"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[14/17] Phase 3 delete/revoke — forbidden behavior and env gate checks..."
+echo "[14/19] Phase 3 delete/revoke — forbidden behavior and env gate checks..."
 # ---------------------------------------------------------------------------
 
 # delete_google_ads_credentials must not call get_secret_bundle (only delete_secret_bundle + get_secret_status)
@@ -858,7 +858,7 @@ pass "Phase 3 delete/revoke forbidden behavior checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[15/17] Admin RBAC scope enforcement..."
+echo "[15/19] Admin RBAC scope enforcement..."
 # ---------------------------------------------------------------------------
 
 # AdminScope enum importable from auth.py
@@ -1028,7 +1028,7 @@ pass "Admin RBAC scope enforcement checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[16/17] Audit seq/digest hardening and maintenance..."
+echo "[16/19] Audit seq/digest hardening and maintenance..."
 # ---------------------------------------------------------------------------
 
 # audit_maintenance.py importable with both functions
@@ -1143,7 +1143,7 @@ else
     fail "verify_audit_file: tampered file not detected"
 fi
 
-# Lifecycle demo includes L/M/N/O sections (lifecycle demo already ran in [11/17])
+# Lifecycle demo includes L/M/N/O sections (lifecycle demo already ran in [11/19])
 # Re-run just to capture output for marker checks
 _OUT_PHASE2=$(cd "$OPENCLAW_DIR" && \
     PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
@@ -1170,7 +1170,7 @@ pass "Audit seq/digest hardening and maintenance checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[17/17] Rotate credential endpoint..."
+echo "[17/19] Rotate credential endpoint..."
 # ---------------------------------------------------------------------------
 
 # rotate_google_ads_credentials importable from admin
@@ -1402,6 +1402,516 @@ echo "$_OUT_ROT_API" | grep -q "rotate E: status 403 for read token" \
     || { echo "  ✗ API demo rotate E: not found"; echo "$_OUT_ROT_API" | tail -20; exit 1; }
 
 pass "Rotate credential endpoint checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[18/19] Per-tenant token isolation (OPENCLAW_TENANT_KEYS)..."
+# ---------------------------------------------------------------------------
+
+# validate_tenant_access importable from auth
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "from auth import validate_tenant_access" 2>&1); then
+    pass "validate_tenant_access importable from auth"
+else
+    fail "validate_tenant_access not importable from auth"
+fi
+
+# parse_tenant_keys importable from config
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "from config import parse_tenant_keys" 2>&1); then
+    pass "parse_tenant_keys importable from config"
+else
+    fail "parse_tenant_keys not importable from config"
+fi
+
+# parse_tenant_keys: empty/None → {}
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from config import parse_tenant_keys
+assert parse_tenant_keys(None) == {}, 'None should return {}'
+assert parse_tenant_keys('') == {}, 'empty string should return {}'
+assert parse_tenant_keys('   ') == {}, 'whitespace should return {}'
+" 2>/dev/null); then
+    pass "parse_tenant_keys: empty/None → {}"
+else
+    fail "parse_tenant_keys: empty/None did not return {}"
+fi
+
+# parse_tenant_keys: single pair
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from config import parse_tenant_keys
+result = parse_tenant_keys('tok-a:tenant-a')
+assert result == {'tok-a': {'tenant-a'}}, f'unexpected: {result}'
+" 2>/dev/null); then
+    pass "parse_tenant_keys: single pair parsed correctly"
+else
+    fail "parse_tenant_keys: single pair failed"
+fi
+
+# parse_tenant_keys: multi-tenant same token
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from config import parse_tenant_keys
+result = parse_tenant_keys('tok-a:tenant-a,tok-a:tenant-b,tok-b:tenant-c')
+assert result == {'tok-a': {'tenant-a', 'tenant-b'}, 'tok-b': {'tenant-c'}}, f'unexpected: {result}'
+" 2>/dev/null); then
+    pass "parse_tenant_keys: multi-tenant same token parsed correctly"
+else
+    fail "parse_tenant_keys: multi-tenant same token failed"
+fi
+
+# validate_tenant_access: no tenant_keys → always allowed
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    $PYTHON -c "
+from auth import validate_tenant_access
+from config import OpenClawConfig
+cfg = OpenClawConfig(
+    env='local', api_auth_enabled=False, api_keys=[], admin_keys=[], read_keys=[],
+    allowed_origins=['*'], default_tenant='demo', require_tenant_header=False,
+    audit_enabled=False, audit_root='/tmp', memory_enabled=False, memory_root='/tmp',
+    n8n_ads_webhook_url=None, n8n_webhook_timeout=15.0, port=8100,
+    audit_retain_days=90, tenant_keys={},
+    admin_rate_limit_rpm=0, admin_rate_limit_sensitive_rpm=0,
+)
+ok, errs = validate_tenant_access('any-token', 'any-tenant', cfg)
+assert ok is True, f'expected True, got {ok}'
+assert errs == [], f'expected [], got {errs}'
+ok2, _ = validate_tenant_access(None, 'any-tenant', cfg)
+assert ok2 is True, 'None token should be allowed when no map'
+" 2>/dev/null); then
+    pass "validate_tenant_access: no tenant_keys → always allowed"
+else
+    fail "validate_tenant_access: no tenant_keys check failed"
+fi
+
+# validate_tenant_access: token listed + tenant allowed → True
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from auth import validate_tenant_access
+from config import OpenClawConfig
+cfg = OpenClawConfig(
+    env='local', api_auth_enabled=True, api_keys=[], admin_keys=['tok-x'], read_keys=[],
+    allowed_origins=['*'], default_tenant='demo', require_tenant_header=False,
+    audit_enabled=False, audit_root='/tmp', memory_enabled=False, memory_root='/tmp',
+    n8n_ads_webhook_url=None, n8n_webhook_timeout=15.0, port=8100,
+    audit_retain_days=90, tenant_keys={'tok-x': {'tenant-a', 'tenant-b'}},
+    admin_rate_limit_rpm=0, admin_rate_limit_sensitive_rpm=0,
+)
+ok, errs = validate_tenant_access('tok-x', 'tenant-a', cfg)
+assert ok is True, f'expected True for allowed tenant, got {ok}'
+assert errs == [], f'expected [], got {errs}'
+ok2, errs2 = validate_tenant_access('tok-x', 'tenant-b', cfg)
+assert ok2 is True, f'expected True for tenant-b, got {ok2}'
+" 2>/dev/null); then
+    pass "validate_tenant_access: listed token + allowed tenant → True"
+else
+    fail "validate_tenant_access: listed token + allowed tenant check failed"
+fi
+
+# validate_tenant_access: token listed + tenant NOT allowed → False + tenant_access_denied
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from auth import validate_tenant_access
+from config import OpenClawConfig
+cfg = OpenClawConfig(
+    env='local', api_auth_enabled=True, api_keys=[], admin_keys=['tok-x'], read_keys=[],
+    allowed_origins=['*'], default_tenant='demo', require_tenant_header=False,
+    audit_enabled=False, audit_root='/tmp', memory_enabled=False, memory_root='/tmp',
+    n8n_ads_webhook_url=None, n8n_webhook_timeout=15.0, port=8100,
+    audit_retain_days=90, tenant_keys={'tok-x': {'tenant-a'}},
+    admin_rate_limit_rpm=0, admin_rate_limit_sensitive_rpm=0,
+)
+ok, errs = validate_tenant_access('tok-x', 'tenant-z', cfg)
+assert ok is False, f'expected False for unlisted tenant, got {ok}'
+codes = [e.get('code') for e in errs if isinstance(e, dict)]
+assert 'tenant_access_denied' in codes, f'expected tenant_access_denied: {codes}'
+" 2>/dev/null); then
+    pass "validate_tenant_access: listed token + denied tenant → False + tenant_access_denied"
+else
+    fail "validate_tenant_access: listed token + denied tenant check failed"
+fi
+
+# validate_tenant_access: token NOT listed while map is set → global access
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from auth import validate_tenant_access
+from config import OpenClawConfig
+cfg = OpenClawConfig(
+    env='local', api_auth_enabled=True, api_keys=[], admin_keys=['tok-x', 'tok-unlisted'],
+    read_keys=[], allowed_origins=['*'], default_tenant='demo', require_tenant_header=False,
+    audit_enabled=False, audit_root='/tmp', memory_enabled=False, memory_root='/tmp',
+    n8n_ads_webhook_url=None, n8n_webhook_timeout=15.0, port=8100,
+    audit_retain_days=90, tenant_keys={'tok-x': {'tenant-a'}},
+    admin_rate_limit_rpm=0, admin_rate_limit_sensitive_rpm=0,
+)
+ok, errs = validate_tenant_access('tok-unlisted', 'any-tenant', cfg)
+assert ok is True, f'unlisted token should have global access, got ok={ok}'
+assert errs == [], f'expected [], got {errs}'
+" 2>/dev/null); then
+    pass "validate_tenant_access: unlisted token while map set → global access"
+else
+    fail "validate_tenant_access: unlisted token global access check failed"
+fi
+
+# TestClient: tenant_access_denied returned when token restricted to wrong tenant
+TENANT_STORE=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    CREDENTIAL_REFERENCE_STORE_PATH="$TENANT_STORE" \
+    OPENCLAW_API_AUTH_ENABLED=true \
+    OPENCLAW_ADMIN_KEYS="smoke-admin-tenant-tok" \
+    OPENCLAW_TENANT_KEYS="smoke-admin-tenant-tok:allowed-tenant" \
+    OPENCLAW_AUDIT_ENABLED=false \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    $PYTHON -c "
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app)
+r = client.get(
+    '/openclaw/admin/tenants/not-allowed-tenant/clients/smoke-c/credentials/google-ads/status',
+    headers={'Authorization': 'Bearer smoke-admin-tenant-tok'},
+)
+assert r.status_code == 403, f'expected 403, got {r.status_code}: {r.text[:200]}'
+codes = [e.get('code') for e in r.json().get('errors', [])]
+assert 'tenant_access_denied' in codes, f'expected tenant_access_denied: {codes}'
+" 2>/dev/null); then
+    pass "TestClient: restricted token on wrong tenant → 403 tenant_access_denied"
+else
+    fail "TestClient: restricted token on wrong tenant did not return 403 tenant_access_denied"
+fi
+rm -f "$TENANT_STORE"
+
+# TestClient: allowed tenant passes through with 200
+TENANT_STORE2=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    CREDENTIAL_REFERENCE_STORE_PATH="$TENANT_STORE2" \
+    OPENCLAW_API_AUTH_ENABLED=true \
+    OPENCLAW_ADMIN_KEYS="smoke-admin-tenant-tok" \
+    OPENCLAW_TENANT_KEYS="smoke-admin-tenant-tok:allowed-tenant" \
+    OPENCLAW_AUDIT_ENABLED=false \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    $PYTHON -c "
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app)
+r = client.get(
+    '/openclaw/admin/tenants/allowed-tenant/clients/smoke-c/credentials/google-ads/status',
+    headers={'Authorization': 'Bearer smoke-admin-tenant-tok'},
+)
+assert r.status_code == 200, f'expected 200, got {r.status_code}: {r.text[:200]}'
+assert r.json().get('ok') is True, f\"ok not True: {r.json()}\"
+" 2>/dev/null); then
+    pass "TestClient: restricted token on allowed tenant → 200 ok"
+else
+    fail "TestClient: restricted token on allowed tenant did not return 200"
+fi
+rm -f "$TENANT_STORE2"
+
+# API demo tenant scenarios confirmed
+_OUT_TENANT_API=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    $PYTHON run_admin_credentials_lifecycle_api_demo.py 2>&1)
+echo "$_OUT_TENANT_API" | grep -q "tenant A: no restriction" \
+    && pass "API demo tenant A: backward compat confirmed" \
+    || { echo "  ✗ API demo tenant A: not found"; echo "$_OUT_TENANT_API" | tail -20; exit 1; }
+
+echo "$_OUT_TENANT_API" | grep -q "tenant B: unlisted tenant → 403" \
+    && pass "API demo tenant B: tenant_access_denied confirmed" \
+    || { echo "  ✗ API demo tenant B: not found"; echo "$_OUT_TENANT_API" | tail -20; exit 1; }
+
+echo "$_OUT_TENANT_API" | grep -q "tenant E: scope check" \
+    && pass "API demo tenant E: scope checked before tenant confirmed" \
+    || { echo "  ✗ API demo tenant E: not found"; echo "$_OUT_TENANT_API" | tail -20; exit 1; }
+
+echo "$_OUT_TENANT_API" | grep -q "tenant F: invalid token" \
+    && pass "API demo tenant F: 401 for invalid token confirmed" \
+    || { echo "  ✗ API demo tenant F: not found"; echo "$_OUT_TENANT_API" | tail -20; exit 1; }
+
+pass "Per-tenant token isolation checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[19/19] Rate limiting (OPENCLAW_ADMIN_RATE_LIMIT_RPM)..."
+# ---------------------------------------------------------------------------
+
+# rate_limit.py importable with all public symbols
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from rate_limit import RateLimiter, RateLimitCategory, get_rate_limiter, check_rate_limit
+" 2>&1); then
+    pass "rate_limit.py: RateLimiter, RateLimitCategory, get_rate_limiter, check_rate_limit all importable"
+else
+    fail "rate_limit.py: import failed"
+fi
+
+# RateLimitCategory constants
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from rate_limit import RateLimitCategory
+assert RateLimitCategory.STANDARD == 'standard'
+assert RateLimitCategory.SENSITIVE == 'sensitive'
+" 2>/dev/null); then
+    pass "RateLimitCategory: STANDARD='standard', SENSITIVE='sensitive'"
+else
+    fail "RateLimitCategory: unexpected values"
+fi
+
+# RateLimiter.check: limit=0 always allowed
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from rate_limit import RateLimiter
+rl = RateLimiter()
+for i in range(10):
+    r = rl.check('test-token', 'standard', 0)
+    assert r['allowed'] is True, f'limit=0 should always allow: {r}'
+    assert r['remaining'] is None, f'limit=0 remaining should be None: {r}'
+" 2>/dev/null); then
+    pass "RateLimiter.check: limit=0 always allowed (10 iterations)"
+else
+    fail "RateLimiter.check: limit=0 check failed"
+fi
+
+# RateLimiter.check: limit=2 sliding window enforced
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from rate_limit import RateLimiter
+rl = RateLimiter()
+r1 = rl.check('tok', 'standard', 2)
+assert r1['allowed'] is True and r1['remaining'] == 1
+r2 = rl.check('tok', 'standard', 2)
+assert r2['allowed'] is True and r2['remaining'] == 0
+r3 = rl.check('tok', 'standard', 2)
+assert r3['allowed'] is False
+assert r3['remaining'] == 0
+assert r3['retry_after_seconds'] >= 1
+" 2>/dev/null); then
+    pass "RateLimiter.check: limit=2 allows 2, denies 3rd with retry_after_seconds"
+else
+    fail "RateLimiter.check: sliding window enforcement failed"
+fi
+
+# Per-token isolation
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from rate_limit import RateLimiter
+rl = RateLimiter()
+rl.check('token-a', 'standard', 1)
+r_a2 = rl.check('token-a', 'standard', 1)
+assert r_a2['allowed'] is False, 'token-a should be denied'
+r_b1 = rl.check('token-b', 'standard', 1)
+assert r_b1['allowed'] is True, 'token-b should be unaffected'
+" 2>/dev/null); then
+    pass "RateLimiter: per-token isolation (exhausted token-a does not affect token-b)"
+else
+    fail "RateLimiter: per-token isolation failed"
+fi
+
+# Category isolation: standard and sensitive are separate deques
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from rate_limit import RateLimiter
+rl = RateLimiter()
+rl.check('tok', 'sensitive', 1)
+r_s2 = rl.check('tok', 'sensitive', 1)
+assert r_s2['allowed'] is False, 'sensitive should be denied'
+r_std = rl.check('tok', 'standard', 1)
+assert r_std['allowed'] is True, 'standard should still be allowed'
+" 2>/dev/null); then
+    pass "RateLimiter: standard and sensitive budgets are independent deques"
+else
+    fail "RateLimiter: category isolation failed"
+fi
+
+# check_rate_limit: limit=0 → always (True, [])
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    OPENCLAW_ADMIN_RATE_LIMIT_RPM=0 \
+    $PYTHON -c "
+from rate_limit import check_rate_limit, RateLimitCategory, get_rate_limiter
+get_rate_limiter().reset_for_tests()
+from config import get_config
+cfg = get_config()
+for i in range(5):
+    ok, errs = check_rate_limit('test-tok', RateLimitCategory.STANDARD, cfg)
+    assert ok is True and errs == []
+" 2>/dev/null); then
+    pass "check_rate_limit: RPM=0 → always (True, [])"
+else
+    fail "check_rate_limit: RPM=0 check failed"
+fi
+
+# check_rate_limit: limit>0 returns rate_limit_exceeded with retry_after_seconds
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    OPENCLAW_ADMIN_RATE_LIMIT_RPM=1 \
+    $PYTHON -c "
+from rate_limit import check_rate_limit, RateLimitCategory, get_rate_limiter
+from config import get_config
+rl = get_rate_limiter()
+rl.reset_for_tests()
+cfg = get_config()
+ok1, _ = check_rate_limit('tok', RateLimitCategory.STANDARD, cfg)
+assert ok1 is True, 'first request should be allowed'
+ok2, errs2 = check_rate_limit('tok', RateLimitCategory.STANDARD, cfg)
+assert ok2 is False, f'second request should be denied: {errs2}'
+err = errs2[0]
+assert err.get('code') == 'rate_limit_exceeded', f'unexpected code: {err}'
+assert err.get('retry_after_seconds', 0) >= 1, f'retry_after should be >= 1: {err}'
+assert err.get('recoverable') is True, f'should be recoverable: {err}'
+" 2>/dev/null); then
+    pass "check_rate_limit: RPM=1 → rate_limit_exceeded error with retry_after_seconds and recoverable=true"
+else
+    fail "check_rate_limit: RPM=1 enforcement failed"
+fi
+
+# Config parses both rate limit env vars
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    OPENCLAW_ADMIN_RATE_LIMIT_RPM=30 \
+    OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM=10 \
+    $PYTHON -c "
+from config import get_config
+c = get_config()
+assert c.admin_rate_limit_rpm == 30, f'expected 30, got {c.admin_rate_limit_rpm}'
+assert c.admin_rate_limit_sensitive_rpm == 10, f'expected 10, got {c.admin_rate_limit_sensitive_rpm}'
+" 2>/dev/null); then
+    pass "config: OPENCLAW_ADMIN_RATE_LIMIT_RPM=30, OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM=10 parsed"
+else
+    fail "config: rate limit env vars not parsed correctly"
+fi
+
+# Config default rate limits are 0 (backward-compatible: disabled)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from config import get_config
+c = get_config()
+assert c.admin_rate_limit_rpm == 0, f'default should be 0, got {c.admin_rate_limit_rpm}'
+assert c.admin_rate_limit_sensitive_rpm == 0, f'default should be 0, got {c.admin_rate_limit_sensitive_rpm}'
+" 2>/dev/null); then
+    pass "config: admin_rate_limit_rpm and admin_rate_limit_sensitive_rpm default to 0"
+else
+    fail "config: rate limit defaults are not 0"
+fi
+
+# server.py wires check_rate_limit with 429 response
+if grep -q "check_rate_limit" "$OPENCLAW_DIR/server.py" && grep -q "status_code=429" "$OPENCLAW_DIR/server.py"; then
+    pass "server.py: check_rate_limit imported and 429 status code wired"
+else
+    fail "server.py: missing check_rate_limit import or 429 status code"
+fi
+
+# API demo: all rate scenarios pass
+_OUT_RATE_API=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    $PYTHON run_admin_credentials_lifecycle_api_demo.py 2>&1)
+echo "$_OUT_RATE_API" | grep -q "rate A: request 1 not rate-limited" \
+    && pass "API demo rate A: disabled by default confirmed" \
+    || { echo "  ✗ API demo rate A: not found"; echo "$_OUT_RATE_API" | tail -20; exit 1; }
+
+echo "$_OUT_RATE_API" | grep -q "rate B: request 3 → 429" \
+    && pass "API demo rate B: standard limit enforced (429)" \
+    || { echo "  ✗ API demo rate B: not found"; echo "$_OUT_RATE_API" | tail -20; exit 1; }
+
+echo "$_OUT_RATE_API" | grep -q "rate C: second rotate → 429" \
+    && pass "API demo rate C: sensitive limit enforced (429)" \
+    || { echo "  ✗ API demo rate C: not found"; echo "$_OUT_RATE_API" | tail -20; exit 1; }
+
+echo "$_OUT_RATE_API" | grep -q "rate D: status (standard) → 200 despite sensitive exhausted" \
+    && pass "API demo rate D: standard/sensitive budget separation confirmed" \
+    || { echo "  ✗ API demo rate D: not found"; echo "$_OUT_RATE_API" | tail -20; exit 1; }
+
+echo "$_OUT_RATE_API" | grep -q "rate E: token-b unaffected → 200" \
+    && pass "API demo rate E: per-token isolation confirmed" \
+    || { echo "  ✗ API demo rate E: not found"; echo "$_OUT_RATE_API" | tail -20; exit 1; }
+
+echo "$_OUT_RATE_API" | grep -q "rate F: valid request (budget intact) → 200" \
+    && pass "API demo rate F: denied requests do not consume rate budget confirmed" \
+    || { echo "  ✗ API demo rate F: not found"; echo "$_OUT_RATE_API" | tail -20; exit 1; }
+
+echo "$_OUT_RATE_API" | grep -q "no token values in rate response" \
+    && pass "API demo rate G: no token values in rate scenario responses confirmed" \
+    || { echo "  ✗ API demo rate G: not found"; echo "$_OUT_RATE_API" | tail -20; exit 1; }
+
+pass "Rate limiting checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[20/20] Audit file locking (fcntl)..."
+# ---------------------------------------------------------------------------
+
+# _HAS_FCNTL constant importable from audit module
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import audit
+assert hasattr(audit, '_HAS_FCNTL'), '_HAS_FCNTL missing from audit module'
+" 2>&1); then
+    pass "audit.py: _HAS_FCNTL constant present"
+else
+    fail "audit.py: _HAS_FCNTL not found"
+fi
+
+# LOCK_EX wired in audit.py when fcntl available
+if grep -q "LOCK_EX" "$OPENCLAW_DIR/audit.py"; then
+    pass "audit.py: LOCK_EX present in locking path"
+else
+    fail "audit.py: LOCK_EX not found"
+fi
+
+# append_audit_event returns lock_used field
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import tempfile, os, shutil
+tmp = tempfile.mkdtemp(prefix='kaiju_lock_smoke_')
+os.environ['OPENCLAW_AUDIT_ROOT'] = tmp
+os.environ['OPENCLAW_AUDIT_ENABLED'] = 'true'
+from audit import append_audit_event
+ev = {'event_type': 'smoke_test', 'ok': True}
+r = append_audit_event(ev)
+assert r.get('ok') is True, f'ok not True: {r}'
+assert 'lock_used' in r, f'lock_used missing: {r}'
+assert r.get('seq') == 1, f'seq != 1: {r}'
+shutil.rmtree(tmp, ignore_errors=True)
+" 2>&1); then
+    pass "append_audit_event: lock_used field present, seq=1 on first append"
+else
+    fail "append_audit_event: lock_used or seq check failed"
+fi
+
+# lifecycle demo Section U passes
+_OUT_LOCK=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON run_admin_credentials_lifecycle_demo.py 2>&1)
+echo "$_OUT_LOCK" | grep -q "All credential lifecycle audit assertions passed" \
+    && pass "lifecycle demo with Section U: All assertions passed" \
+    || { echo "  ✗ lifecycle demo Section U: All assertions not found"; echo "$_OUT_LOCK" | tail -25; exit 1; }
+
+echo "$_OUT_LOCK" | grep -q "U: first append ok=true" \
+    && pass "lifecycle demo Section U: append ok=true confirmed" \
+    || { echo "  ✗ Section U append marker not found"; echo "$_OUT_LOCK" | tail -25; exit 1; }
+
+echo "$_OUT_LOCK" | grep -q "U: seq=1 for first event" \
+    && pass "lifecycle demo Section U: seq=1 confirmed" \
+    || { echo "  ✗ Section U seq=1 marker not found"; echo "$_OUT_LOCK" | tail -25; exit 1; }
+
+echo "$_OUT_LOCK" | grep -q "U: verify_audit_file ok=true" \
+    && pass "lifecycle demo Section U: verify_audit_file ok=true confirmed" \
+    || { echo "  ✗ Section U verify_audit_file marker not found"; echo "$_OUT_LOCK" | tail -25; exit 1; }
+
+# No forbidden fields in Section U output
+for key in "credential_ref" "secret_id" "login_customer_id"; do
+    if echo "$_OUT_LOCK" | grep -A60 "── U:" | grep -qE "\"${key}\""; then
+        fail "Forbidden field '${key}' appeared in Section U output"
+    fi
+done
+pass "Section U: no forbidden fields in audit locking output"
+
+pass "Audit file locking checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

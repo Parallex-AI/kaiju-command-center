@@ -4,11 +4,11 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V5.16 — Admin RBAC and Audit Hardening complete** (branch: `v5.16-admin-rbac-audit-hardening` · tag candidate: `v5.16.0-beta`)
+**V5.17 — Production Readiness Hardening complete** (branch: `v5.17-production-readiness` · tag candidate: `v5.17.0-beta`)
 
-V5.16 hardens the OpenClaw admin credential lifecycle across three phases. Phase 1 adds token-scoped RBAC: a six-value `AdminScope` enum gates each admin endpoint at the minimum required privilege, with `401`/`403` distinction and backward-compatible `OPENCLAW_API_KEYS` fallback (now `READ`-only). Phase 2 adds audit sequence numbering (`seq`), per-append file digest (`file_digest`), `audit_append_failed` warning visibility, and audit maintenance utilities (`verify_audit_file`, `prune_audit_files`). Phase 3 adds `POST /credentials/google-ads/rotate` — writes a new bundle via `put_secret_bundle()` only, validates structurally via `get_secret_status()` only, never reads the existing bundle, never calls the Google Ads API. Smoke suites 17/17 pass. Fake values only — no real credentials, no live Google Ads API calls, no fixed-cost infrastructure. Ready for merge and tag.
+V5.17 delivers five production readiness phases for the OpenClaw admin credential lifecycle. Phase 1 adds a complete operator credential lifecycle runbook. Phase 2 adds a controlled live GCP lifecycle validation plan and unfilled results template. Phase 3 adds per-tenant token isolation: `OPENCLAW_TENANT_KEYS` restricts individual admin tokens to specific tenant namespaces (`403 tenant_access_denied` on violation; backward-compatible default). Phase 4 adds local admin endpoint rate limiting: sliding 60s window per token, STANDARD and SENSITIVE categories, `HTTP 429` with `retry_after_seconds`. Phase 5 adds audit append file locking: `fcntl.flock(LOCK_EX)` on Linux/Unix serializes seq/digest computation and write; safe fallback on non-Unix. Smoke suites 20/20 pass. Fake values only — no real credentials, no live Google Ads API calls, no GCP deployment, no fixed-cost infrastructure.
 
-See [V5.16 Branch Closure](docs/V5_16_BRANCH_CLOSURE.md), [v5.16.0-beta Release Notes](docs/RELEASE_NOTES_V5_16_0_BETA.md), and [Runbook](docs/GCP_SECRET_MANAGER_RUNBOOK.md).
+See [V5.17 Branch Closure](docs/V5_17_BRANCH_CLOSURE.md), [v5.17.0-beta Release Notes](docs/RELEASE_NOTES_V5_17_0_BETA.md), and [Credential Lifecycle Runbook](docs/CREDENTIAL_LIFECYCLE_RUNBOOK.md).
 
 ## Architecture
 
@@ -68,6 +68,10 @@ cd ~/kaiju/projects/demo-client
 - [v5.15.0-beta Release Notes](docs/RELEASE_NOTES_V5_15_0_BETA.md)
 - [V5.16 Branch Closure](docs/V5_16_BRANCH_CLOSURE.md)
 - [v5.16.0-beta Release Notes](docs/RELEASE_NOTES_V5_16_0_BETA.md)
+- [V5.17 Branch Closure](docs/V5_17_BRANCH_CLOSURE.md)
+- [v5.17.0-beta Release Notes](docs/RELEASE_NOTES_V5_17_0_BETA.md)
+- [Credential Lifecycle Runbook](docs/CREDENTIAL_LIFECYCLE_RUNBOOK.md)
+- [V5.17 Rate Limiting Design](docs/V5_17_RATE_LIMITING_DESIGN.md)
 
 ## Admin credential configuration (V5.16+)
 
@@ -80,6 +84,9 @@ OpenClaw admin endpoints are scope-gated. Set the following env vars to control 
 | `OPENCLAW_API_KEYS` | `READ` (backward-compatible fallback) | Existing API key configurations continue to work as read-only |
 | `OPENCLAW_ADMIN_DELETE_ENABLED` | — | Set to `true` to enable `DELETE /credentials/google-ads`; disabled by default |
 | `OPENCLAW_AUDIT_RETAIN_DAYS` | — | Audit JSONL retention days for `prune_audit_files()`; default `90` |
+| `OPENCLAW_TENANT_KEYS` | `` | Comma-separated `token:tenant_id` pairs; restricts listed tokens to their allowed tenants (V5.17+) |
+| `OPENCLAW_ADMIN_RATE_LIMIT_RPM` | `0` | Max requests/min for STANDARD admin routes per token; `0` = disabled (V5.17+) |
+| `OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM` | `0` | Max requests/min for SENSITIVE admin routes per token; `0` = disabled (V5.17+) |
 
 Example (local dev only — use placeholder values):
 
@@ -107,4 +114,5 @@ A valid token with insufficient scope returns `403 scope_not_granted`. A missing
 | V5.13 | Live GCP validation · Phases A–F PASS · provider composition confirmed | **Beta complete** — `v5.13.0-beta` |
 | V5.14 | Admin credential bundle GCP wiring · POST endpoint · TestClient smoke · live GCP validation | **Beta complete** — `v5.14.0-beta` |
 | V5.15 | Credential lifecycle hardening · audit events · structural validation · revoke/delete endpoint | **Beta complete** — `v5.15.0-beta` |
-| V5.16 | Admin RBAC · audit seq/digest · credential rotation endpoint | **Beta complete** — `v5.16.0-beta` (tag candidate) |
+| V5.16 | Admin RBAC · audit seq/digest · credential rotation endpoint | **Beta complete** — `v5.16.0-beta` |
+| V5.17 | Production readiness · tenant isolation · rate limiting · audit locking · operator runbook | **Beta complete** — `v5.17.0-beta` (tag candidate) |

@@ -19,7 +19,8 @@ from schemas import (
     make_error,
     make_openclaw_envelope,
 )
-from auth import validate_api_auth, AdminScope
+from auth import validate_api_auth, validate_tenant_access, extract_bearer_token, AdminScope
+from rate_limit import check_rate_limit, RateLimitCategory
 from config import get_config
 from admin import (
     get_google_ads_credential_status,
@@ -91,9 +92,10 @@ async def admin_google_ads_credential_status(
     """
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
+    config = get_config()
 
     auth_ok, auth_errors = validate_api_auth(
-        headers=dict(request.headers), required_scope=AdminScope.READ
+        headers=dict(request.headers), required_scope=AdminScope.READ, config=config
     )
     if not auth_ok:
         _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
@@ -108,6 +110,39 @@ async def admin_google_ads_credential_status(
                 "integration_type": "google_ads",
                 "credential_status": None,
                 "errors": auth_errors,
+            },
+        )
+
+    token = extract_bearer_token(
+        dict(request.headers).get("authorization") or dict(request.headers).get("Authorization")
+    )
+    tenant_ok, tenant_errors = validate_tenant_access(token, tenant_id, config)
+    if not tenant_ok:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "errors": tenant_errors,
+            },
+        )
+
+    rl_ok, rl_errors = check_rate_limit(token, RateLimitCategory.STANDARD, config)
+    if not rl_ok:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "errors": rl_errors,
             },
         )
 
@@ -136,9 +171,10 @@ async def admin_upsert_google_ads_credential_reference(
     """
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
+    config = get_config()
 
     auth_ok, auth_errors = validate_api_auth(
-        headers=dict(request.headers), required_scope=AdminScope.WRITE
+        headers=dict(request.headers), required_scope=AdminScope.WRITE, config=config
     )
     if not auth_ok:
         _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
@@ -153,6 +189,39 @@ async def admin_upsert_google_ads_credential_reference(
                 "integration_type": "google_ads",
                 "credential_status": None,
                 "errors": auth_errors,
+            },
+        )
+
+    token = extract_bearer_token(
+        dict(request.headers).get("authorization") or dict(request.headers).get("Authorization")
+    )
+    tenant_ok, tenant_errors = validate_tenant_access(token, tenant_id, config)
+    if not tenant_ok:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "errors": tenant_errors,
+            },
+        )
+
+    rl_ok, rl_errors = check_rate_limit(token, RateLimitCategory.STANDARD, config)
+    if not rl_ok:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "errors": rl_errors,
             },
         )
 
@@ -222,9 +291,10 @@ async def admin_validate_google_ads_credentials(
     """
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
+    config = get_config()
 
     auth_ok, auth_errors = validate_api_auth(
-        headers=dict(request.headers), required_scope=AdminScope.VALIDATE
+        headers=dict(request.headers), required_scope=AdminScope.VALIDATE, config=config
     )
     if not auth_ok:
         _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
@@ -241,6 +311,39 @@ async def admin_validate_google_ads_credentials(
                 "credential_status": None,
                 "secret_status": None,
                 "errors": auth_errors,
+            },
+        )
+
+    token = extract_bearer_token(
+        dict(request.headers).get("authorization") or dict(request.headers).get("Authorization")
+    )
+    tenant_ok, tenant_errors = validate_tenant_access(token, tenant_id, config)
+    if not tenant_ok:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "errors": tenant_errors,
+            },
+        )
+
+    rl_ok, rl_errors = check_rate_limit(token, RateLimitCategory.STANDARD, config)
+    if not rl_ok:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "errors": rl_errors,
             },
         )
 
@@ -277,9 +380,10 @@ async def admin_delete_google_ads_credentials(
     """
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
+    config = get_config()
 
     auth_ok, auth_errors = validate_api_auth(
-        headers=dict(request.headers), required_scope=AdminScope.DELETE
+        headers=dict(request.headers), required_scope=AdminScope.DELETE, config=config
     )
     if not auth_ok:
         _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
@@ -296,6 +400,39 @@ async def admin_delete_google_ads_credentials(
                 "secret_status": None,
                 "warnings": [],
                 "errors": auth_errors,
+            },
+        )
+
+    token = extract_bearer_token(
+        dict(request.headers).get("authorization") or dict(request.headers).get("Authorization")
+    )
+    tenant_ok, tenant_errors = validate_tenant_access(token, tenant_id, config)
+    if not tenant_ok:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "errors": tenant_errors,
+            },
+        )
+
+    rl_ok, rl_errors = check_rate_limit(token, RateLimitCategory.SENSITIVE, config)
+    if not rl_ok:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "errors": rl_errors,
             },
         )
 
@@ -336,9 +473,10 @@ async def admin_rotate_google_ads_credentials(
     """
     request_id = request.headers.get("x-request-id") or generate_request_id()
     trace_id = request.headers.get("x-trace-id") or generate_trace_id()
+    config = get_config()
 
     auth_ok, auth_errors = validate_api_auth(
-        headers=dict(request.headers), required_scope=AdminScope.ROTATE
+        headers=dict(request.headers), required_scope=AdminScope.ROTATE, config=config
     )
     if not auth_ok:
         _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
@@ -355,6 +493,39 @@ async def admin_rotate_google_ads_credentials(
                 "credential_status": None,
                 "secret_status": None,
                 "errors": auth_errors,
+            },
+        )
+
+    token = extract_bearer_token(
+        dict(request.headers).get("authorization") or dict(request.headers).get("Authorization")
+    )
+    tenant_ok, tenant_errors = validate_tenant_access(token, tenant_id, config)
+    if not tenant_ok:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "errors": tenant_errors,
+            },
+        )
+
+    rl_ok, rl_errors = check_rate_limit(token, RateLimitCategory.SENSITIVE, config)
+    if not rl_ok:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
+                "client_id": client_id,
+                "integration_type": "google_ads",
+                "errors": rl_errors,
             },
         )
 

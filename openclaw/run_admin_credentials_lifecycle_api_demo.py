@@ -1,5 +1,6 @@
 """
-V5.15 / V5.16 — Credential lifecycle validation, RBAC, and rotation API demo (FastAPI TestClient).
+V5.15 / V5.16 / V5.17 — Credential lifecycle validation, RBAC, rotation, per-tenant
+token isolation, and rate limiting API demo (FastAPI TestClient).
 
 No HTTP server. No GCP. No live Google Ads API calls. Fake values only.
 
@@ -29,6 +30,24 @@ V5.16 Phase 3 rotate scenarios (A–F):
   Rotate D — rotate with incomplete payload → 400, missing_fields
   Rotate E — read token cannot rotate → 403 scope_not_granted
   Rotate F — admin token can rotate → 200 ok=true
+
+V5.17 Phase 3 per-tenant token isolation scenarios (A–G):
+  Tenant A — no OPENCLAW_TENANT_KEYS → backward compat, all tenants accessible
+  Tenant B — token restricted to tenant-a → allowed; tenant-b → 403 tenant_access_denied
+  Tenant C — token for multiple tenants → all listed tenants allowed
+  Tenant D — token not listed while map is set → global access (backward compat)
+  Tenant E — scope check before tenant check: read token on WRITE → scope_not_granted
+  Tenant F — invalid token → 401 unauthorized (not tenant_access_denied)
+  Tenant G — no token values or allow-list strings in any tenant scenario response
+
+V5.17 Phase 4 rate limiting scenarios (A–G):
+  Rate A — disabled by default (limit=0): repeated calls not rate-limited
+  Rate B — standard limit=2: third standard request → 429 rate_limit_exceeded
+  Rate C — sensitive limit=1: second rotate → 429 rate_limit_exceeded
+  Rate D — standard and sensitive budgets are separate (independent deques)
+  Rate E — per-token isolation: token-a exhausted does not affect token-b
+  Rate F — auth/scope/tenant denials do not consume rate budget
+  Rate G — no token values in any rate scenario response
 
 Env vars are set before importing server to avoid module-level config issues.
 """
@@ -90,7 +109,7 @@ def run_demo():
         os.environ[k] = v
 
     for mod in list(sys.modules.keys()):
-        if mod in ("server", "admin", "config", "auth", "openclaw", "schemas", "audit"):
+        if mod in ("server", "admin", "config", "auth", "openclaw", "schemas", "audit", "rate_limit"):
             del sys.modules[mod]
 
     print("V5.15 — Admin Credential Lifecycle Validation Demo (FastAPI TestClient)")
@@ -110,6 +129,9 @@ def run_demo():
         _shared_store = _InMemory()
         _original_create_secret_store = _admin_mod.create_secret_store
         _admin_mod.create_secret_store = lambda: _shared_store
+
+        import rate_limit as _rl_mod
+        _rl = _rl_mod.get_rate_limiter()
 
         client = TestClient(app, raise_server_exceptions=True)
 
@@ -620,6 +642,335 @@ def run_demo():
         os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
         os.environ.pop("OPENCLAW_READ_KEYS", None)
 
+        # ── Tenant A–G: Per-tenant token isolation (V5.17 Phase 3) ──────────
+        _ADMIN_TENANT_TOKEN = "admin-tenant-token"
+        _READ_TENANT_TOKEN = "read-tenant-token"
+        _OTHER_TOKEN = "other-tenant-token"
+        _TENANT_TOKEN_VALUES = {_ADMIN_TENANT_TOKEN, _READ_TENANT_TOKEN, _OTHER_TOKEN}
+        _ISO_CLIENT = "tenant-iso-client"
+        _TENANT_A_HDR = {"Authorization": f"Bearer {_ADMIN_TENANT_TOKEN}"}
+        _TENANT_R_HDR = {"Authorization": f"Bearer {_READ_TENANT_TOKEN}"}
+        _TENANT_O_HDR = {"Authorization": f"Bearer {_OTHER_TOKEN}"}
+
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "true"
+        os.environ["OPENCLAW_ADMIN_KEYS"] = _ADMIN_TENANT_TOKEN
+        os.environ["OPENCLAW_READ_KEYS"] = _READ_TENANT_TOKEN
+
+        # ── Tenant A — no OPENCLAW_TENANT_KEYS → backward compat ─────────────
+        print("\n" + "-" * 60)
+        print("  Tenant A. No OPENCLAW_TENANT_KEYS → all tenants accessible")
+        print("-" * 60)
+        os.environ.pop("OPENCLAW_TENANT_KEYS", None)
+        _TA_URL = f"/openclaw/admin/tenants/tenant-a/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        r_ta = client.get(_TA_URL, headers=_TENANT_A_HDR)
+        print(f"Status: {r_ta.status_code}")
+        d_ta = r_ta.json()
+        ok_ta = _check(r_ta.status_code == 200, "tenant A: no restriction → 200")
+        ok_ta &= _check(d_ta.get("ok") is True, "tenant A: ok=true")
+        all_pass = all_pass and ok_ta
+
+        # ── Tenant B — token restricted to one tenant ─────────────────────────
+        print("\n" + "-" * 60)
+        print("  Tenant B. Token restricted to tenant-a → allowed; tenant-b → 403")
+        print("-" * 60)
+        os.environ["OPENCLAW_TENANT_KEYS"] = f"{_ADMIN_TENANT_TOKEN}:tenant-a"
+        _TB_OK_URL = f"/openclaw/admin/tenants/tenant-a/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        _TB_DENY_URL = f"/openclaw/admin/tenants/tenant-b/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        r_tb_ok = client.get(_TB_OK_URL, headers=_TENANT_A_HDR)
+        print(f"  tenant-a status: {r_tb_ok.status_code}")
+        d_tb_ok = r_tb_ok.json()
+        ok_tb = _check(r_tb_ok.status_code == 200, "tenant B: allowed tenant → 200")
+        ok_tb &= _check(d_tb_ok.get("ok") is True, "tenant B: ok=true for allowed tenant")
+        r_tb_deny = client.get(_TB_DENY_URL, headers=_TENANT_A_HDR)
+        print(f"  tenant-b status: {r_tb_deny.status_code}")
+        d_tb_deny = r_tb_deny.json()
+        ok_tb &= _check(r_tb_deny.status_code == 403, "tenant B: unlisted tenant → 403")
+        ok_tb &= _check(d_tb_deny.get("ok") is False, "tenant B: ok=false for denied tenant")
+        codes_tb = [e.get("code") for e in d_tb_deny.get("errors", []) if isinstance(e, dict)]
+        ok_tb &= _check("tenant_access_denied" in codes_tb, "tenant B: error code tenant_access_denied")
+        all_pass = all_pass and ok_tb
+
+        # ── Tenant C — token allowed for multiple tenants ─────────────────────
+        print("\n" + "-" * 60)
+        print("  Tenant C. Token for two tenants → both allowed")
+        print("-" * 60)
+        os.environ["OPENCLAW_TENANT_KEYS"] = (
+            f"{_ADMIN_TENANT_TOKEN}:tenant-a,{_ADMIN_TENANT_TOKEN}:tenant-b"
+        )
+        _TC_A_URL = f"/openclaw/admin/tenants/tenant-a/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        _TC_B_URL = f"/openclaw/admin/tenants/tenant-b/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        r_tc_a = client.get(_TC_A_URL, headers=_TENANT_A_HDR)
+        r_tc_b = client.get(_TC_B_URL, headers=_TENANT_A_HDR)
+        print(f"  tenant-a status: {r_tc_a.status_code}, tenant-b status: {r_tc_b.status_code}")
+        d_tc_a = r_tc_a.json()
+        d_tc_b = r_tc_b.json()
+        ok_tc = _check(r_tc_a.status_code == 200, "tenant C: tenant-a allowed → 200")
+        ok_tc &= _check(r_tc_b.status_code == 200, "tenant C: tenant-b allowed → 200")
+        all_pass = all_pass and ok_tc
+
+        # ── Tenant D — token not listed while map is set → global access ──────
+        print("\n" + "-" * 60)
+        print("  Tenant D. Unlisted token while map set → global access")
+        print("-" * 60)
+        os.environ["OPENCLAW_TENANT_KEYS"] = f"{_READ_TENANT_TOKEN}:tenant-x"
+        _TD_URL = f"/openclaw/admin/tenants/tenant-y/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        r_td = client.get(_TD_URL, headers=_TENANT_A_HDR)
+        print(f"Status: {r_td.status_code}")
+        d_td = r_td.json()
+        ok_td = _check(r_td.status_code == 200, "tenant D: unlisted admin token → global access → 200")
+        ok_td &= _check(d_td.get("ok") is True, "tenant D: ok=true")
+        all_pass = all_pass and ok_td
+
+        # ── Tenant E — scope checked before tenant; read token on WRITE → 403 scope
+        print("\n" + "-" * 60)
+        print("  Tenant E. Read token on WRITE route → scope_not_granted (not tenant_access_denied)")
+        print("-" * 60)
+        os.environ["OPENCLAW_TENANT_KEYS"] = f"{_READ_TENANT_TOKEN}:tenant-x"
+        _TE_URL = f"/openclaw/admin/tenants/tenant-y/clients/{_ISO_CLIENT}/credentials/google-ads"
+        r_te = client.post(_TE_URL, json={"customer_id": "1234509876"}, headers=_TENANT_R_HDR)
+        print(f"Status: {r_te.status_code}")
+        d_te = r_te.json()
+        ok_te = _check(r_te.status_code == 403, "tenant E: scope check → 403")
+        ok_te &= _check(d_te.get("ok") is False, "tenant E: ok=false")
+        codes_te = [e.get("code") for e in d_te.get("errors", []) if isinstance(e, dict)]
+        ok_te &= _check("scope_not_granted" in codes_te, "tenant E: error scope_not_granted (not tenant_access_denied)")
+        ok_te &= _check("tenant_access_denied" not in codes_te, "tenant E: no tenant_access_denied in scope failure")
+        all_pass = all_pass and ok_te
+
+        # ── Tenant F — invalid token → 401 even if listed in tenant_keys ──────
+        print("\n" + "-" * 60)
+        print("  Tenant F. Invalid token (not in any key list) → 401 unauthorized")
+        print("-" * 60)
+        os.environ["OPENCLAW_TENANT_KEYS"] = f"{_OTHER_TOKEN}:tenant-a"
+        _TF_URL = f"/openclaw/admin/tenants/tenant-a/clients/{_ISO_CLIENT}/credentials/google-ads/status"
+        r_tf = client.get(_TF_URL, headers=_TENANT_O_HDR)
+        print(f"Status: {r_tf.status_code}")
+        d_tf = r_tf.json()
+        ok_tf = _check(r_tf.status_code == 401, "tenant F: invalid token → 401 (not tenant_access_denied)")
+        ok_tf &= _check(d_tf.get("ok") is False, "tenant F: ok=false")
+        codes_tf = [e.get("code") for e in d_tf.get("errors", []) if isinstance(e, dict)]
+        ok_tf &= _check("unauthorized" in codes_tf, "tenant F: error unauthorized")
+        ok_tf &= _check("tenant_access_denied" not in codes_tf, "tenant F: no tenant_access_denied for invalid token")
+        all_pass = all_pass and ok_tf
+
+        # ── Tenant G — no token values or allow-list in tenant scenario responses
+        print("\n" + "-" * 60)
+        print("  Tenant G. No token values or allow-list strings in tenant scenario responses")
+        print("-" * 60)
+        ok_tg = True
+        tenant_responses = [
+            (d_ta, "tenant-A-backward-compat"),
+            (d_tb_ok, "tenant-B-allowed"),
+            (d_tb_deny, "tenant-B-denied"),
+            (d_tc_a, "tenant-C-a-allowed"),
+            (d_tc_b, "tenant-C-b-allowed"),
+            (d_td, "tenant-D-global"),
+            (d_te, "tenant-E-scope-first"),
+            (d_tf, "tenant-F-invalid-token"),
+        ]
+        for resp_dict, label in tenant_responses:
+            raw = json.dumps(resp_dict)
+            leaked_tokens = [v for v in _TENANT_TOKEN_VALUES if v in raw]
+            ok_one = len(leaked_tokens) == 0
+            tag = _PASS if ok_one else _FAIL
+            detail = f" — leaked: {leaked_tokens}" if leaked_tokens else ""
+            print(f"  {tag}: no token values in {label}{detail}")
+            ok_tg &= ok_one
+            ok_tg &= _no_fake_values(resp_dict, f"no credential values in {label}")
+        all_pass = all_pass and ok_tg
+
+        # Restore to no-auth state
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "false"
+        os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
+        os.environ.pop("OPENCLAW_READ_KEYS", None)
+        os.environ.pop("OPENCLAW_TENANT_KEYS", None)
+
+        # ── Rate limiting scenarios (A–G, V5.17 Phase 4) ─────────────────────
+        _RATE_ADMIN_A = "admin-rate-token-a"
+        _RATE_ADMIN_B = "admin-rate-token-b"
+        _RATE_READ_RL = "read-rate-token"
+        _RATE_TOKEN_VALUES = {_RATE_ADMIN_A, _RATE_ADMIN_B, _RATE_READ_RL}
+        _RL_TENANT = "rate-limit-tenant"
+        _RL_CLIENT = "rate-limit-client"
+        _RL_BASE = f"/openclaw/admin/tenants/{_RL_TENANT}/clients/{_RL_CLIENT}/credentials/google-ads"
+        _RL_A_HDR = {"Authorization": f"Bearer {_RATE_ADMIN_A}"}
+        _RL_B_HDR = {"Authorization": f"Bearer {_RATE_ADMIN_B}"}
+        _RL_R_HDR = {"Authorization": f"Bearer {_RATE_READ_RL}"}
+
+        rate_responses = []
+
+        # ── Rate A — disabled by default (limit=0) ────────────────────────────
+        print("\n" + "-" * 60)
+        print("  Rate A. Rate limit disabled by default → repeated calls not rate-limited")
+        print("-" * 60)
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "true"
+        os.environ["OPENCLAW_ADMIN_KEYS"] = _RATE_ADMIN_A
+        os.environ.pop("OPENCLAW_ADMIN_RATE_LIMIT_RPM", None)
+        os.environ.pop("OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM", None)
+        _rl.reset_for_tests()
+        ok_rl_a = True
+        for i in range(1, 5):
+            r = client.get(f"{_RL_BASE}/status", headers=_RL_A_HDR)
+            d = r.json()
+            rate_responses.append(d)
+            ok_rl_a &= _check(r.status_code != 429, f"rate A: request {i} not rate-limited (got {r.status_code})")
+        all_pass = all_pass and ok_rl_a
+
+        # ── Rate B — standard limit enforced ──────────────────────────────────
+        print("\n" + "-" * 60)
+        print("  Rate B. Standard limit=2: third request → 429 rate_limit_exceeded")
+        print("-" * 60)
+        os.environ["OPENCLAW_ADMIN_RATE_LIMIT_RPM"] = "2"
+        os.environ.pop("OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM", None)
+        _rl.reset_for_tests()
+        ok_rl_b = True
+        for i, expect_429 in enumerate([False, False, True], start=1):
+            r = client.get(f"{_RL_BASE}/status", headers=_RL_A_HDR)
+            d = r.json()
+            rate_responses.append(d)
+            if expect_429:
+                ok_rl_b &= _check(r.status_code == 429, f"rate B: request {i} → 429")
+                codes = [e.get("code") for e in d.get("errors", []) if isinstance(e, dict)]
+                ok_rl_b &= _check("rate_limit_exceeded" in codes, "rate B: error code rate_limit_exceeded")
+                ok_rl_b &= _check(
+                    any(e.get("retry_after_seconds", 0) > 0 for e in d.get("errors", []) if isinstance(e, dict)),
+                    "rate B: retry_after_seconds > 0"
+                )
+            else:
+                ok_rl_b &= _check(r.status_code == 200, f"rate B: request {i} → 200")
+        all_pass = all_pass and ok_rl_b
+
+        # ── Rate C — sensitive limit enforced ─────────────────────────────────
+        print("\n" + "-" * 60)
+        print("  Rate C. Sensitive limit=1: second rotate → 429 rate_limit_exceeded")
+        print("-" * 60)
+        os.environ.pop("OPENCLAW_ADMIN_RATE_LIMIT_RPM", None)
+        os.environ["OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM"] = "1"
+        _rl.reset_for_tests()
+        ok_rl_c = True
+        r_rl_c1 = client.post(f"{_RL_BASE}/rotate", json={**_FAKE_SECRETS}, headers=_RL_A_HDR)
+        d_rl_c1 = r_rl_c1.json()
+        rate_responses.append(d_rl_c1)
+        ok_rl_c &= _check(r_rl_c1.status_code != 429, f"rate C: first rotate not 429 (got {r_rl_c1.status_code})")
+        r_rl_c2 = client.post(f"{_RL_BASE}/rotate", json={**_FAKE_SECRETS}, headers=_RL_A_HDR)
+        d_rl_c2 = r_rl_c2.json()
+        rate_responses.append(d_rl_c2)
+        ok_rl_c &= _check(r_rl_c2.status_code == 429, "rate C: second rotate → 429")
+        codes_rl_c = [e.get("code") for e in d_rl_c2.get("errors", []) if isinstance(e, dict)]
+        ok_rl_c &= _check("rate_limit_exceeded" in codes_rl_c, "rate C: error code rate_limit_exceeded")
+        all_pass = all_pass and ok_rl_c
+
+        # ── Rate D — standard and sensitive budgets are separate ───────────────
+        print("\n" + "-" * 60)
+        print("  Rate D. Standard and sensitive budgets are independent")
+        print("-" * 60)
+        os.environ["OPENCLAW_ADMIN_RATE_LIMIT_RPM"] = "1"
+        os.environ["OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM"] = "1"
+        _rl.reset_for_tests()
+        ok_rl_d = True
+        r_rl_d_rot = client.post(f"{_RL_BASE}/rotate", json={**_FAKE_SECRETS}, headers=_RL_A_HDR)
+        d_rl_d_rot = r_rl_d_rot.json()
+        rate_responses.append(d_rl_d_rot)
+        ok_rl_d &= _check(r_rl_d_rot.status_code != 429, f"rate D: rotate (sensitive) not 429 (got {r_rl_d_rot.status_code})")
+        r_rl_d_stat = client.get(f"{_RL_BASE}/status", headers=_RL_A_HDR)
+        d_rl_d_stat = r_rl_d_stat.json()
+        rate_responses.append(d_rl_d_stat)
+        ok_rl_d &= _check(r_rl_d_stat.status_code == 200, "rate D: status (standard) → 200 despite sensitive exhausted")
+        all_pass = all_pass and ok_rl_d
+
+        # ── Rate E — per-token isolation ──────────────────────────────────────
+        print("\n" + "-" * 60)
+        print("  Rate E. Token-a exhausted does not affect token-b")
+        print("-" * 60)
+        os.environ["OPENCLAW_ADMIN_RATE_LIMIT_RPM"] = "1"
+        os.environ.pop("OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM", None)
+        os.environ["OPENCLAW_ADMIN_KEYS"] = f"{_RATE_ADMIN_A},{_RATE_ADMIN_B}"
+        _rl.reset_for_tests()
+        ok_rl_e = True
+        r_rl_e_a1 = client.get(f"{_RL_BASE}/status", headers=_RL_A_HDR)
+        d_rl_e_a1 = r_rl_e_a1.json()
+        rate_responses.append(d_rl_e_a1)
+        ok_rl_e &= _check(r_rl_e_a1.status_code == 200, "rate E: token-a first request → 200")
+        r_rl_e_a2 = client.get(f"{_RL_BASE}/status", headers=_RL_A_HDR)
+        d_rl_e_a2 = r_rl_e_a2.json()
+        rate_responses.append(d_rl_e_a2)
+        ok_rl_e &= _check(r_rl_e_a2.status_code == 429, "rate E: token-a second request → 429 (budget exhausted)")
+        r_rl_e_b1 = client.get(f"{_RL_BASE}/status", headers=_RL_B_HDR)
+        d_rl_e_b1 = r_rl_e_b1.json()
+        rate_responses.append(d_rl_e_b1)
+        ok_rl_e &= _check(r_rl_e_b1.status_code == 200, "rate E: token-b unaffected → 200")
+        all_pass = all_pass and ok_rl_e
+
+        # ── Rate F — auth/scope/tenant denials do not consume rate budget ──────
+        print("\n" + "-" * 60)
+        print("  Rate F. Auth/scope/tenant denials do not consume rate budget")
+        print("-" * 60)
+        os.environ["OPENCLAW_ADMIN_RATE_LIMIT_RPM"] = "1"
+        os.environ.pop("OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM", None)
+        os.environ["OPENCLAW_ADMIN_KEYS"] = _RATE_ADMIN_A
+        os.environ["OPENCLAW_READ_KEYS"] = _RATE_READ_RL
+        os.environ["OPENCLAW_TENANT_KEYS"] = f"{_RATE_ADMIN_A}:{_RL_TENANT}"
+        _rl.reset_for_tests()
+        ok_rl_f = True
+        _RL_OTHER_URL = (
+            f"/openclaw/admin/tenants/other-rl-tenant/clients/{_RL_CLIENT}"
+            f"/credentials/google-ads/status"
+        )
+        # 1. invalid token → 401 (auth fail, no budget consumed)
+        r_rl_f_inv = client.get(f"{_RL_BASE}/status", headers={"Authorization": "Bearer totally-invalid-rate-token"})
+        d_rl_f_inv = r_rl_f_inv.json()
+        rate_responses.append(d_rl_f_inv)
+        ok_rl_f &= _check(r_rl_f_inv.status_code == 401, "rate F: invalid token → 401 (no budget consumed)")
+        # 2. scope denial: read token on write route → 403 scope_not_granted (no budget consumed)
+        r_rl_f_scope = client.post(_RL_BASE, json={"customer_id": "1234567890"}, headers=_RL_R_HDR)
+        d_rl_f_scope = r_rl_f_scope.json()
+        rate_responses.append(d_rl_f_scope)
+        ok_rl_f &= _check(r_rl_f_scope.status_code == 403, "rate F: scope denial → 403 (no budget consumed)")
+        codes_rl_f_scope = [e.get("code") for e in d_rl_f_scope.get("errors", []) if isinstance(e, dict)]
+        ok_rl_f &= _check("scope_not_granted" in codes_rl_f_scope, "rate F: scope_not_granted not rate_limit_exceeded")
+        # 3. tenant denial: admin token on unlisted tenant → 403 tenant_access_denied (no budget consumed)
+        r_rl_f_tenant = client.get(_RL_OTHER_URL, headers=_RL_A_HDR)
+        d_rl_f_tenant = r_rl_f_tenant.json()
+        rate_responses.append(d_rl_f_tenant)
+        ok_rl_f &= _check(r_rl_f_tenant.status_code == 403, "rate F: tenant denial → 403 (no budget consumed)")
+        codes_rl_f_tenant = [e.get("code") for e in d_rl_f_tenant.get("errors", []) if isinstance(e, dict)]
+        ok_rl_f &= _check("tenant_access_denied" in codes_rl_f_tenant, "rate F: tenant_access_denied not rate_limit_exceeded")
+        # 4. valid request → 200 (budget intact: failures above did not consume it)
+        r_rl_f_ok = client.get(f"{_RL_BASE}/status", headers=_RL_A_HDR)
+        d_rl_f_ok = r_rl_f_ok.json()
+        rate_responses.append(d_rl_f_ok)
+        ok_rl_f &= _check(r_rl_f_ok.status_code == 200, "rate F: valid request (budget intact) → 200")
+        # 5. second valid request → 429 (budget now exhausted after one success)
+        r_rl_f_deny = client.get(f"{_RL_BASE}/status", headers=_RL_A_HDR)
+        d_rl_f_deny = r_rl_f_deny.json()
+        rate_responses.append(d_rl_f_deny)
+        ok_rl_f &= _check(r_rl_f_deny.status_code == 429, "rate F: second valid request → 429 (budget exhausted)")
+        all_pass = all_pass and ok_rl_f
+
+        # Restore to no-auth / no-rate-limit state
+        os.environ["OPENCLAW_API_AUTH_ENABLED"] = "false"
+        os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
+        os.environ.pop("OPENCLAW_READ_KEYS", None)
+        os.environ.pop("OPENCLAW_TENANT_KEYS", None)
+        os.environ.pop("OPENCLAW_ADMIN_RATE_LIMIT_RPM", None)
+        os.environ.pop("OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM", None)
+
+        # ── Rate G — no token values in any rate scenario response ────────────
+        print("\n" + "-" * 60)
+        print("  Rate G. No token values in any rate scenario response")
+        print("-" * 60)
+        ok_rl_g = True
+        for i, resp_dict in enumerate(rate_responses):
+            raw = json.dumps(resp_dict)
+            leaked_tokens = [v for v in _RATE_TOKEN_VALUES if v in raw]
+            ok_one = len(leaked_tokens) == 0
+            tag = _PASS if ok_one else _FAIL
+            detail = f" — leaked: {leaked_tokens}" if leaked_tokens else ""
+            print(f"  {tag}: no token values in rate response {i + 1}{detail}")
+            ok_rl_g &= ok_one
+            ok_rl_g &= _no_fake_values(resp_dict, f"no credential values in rate response {i + 1}")
+        all_pass = all_pass and ok_rl_g
+
         # ── Leak assertion across all API responses ───────────────────────────
         print("\n" + "-" * 60)
         print("  Leak assertion — all API responses")
@@ -636,7 +987,12 @@ def run_demo():
             (d_rot_a, "rotate-A-success"), (d_rot_b, "rotate-B-notfound"),
             (d_rot_c, "rotate-C-revoked"), (d_rot_d, "rotate-D-incomplete"),
             (d_rot_e, "rotate-E-read-denied"), (d_rot_f, "rotate-F-admin-ok"),
+            (d_ta, "tenant-A-backward-compat"), (d_tb_ok, "tenant-B-allowed"),
+            (d_tb_deny, "tenant-B-denied"), (d_tc_a, "tenant-C-a-allowed"),
+            (d_tc_b, "tenant-C-b-allowed"), (d_td, "tenant-D-global"),
+            (d_te, "tenant-E-scope-first"), (d_tf, "tenant-F-invalid-token"),
         ]
+        all_responses += [(d, f"rate-response-{i + 1}") for i, d in enumerate(rate_responses)]
         for resp_dict, label in all_responses:
             ok_leak &= _no_fake_values(resp_dict, f"no fake values in {label}")
         all_pass = all_pass and ok_leak
@@ -658,6 +1014,9 @@ def run_demo():
         os.environ.pop("OPENCLAW_API_KEYS", None)
         os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
         os.environ.pop("OPENCLAW_READ_KEYS", None)
+        os.environ.pop("OPENCLAW_TENANT_KEYS", None)
+        os.environ.pop("OPENCLAW_ADMIN_RATE_LIMIT_RPM", None)
+        os.environ.pop("OPENCLAW_ADMIN_RATE_LIMIT_SENSITIVE_RPM", None)
         try:
             _admin_mod.create_secret_store = _original_create_secret_store
         except NameError:
@@ -670,7 +1029,7 @@ def run_demo():
         import shutil
         shutil.rmtree(tmp_dir, ignore_errors=True)
         for mod in list(sys.modules.keys()):
-            if mod in ("server", "admin", "config", "auth", "openclaw", "schemas", "audit"):
+            if mod in ("server", "admin", "config", "auth", "openclaw", "schemas", "audit", "rate_limit"):
                 del sys.modules[mod]
 
 
