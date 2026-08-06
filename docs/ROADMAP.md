@@ -492,3 +492,43 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - OAuth2 / admin identity provider integration
 - Real Google Ads OAuth credential onboarding and live API validation
 - Live GCP lifecycle validation execution (results template is unfilled)
+
+---
+
+## V5.18 — Live GCP Fake-Secret Validation (branch: `v5.18-live-gcp-fake-validation`)
+
+**Goal:** Execute the controlled live GCP Secret Manager lifecycle validation that V5.17 planned but did not execute. Validate the full HTTP → `server.py` → `admin.py` → `GCPSecretManagerStore` chain using fake Google Ads credential values only — write, status, validate, rotate, delete, audit verification, and cleanup.
+
+**Base release:** `v5.17.0-beta`
+
+- [ ] **Phase A — Local and tool preflight** — branch state, smoke suite baseline (20/20 + 8/8), GOOGLE_ADS_LIVE_ENABLED=false confirmed
+- [ ] **Phase B — GCP CLI/auth preflight** — gcloud, ADC, no existing rehearsal secret, IAM confirmed
+- [ ] **Phase C — Secret Manager API availability check** — `gcp_secret_manager_status()` returns enabled + project configured
+- [ ] **Phase D — Local env setup** — placeholder env vars only; temp audit root and credential store paths outside repo
+- [ ] **Phase E — Start local OpenClaw server** — `GCP_SECRET_MANAGER_ENABLED=true`, `GOOGLE_ADS_LIVE_ENABLED=false`, health check PASS
+- [ ] **Phase F — Write fake credential bundle** — `POST /credentials/google-ads` → `GCPSecretManagerStore.put_secret_bundle()` with fake values
+- [ ] **Phase G — Read metadata/status** — `GET /credentials/google-ads/status` → `secret_status.configured: true`
+- [ ] **Phase H — Structural validate** — `POST /credentials/google-ads/validate` → `structurally_complete: true`, `live_api_tested: false`
+- [ ] **Phase I — Rotate fake bundle** — `POST /credentials/google-ads/rotate` → V2 fake values written; prior version observed (not destroyed)
+- [ ] **Phase J — Delete/revoke** — `DELETE /credentials/google-ads` → `GCPSecretManagerStore.delete_secret()` · `OPENCLAW_ADMIN_DELETE_ENABLED=true` required
+- [ ] **Phase K — Post-delete status** — `GET /credentials/google-ads/status` → `status: revoked`, `secret_status.configured: false`
+- [ ] **Phase L — Audit verification** — `verify_audit_file()` → `ok=true`, `events_checked` ≥ 4, seq/digest chain valid, `lock_used=true`
+- [ ] **Phase M — Secret Manager cleanup** — rehearsal secret absent, temp files removed, delete gate restored
+- [ ] **Phase N — Results documentation** — `docs/V5_18_LIVE_GCP_FAKE_VALIDATION_RESULTS.md` filled, redacted, reviewed, committed
+
+**Scope constraints:**
+- No real Google Ads credentials
+- `GOOGLE_ADS_LIVE_ENABLED=false` throughout
+- No Cloud Run deployment
+- No new fixed-cost infrastructure
+- No IAM changes
+- No billing changes
+- GCP commands require explicit operator approval per-prompt
+
+**Deferred from V5.18:**
+- Real Google Ads OAuth credential onboarding (requires separate gating and approval)
+- Cloud Run deployment (requires service account, IAM, billing authorization)
+- GCP Secret Manager version destruction / disable policy on rotate
+- Redis/Memorystore distributed rate limiting
+- BigQuery audit replication / Cloud Storage audit archival
+- KMS/HSM cryptographic audit signing
