@@ -25,8 +25,8 @@
 
 | Field | Value |
 |---|---|
-| `executed` | No |
-| `date` | `<YYYY-MM-DD>` |
+| `executed` | Preflight complete (Phases A and B PASS; Phases C–N not yet started) |
+| `date` | `2026-08-06` |
 | `final_decision` | Pending |
 
 ---
@@ -64,17 +64,40 @@ Redaction confirmation: **PASS / FAIL**
 
 Fill in after Phase B completes. Record status only — no project IDs, emails, or account details.
 
+**Phase A — Local repo and tool preflight:**
+
 | Check | Result |
 |---|---|
-| gcloud installed | PASS / FAIL |
-| Active account confirmed | PASS / FAIL |
-| Active project confirmed | PASS / FAIL |
-| Secret Manager API enabled | PASS / FAIL |
-| Application-default credentials valid | PASS / FAIL |
-| No existing kaiju-rehearsal secret | PASS / FAIL |
-| IAM bindings sufficient | PASS / FAIL |
+| Branch | `v5.18-live-gcp-fake-validation` |
+| Latest commit | `a2f61ce Start V5.18 live GCP fake validation planning` |
+| Working tree | Clean (only results doc modified — expected) |
+| `GOOGLE_ADS_LIVE_ENABLED` | `false` (default — not set) |
+| `fastapi` Python package | AVAILABLE |
+| `uvicorn` Python package | AVAILABLE |
+| `google.cloud.secretmanager` Python package | AVAILABLE |
+| `requests` Python package | AVAILABLE |
+| `smoke_test_v5_credentials.sh` | **20/20 PASS** |
+| `smoke_test_v5_12_gcp_secret_manager.sh` | **8/8 PASS** |
+| No credential JSON tracked | PASS |
+| No runtime files tracked | PASS |
+| `.env` files tracked | `.env.example` only — PASS |
 
-Phase B overall: **PASS / FAIL**
+Phase A overall: **PASS**
+
+**Phase B — GCP CLI and auth preflight:**
+
+| Check | Result |
+|---|---|
+| gcloud installed | **PASS** — Google Cloud SDK 579.0.0 |
+| Active account confirmed | **PASS** — active account present (redacted) |
+| Active project confirmed | **PASS** — project configured (redacted) |
+| Application-default credentials valid | **PASS** — ADC token available (redacted) |
+| Secret Manager CLI surface | **PASS** — `gcloud secrets --help` succeeded |
+| Secret Manager API enabled | Pending — confirmed by CLI surface; API enablement check deferred to Phase C |
+| No existing kaiju-rehearsal secret | Pending — secret list check deferred to Phase C/D |
+| IAM bindings sufficient | Pending — IAM review deferred to operator pre-execution |
+
+Phase B overall: **PASS** (tooling and auth confirmed; Secret Manager API status and IAM to be confirmed by operator before Phase F)
 
 ---
 
@@ -84,9 +107,9 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 
 | Phase | Objective | Executed | HTTP status | ok | credential_status | secret_status.configured | warnings / error_codes | Result | Redacted notes |
 |---|---|---|---|---|---|---|---|---|---|
-| A | Local repo and tool preflight | No | — | — | — | — | — | Pending | |
-| B | GCP CLI/auth preflight | No | — | — | — | — | — | Pending | |
-| C | Secret Manager API availability check | No | — | — | — | — | — | Pending | |
+| A | Local repo and tool preflight | Yes | — | — | — | — | — | **PASS** — branch/commit/tree/deps/smoke all confirmed |
+| B | GCP CLI/auth preflight | Yes | — | — | — | — | — | **PASS** — gcloud 579.0.0; account+project+ADC confirmed (redacted); Secret Manager CLI available |
+| C | Secret Manager API availability check | No | — | — | — | — | — | Pending |
 | D | Local env setup (placeholders only) | No | — | — | — | — | — | Pending | |
 | E | Start local OpenClaw server | No | — | — | — | — | — | Pending | |
 | F | Write fake credential bundle | No | | | | | | Pending | |
