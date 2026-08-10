@@ -93,11 +93,11 @@ Phase A overall: **PASS**
 | Active project confirmed | **PASS** — project configured (redacted) |
 | Application-default credentials valid | **PASS** — ADC token available (redacted) |
 | Secret Manager CLI surface | **PASS** — `gcloud secrets --help` succeeded |
-| Secret Manager API enabled | Pending — confirmed by CLI surface; API enablement check deferred to Phase C |
-| No existing kaiju-rehearsal secret | Pending — secret list check deferred to Phase C/D |
-| IAM bindings sufficient | Pending — IAM review deferred to operator pre-execution |
+| Secret Manager API enabled | **PASS** — operator confirmed API enabled (private check; no project ID recorded) |
+| No existing kaiju-rehearsal secret | **PASS** — secret count 0 confirmed (redacted; no secret names recorded) |
+| IAM bindings sufficient | **NOT EXECUTED / DEFERRED** — `gcloud projects test-iam-permissions` unsupported in SDK 579.0.0; IAM will be validated implicitly by Phase F (write) and Phase J (delete) |
 
-Phase B overall: **PASS** (tooling and auth confirmed; Secret Manager API status and IAM to be confirmed by operator before Phase F)
+Phase B overall: **PASS** (tooling, auth, API enablement, and secret-scan confirmed; IAM deferred to controlled write/delete phases — no GCP resources created, no secrets accessed, no APIs enabled, no IAM changed during these checks)
 
 ---
 
@@ -109,7 +109,7 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 |---|---|---|---|---|---|---|---|---|---|
 | A | Local repo and tool preflight | Yes | — | — | — | — | — | **PASS** — branch/commit/tree/deps/smoke all confirmed |
 | B | GCP CLI/auth preflight | Yes | — | — | — | — | — | **PASS** — gcloud 579.0.0; account+project+ADC confirmed (redacted); Secret Manager CLI available |
-| C | Secret Manager API availability check | No | — | — | — | — | — | Pending |
+| C | Secret Manager API availability check | Yes (operator private) | — | — | — | — | — | **PASS** — API enabled confirmed; secret count 0; IAM deferred (unsupported CLI surface in SDK 579.0.0) |
 | D | Local env setup (placeholders only) | No | — | — | — | — | — | Pending | |
 | E | Start local OpenClaw server | No | — | — | — | — | — | Pending | |
 | F | Write fake credential bundle | No | | | | | | Pending | |
