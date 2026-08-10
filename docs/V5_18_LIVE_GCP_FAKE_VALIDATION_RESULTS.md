@@ -195,6 +195,40 @@ Phase F overall (attempt 1): **BLOCKED** — configuration gap; not a code defec
 
 Phase F overall (attempt 2): **BLOCKED** — ADC token expired; not a code defect; no GCP resources created
 
+**Phase F (attempt 3) — Write fake credential bundle: PASS**
+
+| Check | Result |
+|---|---|
+| Operator authorization | **PASS** — same written authorization applies |
+| ADC refreshed by operator | **PASS** — operator confirmed re-auth complete |
+| `GCP_PROJECT_ID` set (redacted) | **PASS** |
+| `GOOGLE_CLOUD_PROJECT` set (redacted) | **PASS** |
+| Server startup | **PASS** — uvicorn startup complete, health ok=true |
+| Write call HTTP status | **200** |
+| Response `ok` | **true** |
+| Secret payload leak check | **PASS** — no forbidden fields in response |
+| `credential_status.configured` | `true` |
+| `credential_status.status` | `configured` |
+| `credential_ref` in response | Present (not printed) |
+| `secret_status.configured` | **true** |
+| `secret_status.configured_fields` | `{developer_token: true, client_id: true, client_secret: true, refresh_token: true}` |
+| Errors | none |
+| Warnings | none |
+| GCP write confirmed via | `access_secret_version` response (via `get_secret_status` → `_fetch_secret_bundle`) — returned configured=true |
+| Fake payload access | Fake payload accessed only for controlled field-presence verification; values were not printed, recorded, or returned by endpoint response |
+| GCP list count | Not available — gcloud CLI credentials separately expired; ADC used by Python client confirmed write succeeded |
+| Credential reference store | **PASS** — exists outside repo; entry count ≥1 |
+| Audit event written | **PASS** — `bundle_write ok=True seq=8`; `verify_audit_file` ok=true; 8 events total (4 attempts × 2 events each) |
+| Real credentials used | **No** |
+| GOOGLE_ADS_LIVE_ENABLED=false | **PASS** |
+| No deploy | **PASS** |
+| No IAM changed | **PASS** |
+| No APIs enabled | **PASS** |
+| Server stopped | **PASS** |
+| Cleanup pending | Yes — fake secret remains in GCP Secret Manager; cleanup in Phase J |
+
+Phase F overall (attempt 3): **PASS**
+
 ---
 
 ## 5. Validation Phase Table
@@ -208,7 +242,7 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 | C | Secret Manager API availability check | Yes (operator private) | — | — | — | — | — | **PASS** — API enabled confirmed; secret count 0; IAM deferred (unsupported CLI surface in SDK 579.0.0) |
 | D | Local env setup (placeholders only) | Yes | — | — | — | — | — | **PASS** — fake tokens only; temp paths outside repo; delete disabled; GCP SM enabled; live=false; no GCP writes | |
 | E | Start local OpenClaw server | Yes | 200 | true | — | — | — | **PASS** — uvicorn startup complete; `/openclaw/health` ok=true; 9 routes registered; server stopped after check | |
-| F | Write fake credential bundle | Attempted ×2 | 400 / 503 | false | — | — | `gcp_project_id_missing` → `gcp_secret_write_failed` (ADC expired) | **BLOCKED** — attempt 1: project env not set; attempt 2: ADC token expired; no secret created either attempt; operator must re-authenticate ADC before retry | |
+| F | Write fake credential bundle | Yes (attempt 3) | 200 | true | configured | true | — | **PASS** — fake bundle written to GCP Secret Manager; all 4 fields confirmed configured; audit ok; prior attempts 1–2 blocked (config/ADC) | |
 | G | Read metadata/status | No | | | | | | Pending | |
 | H | Structural validate endpoint | No | | | | | | Pending | |
 | I | Rotate fake credential bundle | No | | | | | | Pending | |
