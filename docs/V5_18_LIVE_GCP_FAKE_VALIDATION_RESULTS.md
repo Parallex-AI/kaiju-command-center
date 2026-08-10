@@ -144,6 +144,30 @@ Phase D overall: **PASS**
 
 Phase E overall: **PASS**
 
+**Phase F — Write fake credential bundle (BLOCKED):**
+
+| Check | Result |
+|---|---|
+| Operator authorization received | **PASS** — explicit written authorization for fake-secret write |
+| Server started with GCP env vars | **PASS** — uvicorn startup complete, health PASS |
+| Write call attempted | Yes |
+| HTTP status | 400 |
+| Error code | `secret_write_failed` → root cause: `gcp_project_id_missing` |
+| Root cause | `GCPSecretManagerStore._check_ready()` raised: `GCP_PROJECT_ID` or `GOOGLE_CLOUD_PROJECT` not set in server env |
+| Secret created in GCP | **No** — write never reached GCP; blocked before any network call |
+| Secret payload sent to GCP | **No** |
+| Credential reference store created | **No** |
+| Audit event written | **No** (write blocked before audit path) |
+| No real credentials used | **PASS** |
+| GOOGLE_ADS_LIVE_ENABLED=false | **PASS** |
+| No deploy | **PASS** |
+| No IAM changed | **PASS** |
+| No APIs enabled | **PASS** |
+| Server stopped | **PASS** |
+| Resolution required | Operator must supply `GCP_PROJECT_ID` (or `GOOGLE_CLOUD_PROJECT`) env var before Phase F retry |
+
+Phase F overall: **BLOCKED** — configuration gap; not a code defect; no GCP resources created
+
 ---
 
 ## 5. Validation Phase Table
@@ -157,7 +181,7 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 | C | Secret Manager API availability check | Yes (operator private) | — | — | — | — | — | **PASS** — API enabled confirmed; secret count 0; IAM deferred (unsupported CLI surface in SDK 579.0.0) |
 | D | Local env setup (placeholders only) | Yes | — | — | — | — | — | **PASS** — fake tokens only; temp paths outside repo; delete disabled; GCP SM enabled; live=false; no GCP writes | |
 | E | Start local OpenClaw server | Yes | 200 | true | — | — | — | **PASS** — uvicorn startup complete; `/openclaw/health` ok=true; 9 routes registered; server stopped after check | |
-| F | Write fake credential bundle | No | | | | | | Pending | |
+| F | Write fake credential bundle | Attempted | 400 | false | — | — | `secret_write_failed` / `gcp_project_id_missing` | **BLOCKED** — `GCP_PROJECT_ID` env var not set; server could not resolve project for Secret Manager write; no secret created; operator must supply `GCP_PROJECT_ID` before retry | |
 | G | Read metadata/status | No | | | | | | Pending | |
 | H | Structural validate endpoint | No | | | | | | Pending | |
 | I | Rotate fake credential bundle | No | | | | | | Pending | |
