@@ -166,7 +166,34 @@ Phase E overall: **PASS**
 | Server stopped | **PASS** |
 | Resolution required | Operator must supply `GCP_PROJECT_ID` (or `GOOGLE_CLOUD_PROJECT`) env var before Phase F retry |
 
-Phase F overall: **BLOCKED** — configuration gap; not a code defect; no GCP resources created
+Phase F overall (attempt 1): **BLOCKED** — configuration gap; not a code defect; no GCP resources created
+
+**Phase F retry — Write fake credential bundle (BLOCKED — second attempt):**
+
+| Check | Result |
+|---|---|
+| Operator authorization received | **PASS** — same written authorization applies |
+| `GCP_PROJECT_ID` set from gcloud config | **PASS** — project env present (redacted) |
+| `GOOGLE_CLOUD_PROJECT` set | **PASS** — present (redacted) |
+| Store init errors | None — `STORE_INIT_ERRORS: []` |
+| Store project ID set | `STORE_PROJECT_ID_SET: True` |
+| GCP network call reached | **Yes** — first time GCP Secret Manager API was contacted |
+| Write call result | `503 ServiceUnavailable` from GCP gRPC layer |
+| Error | `gcp_secret_write_failed` — `Reauthentication is needed` |
+| Root cause | ADC credentials expired; `gcloud auth application-default login` required to refresh |
+| Secret created in GCP | **No** — `create_secret` call rejected by GCP auth layer before any resource was created |
+| Secret payload sent to GCP | **No** — auth failure before payload reached GCP |
+| Credential reference store created | **No** |
+| Audit event written | **No** |
+| No real credentials used | **PASS** |
+| GOOGLE_ADS_LIVE_ENABLED=false | **PASS** |
+| No deploy | **PASS** |
+| No IAM changed | **PASS** |
+| No APIs enabled | **PASS** |
+| Server stopped | **PASS** |
+| Resolution required | Operator must run `gcloud auth application-default login` to refresh ADC before Phase F retry |
+
+Phase F overall (attempt 2): **BLOCKED** — ADC token expired; not a code defect; no GCP resources created
 
 ---
 
@@ -181,7 +208,7 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 | C | Secret Manager API availability check | Yes (operator private) | — | — | — | — | — | **PASS** — API enabled confirmed; secret count 0; IAM deferred (unsupported CLI surface in SDK 579.0.0) |
 | D | Local env setup (placeholders only) | Yes | — | — | — | — | — | **PASS** — fake tokens only; temp paths outside repo; delete disabled; GCP SM enabled; live=false; no GCP writes | |
 | E | Start local OpenClaw server | Yes | 200 | true | — | — | — | **PASS** — uvicorn startup complete; `/openclaw/health` ok=true; 9 routes registered; server stopped after check | |
-| F | Write fake credential bundle | Attempted | 400 | false | — | — | `secret_write_failed` / `gcp_project_id_missing` | **BLOCKED** — `GCP_PROJECT_ID` env var not set; server could not resolve project for Secret Manager write; no secret created; operator must supply `GCP_PROJECT_ID` before retry | |
+| F | Write fake credential bundle | Attempted ×2 | 400 / 503 | false | — | — | `gcp_project_id_missing` → `gcp_secret_write_failed` (ADC expired) | **BLOCKED** — attempt 1: project env not set; attempt 2: ADC token expired; no secret created either attempt; operator must re-authenticate ADC before retry | |
 | G | Read metadata/status | No | | | | | | Pending | |
 | H | Structural validate endpoint | No | | | | | | Pending | |
 | I | Rotate fake credential bundle | No | | | | | | Pending | |
