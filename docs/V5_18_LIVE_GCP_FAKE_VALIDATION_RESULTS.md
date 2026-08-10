@@ -25,7 +25,7 @@
 
 | Field | Value |
 |---|---|
-| `executed` | Preflight complete (Phases A and B PASS; Phases C–N not yet started) |
+| `executed` | Preflight complete (Phases A–C PASS; Phase D/E local env/server readiness PASS; Phases F–N not yet started) |
 | `date` | `2026-08-06` |
 | `final_decision` | Pending |
 
@@ -99,6 +99,51 @@ Phase A overall: **PASS**
 
 Phase B overall: **PASS** (tooling, auth, API enablement, and secret-scan confirmed; IAM deferred to controlled write/delete phases — no GCP resources created, no secrets accessed, no APIs enabled, no IAM changed during these checks)
 
+**Phase D — Local env setup:**
+
+| Check | Result |
+|---|---|
+| Fake admin token set | **PASS** — fake token only (not recorded) |
+| Fake read token set | **PASS** — fake token only (not recorded) |
+| Tenant isolation configured | **PASS** — fake tokens mapped to v518-fake-tenant |
+| Temp audit root outside repo | **PASS** — temporary path outside repo |
+| Temp credential store path outside repo | **PASS** — temporary path outside repo |
+| OPENCLAW_AUDIT_ENABLED=true | **PASS** |
+| OPENCLAW_ADMIN_DELETE_ENABLED=false | **PASS** |
+| GCP_SECRET_MANAGER_ENABLED=true | **PASS** |
+| GOOGLE_ADS_LIVE_ENABLED=false | **PASS** |
+| Rate limiting disabled (RPM=0) | **PASS** |
+| No real Google Ads credential env vars set | **PASS** |
+| No .env file written | **PASS** |
+| No credential JSON written | **PASS** |
+| No runtime files written inside repo | **PASS** |
+| No GCP write operations | **PASS** |
+| No secrets created or accessed | **PASS** |
+| No APIs enabled | **PASS** |
+| No IAM changed | **PASS** |
+
+Phase D overall: **PASS**
+
+**Phase E — Local server readiness:**
+
+| Check | Result |
+|---|---|
+| `openclaw/config.py` `get_config()` import | **PASS** |
+| Config: audit_enabled | **PASS** |
+| Config: audit_root outside repo | **PASS** |
+| Config: admin_keys set | **PASS** |
+| Config: read_keys set | **PASS** |
+| Config: tenant_keys present | **PASS** |
+| Config: rate_limit_rpm=0 | **PASS** |
+| Server import (from openclaw dir context) | **PASS** — 9 routes registered |
+| uvicorn startup | **PASS** — Application startup complete |
+| `/openclaw/health` HTTP 200 | **PASS** — `{"ok":true,"service":"kaiju-openclaw","version":"0.1.0","status":"healthy"}` (response structure only — no paths or tokens) |
+| Server stopped after check | **PASS** |
+| No credential endpoints called | **PASS** |
+| No GCP write operations | **PASS** |
+
+Phase E overall: **PASS**
+
 ---
 
 ## 5. Validation Phase Table
@@ -110,8 +155,8 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 | A | Local repo and tool preflight | Yes | — | — | — | — | — | **PASS** — branch/commit/tree/deps/smoke all confirmed |
 | B | GCP CLI/auth preflight | Yes | — | — | — | — | — | **PASS** — gcloud 579.0.0; account+project+ADC confirmed (redacted); Secret Manager CLI available |
 | C | Secret Manager API availability check | Yes (operator private) | — | — | — | — | — | **PASS** — API enabled confirmed; secret count 0; IAM deferred (unsupported CLI surface in SDK 579.0.0) |
-| D | Local env setup (placeholders only) | No | — | — | — | — | — | Pending | |
-| E | Start local OpenClaw server | No | — | — | — | — | — | Pending | |
+| D | Local env setup (placeholders only) | Yes | — | — | — | — | — | **PASS** — fake tokens only; temp paths outside repo; delete disabled; GCP SM enabled; live=false; no GCP writes | |
+| E | Start local OpenClaw server | Yes | 200 | true | — | — | — | **PASS** — uvicorn startup complete; `/openclaw/health` ok=true; 9 routes registered; server stopped after check | |
 | F | Write fake credential bundle | No | | | | | | Pending | |
 | G | Read metadata/status | No | | | | | | Pending | |
 | H | Structural validate endpoint | No | | | | | | Pending | |
