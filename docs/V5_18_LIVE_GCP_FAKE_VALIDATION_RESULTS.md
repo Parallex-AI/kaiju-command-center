@@ -262,6 +262,41 @@ Phase F overall (attempt 3): **PASS**
 
 Phase G overall: **PASS**
 
+**Phase H — Structural validate endpoint (BLOCKED — ADC expired):**
+
+| Check | Result |
+|---|---|
+| Route | `POST /openclaw/admin/tenants/.../clients/.../credentials/google-ads/validate` |
+| Auth scope required | `AdminScope.VALIDATE` |
+| Token used | Admin token (sufficient; not printed) |
+| Server startup | **PASS** — uvicorn startup complete, health ok=true |
+| `GCP_SECRET_MANAGER_ENABLED=true` | **PASS** — `GCPSecretManagerStore` selected by factory |
+| HTTP status | **200** |
+| Response `ok` | **true** (validate process ran; endpoint always returns ok=true if it reaches validation logic) |
+| `structurally_complete` | **false** — all 4 secret fields reported missing |
+| `missing_fields` | `['developer_token', 'client_id', 'client_secret', 'refresh_token']` |
+| `live_api_tested` | **false** — confirmed; no Google Ads API call made |
+| `secret_status.configured` | **false** |
+| `secret_status.available` | **false** |
+| `secret_status.enabled` | **true** |
+| `secret_status.backend` | `gcp_secret_manager` |
+| Secret payload accessed | **No** — GCP auth failed before `access_secret_version` returned data; fake payload values not reached |
+| Secret payload leak check | **PASS** — no forbidden field values in response |
+| Root cause | ADC credentials expired; `access_secret_version` rejected by GCP auth layer; `_fetch_secret_bundle` caught exception and returned `(None, error_code)` |
+| Prior Phase F PASS date | `2026-08-10` — 3 days elapsed; ADC tokens expire within ~1 hour |
+| Audit events written | **Yes** — 3 `op=validate ok=True errors=['secret_bundle_incomplete']` events in `2026-08-13.jsonl` (1 per call attempt; `secret_bundle_incomplete` is the audit code for structural incompleteness, distinct from a GCP error) |
+| `verify_audit_file` called | Not called this phase — audit file date boundary crossed (10→13); cross-date audit verification deferred to Phase L |
+| No real credentials used | **PASS** |
+| GOOGLE_ADS_LIVE_ENABLED=false | **PASS** |
+| No deploy | **PASS** |
+| No IAM changed | **PASS** |
+| No APIs enabled | **PASS** |
+| No GCP write | **PASS** |
+| Server stopped | **PASS** |
+| Resolution required | Operator must run `gcloud auth application-default login` to refresh ADC before Phase H retry |
+
+Phase H overall (attempt 1): **BLOCKED** — ADC token expired; not a code defect; no GCP resources created or modified; validate endpoint behavior confirmed correct (HTTP 200, ok=true, live_api_tested=false, no payload leak)
+
 ---
 
 ## 5. Validation Phase Table
@@ -277,7 +312,7 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 | E | Start local OpenClaw server | Yes | 200 | true | — | — | — | **PASS** — uvicorn startup complete; `/openclaw/health` ok=true; 9 routes registered; server stopped after check | |
 | F | Write fake credential bundle | Yes (attempt 3) | 200 | true | configured | true | — | **PASS** — fake bundle written to GCP Secret Manager; all 4 fields confirmed configured; audit ok; prior attempts 1–2 blocked (config/ADC) | |
 | G | Read metadata/status | Yes | 200 | true | configured | — | — | **PASS** — metadata-only read via LocalFileCredentialReferenceStore; no GCP call; no payload access; credential_ref present (not printed) | |
-| H | Structural validate endpoint | No | | | | | | Pending | |
+| H | Structural validate endpoint | Yes (attempt 1) | 200 | true | validation_failed | false | secret_bundle_incomplete | **BLOCKED** — ADC expired; endpoint ran correctly; no payload accessed; retry after `gcloud auth application-default login` | |
 | I | Rotate fake credential bundle | No | | | | | | Pending | |
 | J | Delete/revoke fake credential bundle | No | | | | | | Pending | |
 | K | Post-delete status check | No | | | | | | Pending | |
@@ -389,7 +424,9 @@ Record any phases that did not proceed as expected. Use error code strings and d
 
 | Phase | Expected result | Actual result | Error code | Resolution / notes |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| F attempt 1 | Write ok=true | 400 write_failed | `gcp_project_id_missing` | Fixed: added `GCP_PROJECT_ID` to server env |
+| F attempt 2 | Write ok=true | 503 write_failed | `gcp_secret_write_failed` (ADC expired) | Fixed: operator ran `gcloud auth application-default login` |
+| H attempt 1 | Validate structurally_complete=true | 200 ok=true but structurally_complete=false | `secret_bundle_incomplete` (ADC re-expired after 3 days) | Pending: operator must re-run `gcloud auth application-default login` |
 
 ---
 
