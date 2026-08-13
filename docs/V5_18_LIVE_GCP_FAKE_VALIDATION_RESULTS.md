@@ -297,6 +297,44 @@ Phase G overall: **PASS**
 
 Phase H overall (attempt 1): **BLOCKED** — ADC token expired; not a code defect; no GCP resources created or modified; validate endpoint behavior confirmed correct (HTTP 200, ok=true, live_api_tested=false, no payload leak)
 
+**Phase H retry — Structural validate endpoint: PASS**
+
+| Check | Result |
+|---|---|
+| ADC refreshed by operator | **PASS** — operator ran `gcloud auth application-default login`; ADC token confirmed available |
+| Route | `POST /openclaw/admin/tenants/.../clients/.../credentials/google-ads/validate` |
+| Auth scope | `AdminScope.VALIDATE` — admin token used (sufficient; not printed) |
+| Server startup | **PASS** — uvicorn startup complete, health ok=true |
+| `GCP_SECRET_MANAGER_ENABLED=true` | **PASS** — `GCPSecretManagerStore` selected by factory |
+| HTTP status | **200** |
+| Response `ok` | **true** |
+| `structurally_complete` | **true** — all 4 required fields present |
+| `missing_fields` | `[]` — none missing |
+| `live_api_tested` | **false** — confirmed; no Google Ads API call made |
+| `credential_status.status` | `active` |
+| `credential_status.configured` | `true` |
+| `secret_status.configured` | **true** |
+| `secret_status.field_count` | `4` — all fields configured |
+| `secret_status.all_fields_boolean` | `true` — field-presence map contains booleans only |
+| Secret payload access | Fake payload may be accessed by Secret Manager status logic only to derive boolean field presence; values were not printed, recorded, or returned |
+| Secret payload leak check | **PASS** — no fake literal values in response |
+| `get_secret_bundle()` called | **No** — validate uses `get_secret_status()` only |
+| Google Ads API call | **No** |
+| GCP write | **No** |
+| Secret version written | **No** |
+| Delete called | **No** |
+| Rotate called | **No** |
+| Errors | None |
+| Audit events | **PASS** — `op=validate ok=True` events present in `2026-08-13.jsonl`; `verify_audit_file` ok=true; 13 total events across both audit files; 5 validate events total (3 from blocked attempt, 2 from retry) |
+| `GOOGLE_ADS_LIVE_ENABLED=false` | **PASS** |
+| No deploy | **PASS** |
+| No IAM changed | **PASS** |
+| No APIs enabled | **PASS** |
+| Server stopped | **PASS** |
+| Cleanup status | Still pending — Phase J |
+
+Phase H overall (retry): **PASS**
+
 ---
 
 ## 5. Validation Phase Table
@@ -312,7 +350,7 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 | E | Start local OpenClaw server | Yes | 200 | true | — | — | — | **PASS** — uvicorn startup complete; `/openclaw/health` ok=true; 9 routes registered; server stopped after check | |
 | F | Write fake credential bundle | Yes (attempt 3) | 200 | true | configured | true | — | **PASS** — fake bundle written to GCP Secret Manager; all 4 fields confirmed configured; audit ok; prior attempts 1–2 blocked (config/ADC) | |
 | G | Read metadata/status | Yes | 200 | true | configured | — | — | **PASS** — metadata-only read via LocalFileCredentialReferenceStore; no GCP call; no payload access; credential_ref present (not printed) | |
-| H | Structural validate endpoint | Yes (attempt 1) | 200 | true | validation_failed | false | secret_bundle_incomplete | **BLOCKED** — ADC expired; endpoint ran correctly; no payload accessed; retry after `gcloud auth application-default login` | |
+| H | Structural validate endpoint | Yes (attempt 2) | 200 | true | active | true | — | **PASS** — structurally_complete=true; all 4 fields configured; credential_status=active; live_api_tested=false; prior attempt 1 blocked (ADC) | |
 | I | Rotate fake credential bundle | No | | | | | | Pending | |
 | J | Delete/revoke fake credential bundle | No | | | | | | Pending | |
 | K | Post-delete status check | No | | | | | | Pending | |
