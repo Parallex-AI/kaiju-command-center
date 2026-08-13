@@ -229,6 +229,39 @@ Phase F overall (attempt 2): **BLOCKED** — ADC token expired; not a code defec
 
 Phase F overall (attempt 3): **PASS**
 
+**Phase G — Metadata/status read:**
+
+| Check | Result |
+|---|---|
+| Route | `GET /openclaw/admin/tenants/.../clients/.../credentials/google-ads/status` |
+| Auth scope required | `AdminScope.READ` |
+| Token used | READ token (sufficient; not printed) |
+| HTTP status | **200** |
+| Response `ok` | **true** |
+| `credential_status.configured` | `true` |
+| `credential_status.status` | `configured` |
+| `credential_ref` in response | Present (not printed) |
+| Metadata fields returned | `tenant_id`, `client_id`, `integration_type`, `customer_id`, `login_customer_id`, `status`, `configured`, `last_validated_at`, `created_at`, `updated_at`, `metadata` |
+| Secret payload leak check | **PASS** — no `developer_token`, `client_secret`, `refresh_token`, `access_token` in response |
+| Fake payload value leak | **PASS** — no fake literal values in response |
+| Secret payload accessed | **No** — `get_google_ads_credential_status` uses `LocalFileCredentialReferenceStore` only |
+| `get_secret_bundle()` called | **No** — confirmed by code path inspection |
+| `access_secret_version` called | **No** — zero references in `server.py` and `admin.py` for this path |
+| GCP API call | **No** |
+| GCP write | **No** |
+| Secret version written | **No** |
+| Audit event count | 8 (unchanged from Phase F — GET status does not emit audit events) |
+| `verify_audit_file` | **PASS** |
+| No real credentials used | **PASS** |
+| GOOGLE_ADS_LIVE_ENABLED=false | **PASS** |
+| No deploy | **PASS** |
+| No IAM changed | **PASS** |
+| No APIs enabled | **PASS** |
+| Server stopped | **PASS** |
+| Cleanup status | Still pending — Phase J |
+
+Phase G overall: **PASS**
+
 ---
 
 ## 5. Validation Phase Table
@@ -243,7 +276,7 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 | D | Local env setup (placeholders only) | Yes | — | — | — | — | — | **PASS** — fake tokens only; temp paths outside repo; delete disabled; GCP SM enabled; live=false; no GCP writes | |
 | E | Start local OpenClaw server | Yes | 200 | true | — | — | — | **PASS** — uvicorn startup complete; `/openclaw/health` ok=true; 9 routes registered; server stopped after check | |
 | F | Write fake credential bundle | Yes (attempt 3) | 200 | true | configured | true | — | **PASS** — fake bundle written to GCP Secret Manager; all 4 fields confirmed configured; audit ok; prior attempts 1–2 blocked (config/ADC) | |
-| G | Read metadata/status | No | | | | | | Pending | |
+| G | Read metadata/status | Yes | 200 | true | configured | — | — | **PASS** — metadata-only read via LocalFileCredentialReferenceStore; no GCP call; no payload access; credential_ref present (not printed) | |
 | H | Structural validate endpoint | No | | | | | | Pending | |
 | I | Rotate fake credential bundle | No | | | | | | Pending | |
 | J | Delete/revoke fake credential bundle | No | | | | | | Pending | |
