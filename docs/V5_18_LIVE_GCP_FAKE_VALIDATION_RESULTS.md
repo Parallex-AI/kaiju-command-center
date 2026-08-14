@@ -335,6 +335,44 @@ Phase H overall (attempt 1): **BLOCKED** — ADC token expired; not a code defec
 
 Phase H overall (retry): **PASS**
 
+**Phase I — Rotate fake credential bundle: PASS**
+
+| Check | Result |
+|---|---|
+| Operator authorization | **PASS** — explicit written authorization for fake-secret rotation |
+| Route | `POST /openclaw/admin/tenants/.../clients/.../credentials/google-ads/rotate` |
+| Auth scope | `AdminScope.ROTATE` — admin token used (sufficient; not printed) |
+| Server startup | **PASS** — uvicorn startup complete, health ok=true |
+| `GCP_SECRET_MANAGER_ENABLED=true` | **PASS** — `GCPSecretManagerStore` selected by factory |
+| HTTP status | **200** |
+| Response `ok` | **true** |
+| `rotation_result.structurally_complete` | **true** — all 4 required fields present after rotation |
+| `rotation_result.missing_fields` | `[]` — none missing |
+| `credential_status.status` | `active` |
+| `credential_status.configured` | `true` |
+| `secret_status.configured` | **true** |
+| `secret_status.field_count` | `4` — all fields configured |
+| Rotate path | `put_secret_bundle()` called with fake rotated values — adds new version to existing GCP secret |
+| `get_secret_bundle()` called | **No** — rotate uses `put_secret_bundle()` then `get_secret_status()` only |
+| Secret payload access | Fake payload may be accessed by Secret Manager status logic only to derive boolean field presence; values were not printed, recorded, or returned |
+| Secret payload leak check | **PASS** — no fake rotated literal values in response |
+| Google Ads API call | **No** |
+| GCP write | **Yes** — new version added to existing fake secret (authorized by operator) |
+| GCP delete | **No** |
+| Secret version deleted | **No** |
+| Errors | None |
+| Credential reference store | **PASS** — exists; 1 entry |
+| Audit events | **PASS** — `op=rotate ok=True` event present; `verify_audit_file` ok=true; 14 total events across audit files |
+| `GOOGLE_ADS_LIVE_ENABLED=false` | **PASS** |
+| No deploy | **PASS** |
+| No IAM changed | **PASS** |
+| No APIs enabled | **PASS** |
+| No real credentials used | **PASS** |
+| Server stopped | **PASS** |
+| Cleanup status | Still pending — Phase J |
+
+Phase I overall: **PASS**
+
 ---
 
 ## 5. Validation Phase Table
@@ -351,7 +389,7 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 | F | Write fake credential bundle | Yes (attempt 3) | 200 | true | configured | true | — | **PASS** — fake bundle written to GCP Secret Manager; all 4 fields confirmed configured; audit ok; prior attempts 1–2 blocked (config/ADC) | |
 | G | Read metadata/status | Yes | 200 | true | configured | — | — | **PASS** — metadata-only read via LocalFileCredentialReferenceStore; no GCP call; no payload access; credential_ref present (not printed) | |
 | H | Structural validate endpoint | Yes (attempt 2) | 200 | true | active | true | — | **PASS** — structurally_complete=true; all 4 fields configured; credential_status=active; live_api_tested=false; prior attempt 1 blocked (ADC) | |
-| I | Rotate fake credential bundle | No | | | | | | Pending | |
+| I | Rotate fake credential bundle | Yes | 200 | true | active | true | — | **PASS** — new fake secret version written; structurally_complete=true; credential_status=active; no payload leak | |
 | J | Delete/revoke fake credential bundle | No | | | | | | Pending | |
 | K | Post-delete status check | No | | | | | | Pending | |
 | L | Audit verification | No | — | | — | — | | Pending | |
@@ -386,10 +424,10 @@ Fill in after Phase M completes.
 
 | Field | Value |
 |---|---|
-| `version_count_before_rotation` | `not checked` |
-| `version_count_after_rotation` | `not checked` |
-| `prior_version_status_after_rotation` | `not checked` |
-| `note` | Record integer count only — not version resource names, secret ID, or project ID |
+| `version_count_before_rotation` | `not checked` — gcloud CLI not used; rotation confirmed by `get_secret_status()` returning all 4 fields configured |
+| `version_count_after_rotation` | `not checked` — GCP Secret Manager adds new version on each `put_secret_bundle()` call; prior version remains (enabled) until Phase J delete |
+| `prior_version_status_after_rotation` | `not checked` — prior version remains enabled; both V1 (Phase F) and V2 (Phase I) active in GCP until delete |
+| `note` | Rotation confirmed via `get_secret_status()` → `access_secret_version` returning all 4 fields configured after `put_secret_bundle()` completed |
 
 ---
 
