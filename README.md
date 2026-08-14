@@ -4,11 +4,11 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V5.18 — Live GCP Fake-Secret Validation** (branch: `v5.18-live-gcp-fake-validation` · base: `v5.17.0-beta`)
+**V5.18.0-beta — Live GCP Fake-Secret Validation complete** (branch: `v5.18-live-gcp-fake-validation`)
 
-V5.18 executes the controlled live GCP Secret Manager lifecycle validation that V5.17 planned but did not run. Phases A–N validate the full HTTP → `admin.py` → `GCPSecretManagerStore` chain — write, status, validate, rotate, delete, audit verification, and cleanup — using fake Google Ads credential values only. No real Google Ads credentials. `GOOGLE_ADS_LIVE_ENABLED=false` throughout. No Cloud Run deployment. No fixed-cost infrastructure.
+V5.18 executed the controlled live GCP Secret Manager lifecycle validation that V5.17 planned. Phases A–N all PASS. Final decision: PASS. Fake credential lifecycle confirmed end-to-end: write → metadata/status read → structural validate → rotate → delete/revoke → post-delete status → audit verification → cleanup. No real Google Ads credentials. `GOOGLE_ADS_LIVE_ENABLED=false` throughout. No Cloud Run deployment. No fixed-cost infrastructure. Rehearsal secret deleted. Cleanup complete.
 
-See [V5.18 Live GCP Fake Validation Plan](docs/V5_18_LIVE_GCP_FAKE_VALIDATION_PLAN.md) and [V5.18 Results Template](docs/V5_18_LIVE_GCP_FAKE_VALIDATION_RESULTS.md).
+See [V5.18 Branch Closure](docs/V5_18_BRANCH_CLOSURE.md), [v5.18.0-beta Release Notes](docs/RELEASE_NOTES_V5_18_0_BETA.md), [V5.18 Live GCP Fake Validation Plan](docs/V5_18_LIVE_GCP_FAKE_VALIDATION_PLAN.md), and [V5.18 Live GCP Fake Validation Results](docs/V5_18_LIVE_GCP_FAKE_VALIDATION_RESULTS.md).
 
 ---
 
@@ -77,7 +77,9 @@ cd ~/kaiju/projects/demo-client
 - [Credential Lifecycle Runbook](docs/CREDENTIAL_LIFECYCLE_RUNBOOK.md)
 - [V5.17 Rate Limiting Design](docs/V5_17_RATE_LIMITING_DESIGN.md)
 - [V5.18 Live GCP Fake Validation Plan](docs/V5_18_LIVE_GCP_FAKE_VALIDATION_PLAN.md)
-- [V5.18 Live GCP Fake Validation Results](docs/V5_18_LIVE_GCP_FAKE_VALIDATION_RESULTS.md) (template — pending execution)
+- [V5.18 Live GCP Fake Validation Results](docs/V5_18_LIVE_GCP_FAKE_VALIDATION_RESULTS.md) (complete — Phases A–N PASS)
+- [V5.18 Branch Closure](docs/V5_18_BRANCH_CLOSURE.md)
+- [v5.18.0-beta Release Notes](docs/RELEASE_NOTES_V5_18_0_BETA.md)
 
 ## Admin credential configuration (V5.16+)
 
@@ -122,4 +124,4 @@ A valid token with insufficient scope returns `403 scope_not_granted`. A missing
 | V5.15 | Credential lifecycle hardening · audit events · structural validation · revoke/delete endpoint | **Beta complete** — `v5.15.0-beta` |
 | V5.16 | Admin RBAC · audit seq/digest · credential rotation endpoint | **Beta complete** — `v5.16.0-beta` |
 | V5.17 | Production readiness · tenant isolation · rate limiting · audit locking · operator runbook | **Beta complete** — `v5.17.0-beta` |
-| V5.18 | Live GCP fake-secret validation · write → validate → rotate → delete → audit | **In progress** — `v5.18-live-gcp-fake-validation` |
+| V5.18 | Live GCP fake-secret validation · write → validate → rotate → delete → audit | **Beta complete** — `v5.18.0-beta` |
