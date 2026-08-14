@@ -492,3 +492,68 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - OAuth2 / admin identity provider integration
 - Real Google Ads OAuth credential onboarding and live API validation
 - Live GCP lifecycle validation execution (results template is unfilled)
+
+---
+
+## V5.18 — Live GCP Fake-Secret Validation (branch: `v5.18-live-gcp-fake-validation` · tag: `v5.18.0-beta`)
+
+**Goal:** Execute the controlled live GCP Secret Manager lifecycle validation that V5.17 planned but did not execute. Validate the full HTTP → `server.py` → `admin.py` → `GCPSecretManagerStore` chain using fake Google Ads credential values only — write, status, validate, rotate, delete, audit verification, and cleanup.
+
+**Base release:** `v5.17.0-beta`
+
+- [x] **Phase A — Local and tool preflight** — branch state, smoke suite baseline (20/20 + 8/8), GOOGLE_ADS_LIVE_ENABLED=false confirmed
+- [x] **Phase B — GCP CLI/auth preflight** — gcloud 579.0.0, ADC confirmed, no existing rehearsal secret, IAM deferred to implicit validation via write/delete
+- [x] **Phase C — Secret Manager API availability check** — API enabled, secret count 0
+- [x] **Phase D — Local env setup** — fake tokens only; temp audit root and credential store paths outside repo
+- [x] **Phase E — Start local OpenClaw server** — `GCP_SECRET_MANAGER_ENABLED=true`, `GOOGLE_ADS_LIVE_ENABLED=false`, health check PASS, 9 routes registered
+- [x] **Phase F — Write fake credential bundle** — `POST /credentials/google-ads` → `GCPSecretManagerStore.put_secret_bundle()` → all 4 fields confirmed (2 prior attempts blocked by missing project env + ADC expiry)
+- [x] **Phase G — Read metadata/status** — `GET /credentials/google-ads/status` → metadata only via `LocalFileCredentialReferenceStore`; no GCP call
+- [x] **Phase H — Structural validate** — `POST /credentials/google-ads/validate` → `structurally_complete: true`, `live_api_tested: false` (1 prior attempt blocked by ADC re-expiry)
+- [x] **Phase I — Rotate fake bundle** — `POST /credentials/google-ads/rotate` → V2 fake values written; `structurally_complete: true`; prior version retained until Phase J
+- [x] **Phase J — Delete/revoke** — `DELETE /credentials/google-ads` → `GCPSecretManagerStore.delete_secret_bundle()` → secret and all versions deleted; `OPENCLAW_ADMIN_DELETE_ENABLED=true` in server env only
+- [x] **Phase K — Post-delete status** — `GET /credentials/google-ads/status` → `status: revoked`, `secret_status.configured: false`; no GCP call
+- [x] **Phase L — Audit verification** — `verify_audit_file()` on 3 audit files; 15 events; seq/digest chain valid; all 5 expected operations present; forbidden fields absent
+- [x] **Phase M — Secret Manager cleanup verification** — evidence-only; cleanup confirmed by Phase J/K/L; no additional GCP command
+- [x] **Phase N — Final results redaction and documentation** — `docs/V5_18_LIVE_GCP_FAKE_VALIDATION_RESULTS.md` filled, redacted, safety-grep clean, committed; final decision: PASS
+- [x] **Closure** — branch closure doc · release notes · ROADMAP update · README update · final smoke suites PASS
+
+**V5.18 complete.** Recommended tag: `v5.18.0-beta`
+
+**Scope constraints (met):**
+- No real Google Ads credentials used
+- `GOOGLE_ADS_LIVE_ENABLED=false` throughout
+- No Cloud Run deployment
+- No new fixed-cost infrastructure beyond deleted rehearsal secret
+- No IAM changes
+- No billing changes
+- All GCP operations executed only under explicit operator authorization per-prompt
+
+**Deferred from V5.18:**
+- Real Google Ads OAuth credential onboarding (requires separate gating and approval)
+- Cloud Run deployment (requires service account, IAM, billing authorization)
+- GCP Secret Manager version destruction / disable policy on rotate
+- Redis/Memorystore distributed rate limiting
+- BigQuery audit replication / Cloud Storage audit archival
+- KMS/HSM cryptographic audit signing
+
+---
+
+## V5.19 — Real Onboarding Readiness and Production Gating (planned)
+
+**Goal:** Establish controlled gates and operator procedures for transitioning from fake-secret validation to real Google Ads credential onboarding. No live Google Ads API calls without explicit separate approval.
+
+**Base release:** `v5.18.0-beta`
+
+Suggested scope (requires explicit operator approval before execution):
+
+- [ ] Pre-real-onboarding checklist completion (`docs/CREDENTIAL_LIFECYCLE_RUNBOOK.md` Section 11 gates)
+- [ ] OAuth2 credential preparation and readiness review (no live onboarding without explicit approval)
+- [ ] Secret Manager version lifecycle policy design — disable prior versions on rotate
+- [ ] Operator approval gate design for `GOOGLE_ADS_LIVE_ENABLED=true` promotion
+- [ ] Production onboarding runbook update
+
+**Explicitly deferred from V5.19 until separate authorization:**
+- Real Google Ads OAuth credential submission to production
+- Real Google Ads live API validation (`GOOGLE_ADS_LIVE_ENABLED=true`)
+- Cloud Run deployment
+- IAM hardening beyond current validated posture
