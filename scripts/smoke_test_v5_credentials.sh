@@ -1840,7 +1840,7 @@ pass "Rate limiting checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[20/20] Audit file locking (fcntl)..."
+echo "[20/21] Audit file locking (fcntl)..."
 # ---------------------------------------------------------------------------
 
 # _HAS_FCNTL constant importable from audit module
@@ -1912,6 +1912,113 @@ done
 pass "Section U: no forbidden fields in audit locking output"
 
 pass "Audit file locking checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[21/21] Live Google Ads readiness gate (live_gate.py)..."
+# ---------------------------------------------------------------------------
+
+# live_gate.py importable with all public symbols
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_gate import LiveGateInput, LiveGateResult, LiveGateDenialCode, check_live_gate
+" 2>&1); then
+    pass "live_gate.py: LiveGateInput, LiveGateResult, LiveGateDenialCode, check_live_gate importable"
+else
+    fail "live_gate.py: import failed"
+fi
+
+# LiveGateDenialCode has all 11 constants
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_gate import LiveGateDenialCode
+codes = [
+    LiveGateDenialCode.LIVE_DISABLED,
+    LiveGateDenialCode.APPROVAL_MISSING,
+    LiveGateDenialCode.APPROVAL_INVALID,
+    LiveGateDenialCode.PREFLIGHT_MISSING,
+    LiveGateDenialCode.AUDIT_DISABLED,
+    LiveGateDenialCode.CREDENTIAL_MISSING,
+    LiveGateDenialCode.CREDENTIAL_NOT_ACTIVE,
+    LiveGateDenialCode.TENANT_NOT_ALLOWED,
+    LiveGateDenialCode.CLIENT_NOT_ALLOWED,
+    LiveGateDenialCode.ROLLBACK_PLAN_MISSING,
+    LiveGateDenialCode.OPERATOR_CONFIRMATION_MISSING,
+]
+assert len(codes) == 11
+assert all(isinstance(c, str) for c in codes)
+" 2>/dev/null); then
+    pass "LiveGateDenialCode: all 11 denial codes present and are strings"
+else
+    fail "LiveGateDenialCode: missing or wrong type for one or more codes"
+fi
+
+# check_live_gate: live_disabled is the first gate — fires even if no other condition is met
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_gate import LiveGateInput, LiveGateDenialCode, check_live_gate
+inp = LiveGateInput(
+    live_enabled=False,
+    approval_present=False, approval_valid=False, preflight_passed=False,
+    audit_enabled=False, credential_configured=False, credential_status='REVOKED',
+    tenant_allowed=False, client_allowed=False, rollback_plan_present=False,
+    operator_confirmed=False,
+)
+r = check_live_gate(inp)
+assert r.allowed is False, f'allowed should be False: {r}'
+assert r.error_code == LiveGateDenialCode.LIVE_DISABLED, f'expected live_disabled: {r.error_code}'
+" 2>/dev/null); then
+    pass "check_live_gate: live_disabled fires first even when all other conditions fail"
+else
+    fail "check_live_gate: live_disabled priority check failed"
+fi
+
+# check_live_gate: allow path returns allowed=True with error_code=None
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_gate import LiveGateInput, check_live_gate
+inp = LiveGateInput(
+    live_enabled=True,
+    approval_present=True, approval_valid=True, preflight_passed=True,
+    audit_enabled=True, credential_configured=True, credential_status='ACTIVE',
+    tenant_allowed=True, client_allowed=True, rollback_plan_present=True,
+    operator_confirmed=True,
+)
+r = check_live_gate(inp)
+assert r.allowed is True, f'expected allowed=True: {r}'
+assert r.error_code is None, f'expected error_code=None: {r.error_code}'
+assert r.required_actions == [], f'expected no required_actions: {r.required_actions}'
+" 2>/dev/null); then
+    pass "check_live_gate: allow path → allowed=True, error_code=None, required_actions=[]"
+else
+    fail "check_live_gate: allow path did not return expected result"
+fi
+
+# GOOGLE_ADS_LIVE_ENABLED must not be true in live_gate.py
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" "$OPENCLAW_DIR/live_gate.py" 2>/dev/null; then
+    fail "live_gate.py contains GOOGLE_ADS_LIVE_ENABLED=true — must never be set true in module"
+else
+    pass "live_gate.py: GOOGLE_ADS_LIVE_ENABLED=true absent"
+fi
+
+# live_gate.py must not contain any os.environ reads (pure signal-based, no env coupling)
+if grep -q "os.environ" "$OPENCLAW_DIR/live_gate.py" 2>/dev/null; then
+    fail "live_gate.py reads os.environ — gate must evaluate pre-supplied signals only"
+else
+    pass "live_gate.py: no os.environ reads (pure signal evaluation)"
+fi
+
+# run_live_gate_demo.py: all 14 assertions pass
+_OUT_GATE=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON run_live_gate_demo.py 2>&1)
+echo "$_OUT_GATE" | grep -q "All assertions passed." \
+    && pass "run_live_gate_demo.py: All assertions passed" \
+    || { echo "  ✗ run_live_gate_demo.py: All assertions passed not found"; echo "$_OUT_GATE" | tail -30; exit 1; }
+
+pass "Live Google Ads readiness gate checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

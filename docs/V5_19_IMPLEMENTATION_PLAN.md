@@ -3,7 +3,7 @@
 **Branch:** `v5.19-real-credential-readiness-gates`
 **Base:** `v5.18.0-beta` / master after `da2796e`
 **Working title:** Real Credential Readiness Gates
-**Status:** Planning
+**Status:** Phase 2 in progress — `live_gate.py` implementation underway
 
 ---
 
