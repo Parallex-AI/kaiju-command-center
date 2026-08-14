@@ -425,6 +425,29 @@ Phase J overall: **PASS**
 
 Phase K overall: **PASS**
 
+**Phase L — Full audit verification: PASS**
+
+| Check | Result |
+|---|---|
+| Audit files found | 3 — `2026-08-10.jsonl`, `2026-08-13.jsonl`, `2026-08-14.jsonl` |
+| `verify_audit_file` all files | **PASS** — seq sequence and file_digest chain valid in all three files |
+| Total audit event count | **15** |
+| `AUDIT_SEQ_DIGEST_CHECK` | **PASS** — no seq_mismatch or digest_mismatch errors |
+| `op=metadata_upsert` present | **PASS** — 4 events ok=True (one per Phase F write attempt) |
+| `op=bundle_write` present | **PASS** — 4 events total: 3 ok=False (Phase F attempts 1–2 blocked by config/ADC; attempt 3 pre-success intermediate) + 1 ok=True (Phase F PASS) |
+| `op=validate` present | **PASS** — 5 events ok=True (Phase H blocked attempt calls + Phase H retry) |
+| `op=rotate` present | **PASS** — 1 event ok=True (Phase I) |
+| `op=delete` present | **PASS** — 1 event ok=True (Phase J) |
+| Blocked attempts accounted for | **PASS** — 3 `bundle_write ok=False` events correspond to Phase F attempt 1 (config blocked), attempt 2 (ADC expired), and pre-success attempt 3 intermediate; all documented in results |
+| `AUDIT_FORBIDDEN_FIELDS_ABSENT` | **PASS** — `credential_ref`, `secret_id`, `developer_token`, `client_secret`, `refresh_token`, `access_token`, `customer_id`, `login_customer_id`, `google_ads_client_id` absent from all events |
+| `AUDIT_FORBIDDEN_VALUE_PATTERNS_ABSENT` | **PASS** — OAuth token prefixes, API key prefixes, GCP resource path patterns, credential env var names, temp path patterns, email patterns, and fake literal value patterns all absent from all events |
+| Raw audit event contents printed | **No** — counts and operation names only; no raw event JSON recorded |
+| GCP operation occurred | **No** — local file verification only; no server started; no endpoints called |
+| Google Ads API called | **No** |
+| `GOOGLE_ADS_LIVE_ENABLED=false` | **PASS** — no environment loaded for this phase |
+
+Phase L overall: **PASS**
+
 ---
 
 ## 5. Validation Phase Table
@@ -444,7 +467,7 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 | I | Rotate fake credential bundle | Yes | 200 | true | active | true | — | **PASS** — new fake secret version written; structurally_complete=true; credential_status=active; no payload leak | |
 | J | Delete/revoke fake credential bundle | Yes | 200 | true | revoked | false | — | **PASS** — secret deleted from GCP; credential_status=revoked; no payload accessed; no secret_already_absent warning | |
 | K | Post-delete status check | Yes | 200 | true | revoked | — | — | **PASS** — GET status confirms revoked; no GCP call; LocalFileCredentialReferenceStore only | |
-| L | Audit verification | No | — | | — | — | | Pending | |
+| L | Audit verification | Yes | — | — | — | — | — | **PASS** — 3 files; 15 events; all ops present; seq/digest valid; forbidden fields absent; blocked attempts documented | |
 | M | Secret Manager cleanup verification | No | — | — | — | — | — | Pending | |
 | N | Results redaction and documentation | No | — | — | — | — | — | Pending | |
 
@@ -489,37 +512,39 @@ Fill in after Phase L completes.
 
 | Field | Value |
 |---|---|
-| `audit_file_reference` | `<date>.jsonl` (date only — no path, no project reference) |
-| `verify_audit_file_ok` | Pending |
-| `events_checked` | Pending |
-| `errors` | Pending |
-| `warnings` | Pending |
-| `sequence_chain_valid` | Pending |
-| `digest_chain_valid` | Pending |
-| `lock_used` | Pending |
-| `forbidden_fields_absent` | Pending |
+| `audit_file_reference` | `2026-08-10.jsonl`, `2026-08-13.jsonl`, `2026-08-14.jsonl` (dates only — no path, no project reference) |
+| `verify_audit_file_ok` | **PASS** — all 3 files |
+| `events_checked` | **15** total across 3 files |
+| `errors` | None |
+| `warnings` | None |
+| `sequence_chain_valid` | **PASS** — seq 1…N valid per file; no seq_mismatch |
+| `digest_chain_valid` | **PASS** — file_digest chain valid per file; no digest_mismatch |
+| `lock_used` | N/A — audit locking verified by smoke tests (20/20); not re-tested in Phase L |
+| `forbidden_fields_absent` | **PASS** — all 9 forbidden field names absent from all 15 events |
 
 **Expected operations in audit file (confirm each is present):**
 
-| operation | present |
-|---|---|
-| `bundle_write` | Pending |
-| `validate` | Pending |
-| `rotate` | Pending |
-| `delete` | Pending |
+| operation | present | ok count | fail count | notes |
+|---|---|---|---|---|
+| `metadata_upsert` | **PASS** | 4 | 0 | One per Phase F write attempt |
+| `bundle_write` | **PASS** | 1 | 3 | 3 fail = Phase F blocked attempts (config/ADC); 1 ok = Phase F PASS |
+| `validate` | **PASS** | 5 | 0 | Phase H blocked attempt calls + Phase H retry |
+| `rotate` | **PASS** | 1 | 0 | Phase I |
+| `delete` | **PASS** | 1 | 0 | Phase J |
 
 **Forbidden fields absent confirmation:**
 
 | Field | Absent |
 |---|---|
-| `credential_ref` | Pending |
-| `secret_id` | Pending |
-| `customer_id` | Pending |
-| `login_customer_id` | Pending |
-| `developer_token` | Pending |
-| `client_secret` | Pending |
-| `refresh_token` | Pending |
-| `access_token` | Pending |
+| `credential_ref` | **PASS** |
+| `secret_id` | **PASS** |
+| `customer_id` | **PASS** |
+| `login_customer_id` | **PASS** |
+| `developer_token` | **PASS** |
+| `client_secret` | **PASS** |
+| `refresh_token` | **PASS** |
+| `access_token` | **PASS** |
+| `google_ads_client_id` | **PASS** |
 
 ---
 
