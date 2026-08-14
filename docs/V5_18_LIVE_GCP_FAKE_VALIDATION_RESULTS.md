@@ -373,6 +373,58 @@ Phase H overall (retry): **PASS**
 
 Phase I overall: **PASS**
 
+**Phase J — Delete/revoke fake credential bundle: PASS**
+
+| Check | Result |
+|---|---|
+| Operator authorization | **PASS** — explicit written authorization for fake-secret delete/cleanup |
+| Route | `DELETE /openclaw/admin/tenants/.../clients/.../credentials/google-ads` |
+| Auth scope | `AdminScope.DELETE` — admin token used (sufficient; not printed) |
+| `OPENCLAW_ADMIN_DELETE_ENABLED=true` | **PASS** — delete gate enabled for this phase only |
+| Server startup | **PASS** — uvicorn startup complete, health ok=true |
+| `GCP_SECRET_MANAGER_ENABLED=true` | **PASS** — `GCPSecretManagerStore` selected by factory |
+| HTTP status | **200** |
+| Response `ok` | **true** |
+| `credential_status.status` | `revoked` |
+| `credential_status.configured` | `false` |
+| `secret_status.configured` | `false` — secret absent from GCP after delete |
+| `warnings` | `[]` — no `secret_already_absent`; genuine delete confirmed |
+| Delete path | `delete_secret_bundle()` called — deletes secret and all versions from GCP Secret Manager |
+| `get_secret_bundle()` called | **No** — delete path never reads secret payload |
+| Secret payload accessed | **No** — delete does not access payload at any step |
+| Secret payload leak check | **PASS** — no fake literal values in response |
+| GCP write | **No** |
+| GCP delete | **Yes** — fake secret (V1 + V2) deleted from GCP Secret Manager (authorized by operator) |
+| Google Ads API call | **No** |
+| Errors | None |
+| Credential reference store | **PASS** — exists; 1 entry; status `revoked` confirmed |
+| Audit events | **PASS** — `op=delete ok=True` event present; `verify_audit_file` ok=true; 15 total events across audit files |
+| Post-delete status check | **PASS** — GET status after delete returns `credential_status: revoked`; no GCP call made by status read (LocalFileCredentialReferenceStore only) |
+| `GOOGLE_ADS_LIVE_ENABLED=false` | **PASS** |
+| No deploy | **PASS** |
+| No IAM changed | **PASS** |
+| No APIs enabled | **PASS** |
+| No real credentials used | **PASS** |
+| Server stopped | **PASS** |
+| Cleanup status | **COMPLETE** — fake GCP secret deleted; credential marked REVOKED |
+
+Phase J overall: **PASS**
+
+**Phase K — Post-delete status check: PASS**
+
+| Check | Result |
+|---|---|
+| Route | `GET /openclaw/admin/tenants/.../clients/.../credentials/google-ads/status` |
+| Auth scope | `AdminScope.READ` — read token used (sufficient; not printed) |
+| HTTP status | **200** |
+| Response `ok` | **true** |
+| `credential_status.status` | `revoked` — confirmed post-delete |
+| GCP call made | **No** — GET status uses `LocalFileCredentialReferenceStore` only |
+| Secret payload accessed | **No** |
+| Secret payload leak check | **PASS** |
+
+Phase K overall: **PASS**
+
 ---
 
 ## 5. Validation Phase Table
@@ -390,8 +442,8 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 | G | Read metadata/status | Yes | 200 | true | configured | — | — | **PASS** — metadata-only read via LocalFileCredentialReferenceStore; no GCP call; no payload access; credential_ref present (not printed) | |
 | H | Structural validate endpoint | Yes (attempt 2) | 200 | true | active | true | — | **PASS** — structurally_complete=true; all 4 fields configured; credential_status=active; live_api_tested=false; prior attempt 1 blocked (ADC) | |
 | I | Rotate fake credential bundle | Yes | 200 | true | active | true | — | **PASS** — new fake secret version written; structurally_complete=true; credential_status=active; no payload leak | |
-| J | Delete/revoke fake credential bundle | No | | | | | | Pending | |
-| K | Post-delete status check | No | | | | | | Pending | |
+| J | Delete/revoke fake credential bundle | Yes | 200 | true | revoked | false | — | **PASS** — secret deleted from GCP; credential_status=revoked; no payload accessed; no secret_already_absent warning | |
+| K | Post-delete status check | Yes | 200 | true | revoked | — | — | **PASS** — GET status confirms revoked; no GCP call; LocalFileCredentialReferenceStore only | |
 | L | Audit verification | No | — | | — | — | | Pending | |
 | M | Secret Manager cleanup verification | No | — | — | — | — | — | Pending | |
 | N | Results redaction and documentation | No | — | — | — | — | — | Pending | |
@@ -411,14 +463,14 @@ Fill in after Phase M completes.
 
 | Field | Value |
 |---|---|
-| `rehearsal_secret_absent` | Pending |
-| `temp_credential_store_removed_or_archived` | Pending |
-| `temp_audit_files_removed_or_archived` | Pending |
-| `openclaw_admin_delete_enabled_restored_to_false` | Pending |
-| `no_env_file_created_in_repo` | Pending |
-| `no_credential_json_created_in_repo` | Pending |
-| `git_status_clean` | Pending |
-| `notes` | |
+| `rehearsal_secret_absent` | **PASS** — `delete_secret_bundle()` returned ok=true; `secret_status.configured=false` confirmed post-delete; no `secret_already_absent` warning (genuine delete) |
+| `temp_credential_store_removed_or_archived` | Pending — still outside repo at temp path; cleanup in Phase N |
+| `temp_audit_files_removed_or_archived` | Pending — still outside repo at temp path; cleanup in Phase N |
+| `openclaw_admin_delete_enabled_restored_to_false` | **PASS** — server stopped after Phase J; delete gate was set only in server startup env, not committed |
+| `no_env_file_created_in_repo` | **PASS** — no .env file created |
+| `no_credential_json_created_in_repo` | **PASS** — no credential JSON created |
+| `git_status_clean` | Pending — results doc has uncommitted changes |
+| `notes` | Fake GCP secret deleted via local OpenClaw DELETE endpoint; credential marked REVOKED; both versions (V1 Phase F + V2 Phase I) removed together with the secret |
 
 **GCP Secret Manager version observation — Phase I (optional):**
 
