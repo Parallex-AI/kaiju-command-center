@@ -448,6 +448,41 @@ Phase K overall: **PASS**
 
 Phase L overall: **PASS**
 
+**Phase M — Secret Manager cleanup verification: PASS**
+
+| Check | Result |
+|---|---|
+| Verification method | Existing Phase J/K/L evidence only — no additional GCP command executed |
+| GCP operation in Phase M | **No** |
+| Server started in Phase M | **No** |
+| Endpoint called in Phase M | **No** |
+| Google Ads API called | **No** |
+| **Phase J evidence (delete response):** | |
+| `delete_secret_bundle()` returned | **ok=true** — genuine deletion confirmed |
+| `secret_status.configured` after delete | `false` — secret absent from GCP |
+| `warnings` | `[]` — no `secret_already_absent`; confirms real deletion, not idempotent already-absent hit |
+| `credential_status.status` | `revoked` |
+| **Phase K evidence (post-delete GET status):** | |
+| `credential_status.status` | `revoked` — independently confirmed via LocalFileCredentialReferenceStore |
+| GCP call on GET status path | **No** — confirms no phantom re-read of deleted secret |
+| **Phase L evidence (audit verification):** | |
+| `op=delete ok=True` event present | **PASS** — delete operation recorded in audit trail |
+| Audit integrity | **PASS** — seq/digest chain valid |
+| **Cleanup conclusion:** | |
+| Fake GCP Secret Manager secret | **DELETED** — both V1 (Phase F) and V2 (Phase I) removed by `delete_secret_bundle()` |
+| Credential lifecycle status | **REVOKED** |
+| No residual fake bundle | Confirmed by `secret_status.configured=false` and no `secret_already_absent` in Phase J |
+| Temp credential store | Outside repo; not deleted; no sensitive values; cleanup in Phase N |
+| Temp audit files | Outside repo; not deleted; no sensitive values; cleanup in Phase N |
+| `GOOGLE_ADS_LIVE_ENABLED=false` | **PASS** — no environment loaded for this phase |
+| No deploy | **PASS** |
+| No IAM changed | **PASS** |
+| No APIs enabled | **PASS** |
+| No fixed-cost infrastructure | **PASS** — no Cloud Run, no persistent resources beyond deleted secret |
+| GCP cost exposure | Limited to Secret Manager operations already executed and deleted |
+
+Phase M overall: **PASS**
+
 ---
 
 ## 5. Validation Phase Table
@@ -468,7 +503,7 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 | J | Delete/revoke fake credential bundle | Yes | 200 | true | revoked | false | — | **PASS** — secret deleted from GCP; credential_status=revoked; no payload accessed; no secret_already_absent warning | |
 | K | Post-delete status check | Yes | 200 | true | revoked | — | — | **PASS** — GET status confirms revoked; no GCP call; LocalFileCredentialReferenceStore only | |
 | L | Audit verification | Yes | — | — | — | — | — | **PASS** — 3 files; 15 events; all ops present; seq/digest valid; forbidden fields absent; blocked attempts documented | |
-| M | Secret Manager cleanup verification | No | — | — | — | — | — | Pending | |
+| M | Secret Manager cleanup verification | Yes | — | — | — | — | — | **PASS** — based on Phase J/K/L evidence; no extra GCP command; secret absent; credential revoked | |
 | N | Results redaction and documentation | No | — | — | — | — | — | Pending | |
 
 **Column guidance:**
@@ -482,7 +517,7 @@ Fill in each row after the corresponding phase completes. Use only the values pe
 
 ## 6. Secret Manager Cleanup Summary
 
-Fill in after Phase M completes.
+Phase M verification complete — based on Phase J/K/L evidence; no additional GCP command executed in Phase M.
 
 | Field | Value |
 |---|---|
@@ -492,8 +527,8 @@ Fill in after Phase M completes.
 | `openclaw_admin_delete_enabled_restored_to_false` | **PASS** — server stopped after Phase J; delete gate was set only in server startup env, not committed |
 | `no_env_file_created_in_repo` | **PASS** — no .env file created |
 | `no_credential_json_created_in_repo` | **PASS** — no credential JSON created |
-| `git_status_clean` | Pending — results doc has uncommitted changes |
-| `notes` | Fake GCP secret deleted via local OpenClaw DELETE endpoint; credential marked REVOKED; both versions (V1 Phase F + V2 Phase I) removed together with the secret |
+| `git_status_clean` | Pending — results doc has uncommitted changes; clean after Phase N commit |
+| `notes` | Fake GCP secret deleted via local OpenClaw DELETE endpoint; credential marked REVOKED; both versions (V1 Phase F + V2 Phase I) removed together with the secret; Phase M independently confirmed cleanup from evidence without additional GCP call |
 
 **GCP Secret Manager version observation — Phase I (optional):**
 
