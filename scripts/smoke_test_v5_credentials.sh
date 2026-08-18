@@ -1840,7 +1840,7 @@ pass "Rate limiting checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[20/22] Audit file locking (fcntl)..."
+echo "[20/23] Audit file locking (fcntl)..."
 # ---------------------------------------------------------------------------
 
 # _HAS_FCNTL constant importable from audit module
@@ -1915,7 +1915,7 @@ pass "Audit file locking checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[21/22] Live Google Ads readiness gate (live_gate.py)..."
+echo "[21/23] Live Google Ads readiness gate (live_gate.py)..."
 # ---------------------------------------------------------------------------
 
 # live_gate.py importable with all public symbols
@@ -2022,7 +2022,7 @@ pass "Live Google Ads readiness gate checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[22/22] Approval record model and local approval store..."
+echo "[22/23] Approval record model and local approval store..."
 # ---------------------------------------------------------------------------
 
 # approval.py importable with all public symbols
@@ -2324,6 +2324,226 @@ else
 fi
 
 pass "Approval record model and local approval store checks complete"
+
+# ---------------------------------------------------------------------------
+echo "[23/23] Live operation preflight checker (preflight.py)..."
+# ---------------------------------------------------------------------------
+
+# preflight.py importable with all public symbols
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from preflight import (
+    LiveOperationPreflightInput,
+    LiveOperationPreflightResult,
+    check_live_operation_preflight,
+)
+" 2>&1); then
+    pass "preflight.py: LiveOperationPreflightInput, LiveOperationPreflightResult, check_live_operation_preflight importable"
+else
+    fail "preflight.py: import failed"
+fi
+
+# LiveOperationPreflightInput and LiveOperationPreflightResult are dataclasses
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import dataclasses
+from preflight import LiveOperationPreflightInput, LiveOperationPreflightResult
+assert dataclasses.is_dataclass(LiveOperationPreflightInput)
+assert dataclasses.is_dataclass(LiveOperationPreflightResult)
+" 2>/dev/null); then
+    pass "preflight.py: LiveOperationPreflightInput and LiveOperationPreflightResult are dataclasses"
+else
+    fail "preflight.py: dataclass check failed"
+fi
+
+# check_live_operation_preflight: live_disabled
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record
+from live_gate import LiveGateDenialCode
+from preflight import LiveOperationPreflightInput, check_live_operation_preflight
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+)
+inp = LiveOperationPreflightInput(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    operation='fetch', live_enabled=False,
+    approval_record=rec,
+    required_approval_scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    preflight_passed=True, audit_enabled=True, credential_configured=True,
+    credential_status='ACTIVE', tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+r = check_live_operation_preflight(inp)
+assert r.allowed is False, 'live_disabled should deny'
+assert r.error_code == LiveGateDenialCode.LIVE_DISABLED, f'expected live_disabled, got {r.error_code}'
+" 2>/dev/null); then
+    pass "check_live_operation_preflight: live_disabled → allowed=False"
+else
+    fail "check_live_operation_preflight: live_disabled check failed"
+fi
+
+# check_live_operation_preflight: approval_missing
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalScope
+from live_gate import LiveGateDenialCode
+from preflight import LiveOperationPreflightInput, check_live_operation_preflight
+inp = LiveOperationPreflightInput(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    operation='fetch', live_enabled=True,
+    approval_record=None,
+    required_approval_scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    preflight_passed=True, audit_enabled=True, credential_configured=True,
+    credential_status='ACTIVE', tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+r = check_live_operation_preflight(inp)
+assert r.allowed is False, 'approval_missing should deny'
+assert r.error_code == LiveGateDenialCode.APPROVAL_MISSING, f'expected approval_missing, got {r.error_code}'
+assert r.approval_valid is False, 'approval_valid should be False when record is None'
+assert r.sanitized_summary['approval_present'] is False, 'summary.approval_present should be False'
+" 2>/dev/null); then
+    pass "check_live_operation_preflight: approval_missing → allowed=False, approval_valid=False"
+else
+    fail "check_live_operation_preflight: approval_missing check failed"
+fi
+
+# check_live_operation_preflight: expired approval → approval_invalid
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record
+from live_gate import LiveGateDenialCode
+from preflight import LiveOperationPreflightInput, check_live_operation_preflight
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    expires_at='2020-01-01T00:00:00Z',
+)
+inp = LiveOperationPreflightInput(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    operation='fetch', live_enabled=True,
+    approval_record=rec,
+    required_approval_scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    preflight_passed=True, audit_enabled=True, credential_configured=True,
+    credential_status='ACTIVE', tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+r = check_live_operation_preflight(inp)
+assert r.allowed is False, 'expired approval should deny'
+assert r.error_code == LiveGateDenialCode.APPROVAL_INVALID, f'expected approval_invalid, got {r.error_code}'
+assert r.approval_valid is False, 'approval_valid should be False for expired record'
+" 2>/dev/null); then
+    pass "check_live_operation_preflight: expired approval → approval_invalid"
+else
+    fail "check_live_operation_preflight: expired approval check failed"
+fi
+
+# check_live_operation_preflight: allow path
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record
+from preflight import LiveOperationPreflightInput, check_live_operation_preflight
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+)
+inp = LiveOperationPreflightInput(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    operation='fetch', live_enabled=True,
+    approval_record=rec,
+    required_approval_scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    preflight_passed=True, audit_enabled=True, credential_configured=True,
+    credential_status='ACTIVE', tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+r = check_live_operation_preflight(inp)
+assert r.allowed is True, f'all-pass should allow, got error_code={r.error_code}'
+assert r.error_code is None, f'error_code should be None, got {r.error_code}'
+assert r.approval_valid is True, 'approval_valid should be True'
+assert r.live_gate_allowed is True, 'live_gate_allowed should be True'
+assert r.required_actions == [], f'required_actions should be empty: {r.required_actions}'
+" 2>/dev/null); then
+    pass "check_live_operation_preflight: allow path → allowed=True, approval_valid=True"
+else
+    fail "check_live_operation_preflight: allow path check failed"
+fi
+
+# sanitized_summary must not contain tenant_id / client_id / approval_id / credential fields
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record
+from preflight import LiveOperationPreflightInput, check_live_operation_preflight
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+)
+inp = LiveOperationPreflightInput(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    operation='fetch', live_enabled=True,
+    approval_record=rec,
+    required_approval_scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    preflight_passed=True, audit_enabled=True, credential_configured=True,
+    credential_status='ACTIVE', tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+r = check_live_operation_preflight(inp)
+s = r.sanitized_summary
+forbidden_keys = {'tenant_id', 'client_id', 'approval_id', 'refresh_token',
+                  'developer_token', 'client_secret', 'access_token'}
+found = [k for k in forbidden_keys if k in s]
+assert not found, f'forbidden keys in sanitized_summary: {found}'
+assert isinstance(s.get('approval_present'), bool), 'approval_present must be bool'
+assert isinstance(s.get('approval_valid'), bool), 'approval_valid must be bool'
+assert 'operation' in s, 'operation must be in summary'
+assert 'integration_type' in s, 'integration_type must be in summary'
+" 2>/dev/null); then
+    pass "sanitized_summary: no forbidden identifiers; approval_present/approval_valid are bools"
+else
+    fail "sanitized_summary: forbidden key or type check failed"
+fi
+
+# run_preflight_demo.py: all assertions pass
+_OUT_PREFLIGHT=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON run_preflight_demo.py 2>&1)
+echo "$_OUT_PREFLIGHT" | grep -q "All assertions passed." \
+    && pass "run_preflight_demo.py: All assertions passed" \
+    || { echo "  ✗ run_preflight_demo.py: All assertions passed not found"; echo "$_OUT_PREFLIGHT" | tail -30; exit 1; }
+
+# preflight.py must not import GCP or Google Ads libraries
+if grep -qE "^(import google|from google|import gcloud)" "$OPENCLAW_DIR/preflight.py" 2>/dev/null; then
+    fail "preflight.py: contains GCP/Google imports"
+else
+    pass "preflight.py: no GCP or Google Ads imports"
+fi
+
+# preflight.py must not read os.environ directly
+if grep -q "os\.environ" "$OPENCLAW_DIR/preflight.py" 2>/dev/null; then
+    fail "preflight.py: contains os.environ reads"
+else
+    pass "preflight.py: no os.environ reads"
+fi
+
+# No GOOGLE_ADS_LIVE_ENABLED=true in preflight.py or run_preflight_demo.py
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" "$OPENCLAW_DIR/preflight.py" "$OPENCLAW_DIR/run_preflight_demo.py" 2>/dev/null; then
+    fail "preflight files contain GOOGLE_ADS_LIVE_ENABLED=true"
+else
+    pass "preflight.py and run_preflight_demo.py: GOOGLE_ADS_LIVE_ENABLED=true absent"
+fi
+
+pass "Live operation preflight checker checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

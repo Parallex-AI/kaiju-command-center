@@ -3,7 +3,7 @@
 **Branch:** `v5.19-real-credential-readiness-gates`
 **Base:** `v5.18.0-beta` / master after `da2796e`
 **Working title:** Real Credential Readiness Gates
-**Status:** Phase 3 in progress — `approval.py` local model and store implementation underway
+**Status:** Phase 4 in progress — `preflight.py` live operation preflight checker implementation underway
 
 ---
 
@@ -88,6 +88,8 @@ Define a `_check_live_gate(config, tenant_id, client_id)` function in `openclaw/
 **Phase 3 adds `openclaw/approval.py`** with a local `ApprovalRecord` dataclass, `LocalFileApprovalStore`, `validate_approval_record()`, `is_approval_valid()`, and `sanitize_approval_record()`. Approval records contain no secrets, no credential values, no credential references, and no GCP resource paths. This local store is for development and testing only. Real operator approvals require a separate out-of-band process not implemented in V5.19.
 
 **This does not authorize real Google Ads API usage.** No real Google Ads credential onboarding is performed. `GOOGLE_ADS_LIVE_ENABLED` remains `false` throughout V5.19.
+
+**Phase 4 adds `openclaw/preflight.py`** with `LiveOperationPreflightInput`, `LiveOperationPreflightResult`, and `check_live_operation_preflight()`. The checker composes `is_approval_valid()` (Phase 3) and `check_live_gate()` (Phase 2) into a single call. The sanitized summary omits tenant/client identifiers and approval IDs, containing only boolean readiness signals and status strings safe for logging. This does not authorize real Google Ads API usage. No real credentials used. No GCP, Secret Manager, or Google Ads API calls. `GOOGLE_ADS_LIVE_ENABLED` remains `false`.
 
 ---
 
