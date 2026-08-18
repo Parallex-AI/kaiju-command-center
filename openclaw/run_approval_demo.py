@@ -259,6 +259,98 @@ _assert(result.valid is False, "no-operator: valid=False")
 _assert("operator_label_missing" in result.error_codes, f"no-operator: operator_label_missing in error_codes (got {result.error_codes})")
 
 # ---------------------------------------------------------------------------
+# Test 17 — validate_approval_record: PENDING status denies
+# ---------------------------------------------------------------------------
+print("\n── Test 17: validate_approval_record — PENDING status denies")
+rec = _base_approved(status=ApprovalStatus.PENDING)
+result = validate_approval_record(rec)
+_assert(result.valid is False, "PENDING: valid=False")
+_assert(
+    any("approval_not_approved" in c for c in result.error_codes),
+    f"PENDING: approval_not_approved in error_codes (got {result.error_codes})",
+)
+
+# ---------------------------------------------------------------------------
+# Test 18 — validate_approval_record: REJECTED status denies
+# ---------------------------------------------------------------------------
+print("\n── Test 18: validate_approval_record — REJECTED status denies")
+rec = _base_approved(status=ApprovalStatus.REJECTED)
+result = validate_approval_record(rec)
+_assert(result.valid is False, "REJECTED: valid=False")
+_assert(
+    any("approval_not_approved" in c for c in result.error_codes),
+    f"REJECTED: approval_not_approved in error_codes (got {result.error_codes})",
+)
+
+# ---------------------------------------------------------------------------
+# Test 19 — validate_approval_record: EXPIRED status denies
+# ---------------------------------------------------------------------------
+print("\n── Test 19: validate_approval_record — EXPIRED status denies")
+rec = _base_approved(status=ApprovalStatus.EXPIRED)
+result = validate_approval_record(rec)
+_assert(result.valid is False, "EXPIRED: valid=False")
+_assert(
+    any("approval_not_approved" in c for c in result.error_codes),
+    f"EXPIRED: approval_not_approved in error_codes (got {result.error_codes})",
+)
+
+# ---------------------------------------------------------------------------
+# Test 20 — validate_approval_record: missing reason denies
+# ---------------------------------------------------------------------------
+print("\n── Test 20: validate_approval_record — missing reason")
+rec = _base_approved(reason="   ")
+result = validate_approval_record(rec)
+_assert(result.valid is False, "missing-reason: valid=False")
+_assert(
+    "reason_missing" in result.error_codes,
+    f"missing-reason: reason_missing in error_codes (got {result.error_codes})",
+)
+
+# ---------------------------------------------------------------------------
+# Test 21 — validate_approval_record: future expires_at allows
+# ---------------------------------------------------------------------------
+print("\n── Test 21: validate_approval_record — future expires_at allows")
+from datetime import datetime, timezone, timedelta
+_future_expiry = (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+rec = _base_approved(expires_at=_future_expiry)
+result = validate_approval_record(rec)
+_assert(result.valid is True, "future expiry: valid=True")
+
+# ---------------------------------------------------------------------------
+# Test 22 — is_approval_valid: wrong integration_type → False
+# ---------------------------------------------------------------------------
+print("\n── Test 22: is_approval_valid — wrong integration_type → False")
+rec = _base_approved()
+ok = is_approval_valid(rec, _SCOPE, _TENANT, _CLIENT, "facebook_ads")
+_assert(ok is False, "wrong integration_type: is_approval_valid=False")
+
+# ---------------------------------------------------------------------------
+# Test 23 — validate_approval_record: forbidden field name in metadata
+# ---------------------------------------------------------------------------
+print("\n── Test 23: validate_approval_record — forbidden field name in metadata")
+rec = _base_approved()
+rec.metadata["secret_id"] = "some-opaque-ref"
+result = validate_approval_record(rec)
+_assert(result.valid is False, "forbidden-metadata-field: valid=False")
+_assert(
+    "evidence_metadata_forbidden_field" in result.error_codes,
+    f"forbidden-metadata-field: evidence_metadata_forbidden_field in error_codes (got {result.error_codes})",
+)
+
+# ---------------------------------------------------------------------------
+# Test 24 — validate_approval_record: forbidden value pattern in metadata
+# ---------------------------------------------------------------------------
+print("\n── Test 24: validate_approval_record — forbidden value pattern in metadata")
+rec = _base_approved()
+rec.metadata["context"] = "projects/" + "my-project/secrets/cred-ref"
+result = validate_approval_record(rec)
+_assert(result.valid is False, "forbidden-metadata-value: valid=False")
+_assert(
+    "evidence_metadata_forbidden_value_pattern" in result.error_codes,
+    f"forbidden-metadata-value: evidence_metadata_forbidden_value_pattern in error_codes (got {result.error_codes})",
+)
+
+# ---------------------------------------------------------------------------
 # Final result
 # ---------------------------------------------------------------------------
 print()

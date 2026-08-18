@@ -1840,7 +1840,7 @@ pass "Rate limiting checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[20/25] Audit file locking (fcntl)..."
+echo "[20/26] Audit file locking (fcntl)..."
 # ---------------------------------------------------------------------------
 
 # _HAS_FCNTL constant importable from audit module
@@ -1915,7 +1915,7 @@ pass "Audit file locking checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[21/25] Live Google Ads readiness gate (live_gate.py)..."
+echo "[21/26] Live Google Ads readiness gate (live_gate.py)..."
 # ---------------------------------------------------------------------------
 
 # live_gate.py importable with all public symbols
@@ -2022,7 +2022,7 @@ pass "Live Google Ads readiness gate checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[22/25] Approval record model and local approval store..."
+echo "[22/26] Approval record model and local approval store..."
 # ---------------------------------------------------------------------------
 
 # approval.py importable with all public symbols
@@ -2326,7 +2326,7 @@ fi
 pass "Approval record model and local approval store checks complete"
 
 # ---------------------------------------------------------------------------
-echo "[23/25] Live operation preflight checker (preflight.py)..."
+echo "[23/26] Live operation preflight checker (preflight.py)..."
 # ---------------------------------------------------------------------------
 
 # preflight.py importable with all public symbols
@@ -2546,7 +2546,7 @@ fi
 pass "Live operation preflight checker checks complete"
 
 # ---------------------------------------------------------------------------
-echo "[24/25] Server live guard (live_guard.py + server route)..."
+echo "[24/26] Server live guard (live_guard.py + server route)..."
 # ---------------------------------------------------------------------------
 
 # live_guard.py importable with all public symbols
@@ -2730,7 +2730,7 @@ pass "Server live guard checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[25/25] Phase 6 — Live guard audit event emission..."
+echo "[25/26] Phase 6 — Live guard audit event emission..."
 # ---------------------------------------------------------------------------
 
 # build_live_guard_audit_event importable from audit
@@ -2892,6 +2892,105 @@ else
 fi
 
 pass "Phase 6 live guard audit event emission checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[26/26] Phase 8 — Test coverage hardening (V5.19)..."
+# ---------------------------------------------------------------------------
+
+# run_live_gate_demo.py: Tests 15-18 (empty/unknown cred status, required_actions, no forbidden keys)
+_OUT_GATE_P8=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_live_gate_demo.py 2>&1)
+echo "$_OUT_GATE_P8" | grep -q "All assertions passed." \
+    && pass "run_live_gate_demo.py (Phase 8): All assertions passed" \
+    || { echo "  ✗ run_live_gate_demo.py Phase 8: All assertions passed not found"; echo "$_OUT_GATE_P8" | tail -20; exit 1; }
+
+echo "$_OUT_GATE_P8" | grep -q "credential_not_active(empty)" \
+    && pass "live gate Phase 8: empty credential_status denied confirmed" \
+    || { echo "  ✗ live gate Phase 8: credential_not_active(empty) marker not found"; echo "$_OUT_GATE_P8" | tail -20; exit 1; }
+
+echo "$_OUT_GATE_P8" | grep -q "required_actions non-empty" \
+    && pass "live gate Phase 8: required_actions non-empty for all denial paths" \
+    || { echo "  ✗ live gate Phase 8: required_actions non-empty marker not found"; echo "$_OUT_GATE_P8" | tail -20; exit 1; }
+
+echo "$_OUT_GATE_P8" | grep -q "no forbidden field names in LiveGateResult" \
+    && pass "live gate Phase 8: no forbidden field names in LiveGateResult confirmed" \
+    || { echo "  ✗ live gate Phase 8: no forbidden field names marker not found"; echo "$_OUT_GATE_P8" | tail -20; exit 1; }
+
+# run_approval_demo.py: Tests 17-24 (PENDING/REJECTED/EXPIRED/reason/expiry/integration/metadata)
+_OUT_APPR_P8=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_approval_demo.py 2>&1)
+echo "$_OUT_APPR_P8" | grep -q "All assertions passed." \
+    && pass "run_approval_demo.py (Phase 8): All assertions passed" \
+    || { echo "  ✗ run_approval_demo.py Phase 8: All assertions passed not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "PENDING: valid=False" \
+    && pass "approval Phase 8: PENDING status denied confirmed" \
+    || { echo "  ✗ approval Phase 8: PENDING marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "REJECTED: valid=False" \
+    && pass "approval Phase 8: REJECTED status denied confirmed" \
+    || { echo "  ✗ approval Phase 8: REJECTED marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "EXPIRED: valid=False" \
+    && pass "approval Phase 8: EXPIRED status denied confirmed" \
+    || { echo "  ✗ approval Phase 8: EXPIRED marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "future expiry: valid=True" \
+    && pass "approval Phase 8: future expires_at allows confirmed" \
+    || { echo "  ✗ approval Phase 8: future expiry marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "wrong integration_type" \
+    && pass "approval Phase 8: wrong integration_type denied confirmed" \
+    || { echo "  ✗ approval Phase 8: wrong integration_type marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "forbidden-metadata-field" \
+    && pass "approval Phase 8: forbidden field in metadata denied confirmed" \
+    || { echo "  ✗ approval Phase 8: forbidden-metadata-field marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+# run_preflight_demo.py: Tests 18-20 (wrong integration, CONFIGURED/VALIDATION_FAILED cred status)
+_OUT_PFL_P8=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_preflight_demo.py 2>&1)
+echo "$_OUT_PFL_P8" | grep -q "All assertions passed." \
+    && pass "run_preflight_demo.py (Phase 8): All assertions passed" \
+    || { echo "  ✗ run_preflight_demo.py Phase 8: All assertions passed not found"; echo "$_OUT_PFL_P8" | tail -20; exit 1; }
+
+echo "$_OUT_PFL_P8" | grep -q "wrong integration: allowed=False" \
+    && pass "preflight Phase 8: wrong integration_type denied confirmed" \
+    || { echo "  ✗ preflight Phase 8: wrong integration marker not found"; echo "$_OUT_PFL_P8" | tail -20; exit 1; }
+
+echo "$_OUT_PFL_P8" | grep -q "credential CONFIGURED: allowed=False" \
+    && pass "preflight Phase 8: CONFIGURED cred status denied confirmed" \
+    || { echo "  ✗ preflight Phase 8: credential CONFIGURED marker not found"; echo "$_OUT_PFL_P8" | tail -20; exit 1; }
+
+echo "$_OUT_PFL_P8" | grep -q "credential VALIDATION_FAILED: allowed=False" \
+    && pass "preflight Phase 8: VALIDATION_FAILED cred status denied confirmed" \
+    || { echo "  ✗ preflight Phase 8: credential VALIDATION_FAILED marker not found"; echo "$_OUT_PFL_P8" | tail -20; exit 1; }
+
+# run_server_live_guard_demo.py: Phase 8A auth + 8B scope enforcement
+_OUT_GUARD_P8=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=false \
+    $PYTHON run_server_live_guard_demo.py 2>&1)
+echo "$_OUT_GUARD_P8" | grep -q "All assertions passed." \
+    && pass "run_server_live_guard_demo.py (Phase 8): All assertions passed" \
+    || { echo "  ✗ run_server_live_guard_demo.py Phase 8: assertion not found"; echo "$_OUT_GUARD_P8" | tail -20; exit 1; }
+
+echo "$_OUT_GUARD_P8" | grep -q "phase8a auth: 401 without token" \
+    && pass "server live guard Phase 8A: 401 without token confirmed" \
+    || { echo "  ✗ server live guard Phase 8A: 401 marker not found"; echo "$_OUT_GUARD_P8" | tail -20; exit 1; }
+
+echo "$_OUT_GUARD_P8" | grep -q "phase8b scope: 403 for READ token" \
+    && pass "server live guard Phase 8B: 403 for READ token confirmed" \
+    || { echo "  ✗ server live guard Phase 8B: 403 marker not found"; echo "$_OUT_GUARD_P8" | tail -20; exit 1; }
+
+pass "Phase 8 test coverage hardening checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

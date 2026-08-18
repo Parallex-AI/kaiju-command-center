@@ -396,6 +396,55 @@ def run_demo():
             os.environ.pop("OPENCLAW_AUDIT_ROOT", None)
             _shutil6.rmtree(_p6_tmp, ignore_errors=True)
 
+        # ── Phase 8A: auth enforcement — 401 without token ───────────────────────
+        # get_config() reads env on each request; same client, different env.
+        print("\n── Phase 8A: auth enforcement — 401 without token")
+        _p8a_saved_auth = os.environ.get("OPENCLAW_API_AUTH_ENABLED")
+        _p8a_saved_keys = os.environ.get("OPENCLAW_ADMIN_KEYS")
+        try:
+            os.environ["OPENCLAW_API_AUTH_ENABLED"] = "true"
+            os.environ["OPENCLAW_ADMIN_KEYS"] = "p8a-admin-test-key"
+            _r8a = client.post(_BASE, json={})
+            _assert(_r8a.status_code == 401, "phase8a auth: 401 without token")
+            _d8a = _r8a.json()
+            _codes8a = [e.get("code") for e in _d8a.get("errors", []) if isinstance(e, dict)]
+            _assert("unauthorized" in _codes8a, "phase8a auth: error code=unauthorized")
+        finally:
+            if _p8a_saved_auth is None:
+                os.environ.pop("OPENCLAW_API_AUTH_ENABLED", None)
+            else:
+                os.environ["OPENCLAW_API_AUTH_ENABLED"] = _p8a_saved_auth
+            if _p8a_saved_keys is None:
+                os.environ.pop("OPENCLAW_ADMIN_KEYS", None)
+            else:
+                os.environ["OPENCLAW_ADMIN_KEYS"] = _p8a_saved_keys
+
+        # ── Phase 8B: scope enforcement — 403 for READ token ─────────────────────
+        print("\n── Phase 8B: scope enforcement — 403 for READ token")
+        _p8b_saved_auth = os.environ.get("OPENCLAW_API_AUTH_ENABLED")
+        _p8b_saved_keys = os.environ.get("OPENCLAW_READ_KEYS")
+        try:
+            os.environ["OPENCLAW_API_AUTH_ENABLED"] = "true"
+            os.environ["OPENCLAW_READ_KEYS"] = "p8b-read-test-key"
+            _r8b = client.post(
+                _BASE,
+                json={},
+                headers={"Authorization": "Bearer p8b-read-test-key"},
+            )
+            _assert(_r8b.status_code == 403, "phase8b scope: 403 for READ token")
+            _d8b = _r8b.json()
+            _codes8b = [e.get("code") for e in _d8b.get("errors", []) if isinstance(e, dict)]
+            _assert("scope_not_granted" in _codes8b, "phase8b scope: error code=scope_not_granted")
+        finally:
+            if _p8b_saved_auth is None:
+                os.environ.pop("OPENCLAW_API_AUTH_ENABLED", None)
+            else:
+                os.environ["OPENCLAW_API_AUTH_ENABLED"] = _p8b_saved_auth
+            if _p8b_saved_keys is None:
+                os.environ.pop("OPENCLAW_READ_KEYS", None)
+            else:
+                os.environ["OPENCLAW_READ_KEYS"] = _p8b_saved_keys
+
     finally:
         for k, v in original_env.items():
             if v is None:

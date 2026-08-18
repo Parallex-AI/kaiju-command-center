@@ -255,6 +255,33 @@ _assert("operation" in summary, "sanitized summary: operation present")
 _assert("integration_type" in summary, "sanitized summary: integration_type present")
 
 # ---------------------------------------------------------------------------
+# Test 18 — wrong integration_type in preflight input → approval_invalid
+# ---------------------------------------------------------------------------
+print("\n── Test 18: wrong integration_type → approval_invalid")
+r = check_live_operation_preflight(_all_pass_input(integration_type="facebook_ads"))
+_assert(r.allowed is False, "wrong integration: allowed=False")
+_assert(r.error_code == LiveGateDenialCode.APPROVAL_INVALID, "wrong integration: error_code=approval_invalid")
+_assert(r.approval_valid is False, "wrong integration: approval_valid=False")
+
+# ---------------------------------------------------------------------------
+# Test 19 — credential_status CONFIGURED → credential_not_active
+# ---------------------------------------------------------------------------
+print("\n── Test 19: credential_status CONFIGURED → credential_not_active")
+r = check_live_operation_preflight(_all_pass_input(credential_status="CONFIGURED"))
+_assert(r.allowed is False, "credential CONFIGURED: allowed=False")
+_assert(r.error_code == LiveGateDenialCode.CREDENTIAL_NOT_ACTIVE, "credential CONFIGURED: error_code=credential_not_active")
+_assert(r.sanitized_summary["credential_status"] == "CONFIGURED", "credential CONFIGURED: summary.credential_status=CONFIGURED")
+
+# ---------------------------------------------------------------------------
+# Test 20 — credential_status VALIDATION_FAILED → credential_not_active
+# ---------------------------------------------------------------------------
+print("\n── Test 20: credential_status VALIDATION_FAILED → credential_not_active")
+r = check_live_operation_preflight(_all_pass_input(credential_status="VALIDATION_FAILED"))
+_assert(r.allowed is False, "credential VALIDATION_FAILED: allowed=False")
+_assert(r.error_code == LiveGateDenialCode.CREDENTIAL_NOT_ACTIVE, "credential VALIDATION_FAILED: error_code=credential_not_active")
+_assert(r.sanitized_summary["credential_status"] == "VALIDATION_FAILED", "credential VALIDATION_FAILED: summary.credential_status=VALIDATION_FAILED")
+
+# ---------------------------------------------------------------------------
 # Final result
 # ---------------------------------------------------------------------------
 print()

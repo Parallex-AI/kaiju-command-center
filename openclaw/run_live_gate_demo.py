@@ -185,6 +185,63 @@ _assert(len(r.reasons) > 0, "allow path: reasons non-empty")
 _assert(r.required_actions == [], "allow path: required_actions=[]")
 
 # ---------------------------------------------------------------------------
+# Test 15 — credential_not_active (empty status)
+# ---------------------------------------------------------------------------
+print("\n── Test 15: credential_not_active (empty status)")
+r = check_live_gate(_all_pass_input(credential_status=""))
+_assert(r.allowed is False, "credential_not_active(empty): allowed=False")
+_assert(r.error_code == LiveGateDenialCode.CREDENTIAL_NOT_ACTIVE, "credential_not_active(empty): error_code correct")
+_assert(len(r.reasons) > 0, "credential_not_active(empty): reasons non-empty")
+
+# ---------------------------------------------------------------------------
+# Test 16 — credential_not_active (unknown status string)
+# ---------------------------------------------------------------------------
+print("\n── Test 16: credential_not_active (unknown status)")
+r = check_live_gate(_all_pass_input(credential_status="UNKNOWN"))
+_assert(r.allowed is False, "credential_not_active(UNKNOWN): allowed=False")
+_assert(r.error_code == LiveGateDenialCode.CREDENTIAL_NOT_ACTIVE, "credential_not_active(UNKNOWN): error_code correct")
+
+# ---------------------------------------------------------------------------
+# Test 17 — required_actions non-empty on all 11 denial paths
+# ---------------------------------------------------------------------------
+print("\n── Test 17: required_actions non-empty on all denial paths")
+_denial_cases = [
+    ("live_disabled", dict(live_enabled=False)),
+    ("approval_missing", dict(approval_present=False)),
+    ("approval_invalid", dict(approval_valid=False)),
+    ("preflight_missing", dict(preflight_passed=False)),
+    ("audit_disabled", dict(audit_enabled=False)),
+    ("credential_missing", dict(credential_configured=False)),
+    ("credential_not_active", dict(credential_status="REVOKED")),
+    ("tenant_not_allowed", dict(tenant_allowed=False)),
+    ("client_not_allowed", dict(client_allowed=False)),
+    ("rollback_plan_missing", dict(rollback_plan_present=False)),
+    ("operator_confirmation_missing", dict(operator_confirmed=False)),
+]
+for _label, _kwargs in _denial_cases:
+    _r = check_live_gate(_all_pass_input(**_kwargs))
+    _assert(len(_r.required_actions) > 0, f"{_label}: required_actions non-empty")
+
+# ---------------------------------------------------------------------------
+# Test 18 — no forbidden field names in LiveGateResult keys or serialized output
+# ---------------------------------------------------------------------------
+print("\n── Test 18: no forbidden field names in LiveGateResult keys")
+import dataclasses as _dc
+import json as _json
+_r_allow = check_live_gate(_all_pass_input())
+_result_dict = _dc.asdict(_r_allow)
+_FORBIDDEN_GATE_KEYS = frozenset({
+    "credential_ref", "secret_id", "developer_token", "client_secret",
+    "refresh_token", "access_token", "customer_id", "login_customer_id",
+    "google_ads_client_id", "approval_id", "tenant_id", "client_id",
+})
+_found_forbidden = _FORBIDDEN_GATE_KEYS & set(_result_dict.keys())
+_assert(not _found_forbidden,
+        f"no forbidden field names in LiveGateResult keys (found: {_found_forbidden})")
+_result_json = _json.dumps(_result_dict)
+_assert("projects/" not in _result_json, "no GCP resource paths in serialized result")
+
+# ---------------------------------------------------------------------------
 # Final result
 # ---------------------------------------------------------------------------
 print()
