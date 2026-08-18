@@ -1840,7 +1840,7 @@ pass "Rate limiting checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[20/24] Audit file locking (fcntl)..."
+echo "[20/25] Audit file locking (fcntl)..."
 # ---------------------------------------------------------------------------
 
 # _HAS_FCNTL constant importable from audit module
@@ -1915,7 +1915,7 @@ pass "Audit file locking checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[21/24] Live Google Ads readiness gate (live_gate.py)..."
+echo "[21/25] Live Google Ads readiness gate (live_gate.py)..."
 # ---------------------------------------------------------------------------
 
 # live_gate.py importable with all public symbols
@@ -2022,7 +2022,7 @@ pass "Live Google Ads readiness gate checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[22/24] Approval record model and local approval store..."
+echo "[22/25] Approval record model and local approval store..."
 # ---------------------------------------------------------------------------
 
 # approval.py importable with all public symbols
@@ -2326,7 +2326,7 @@ fi
 pass "Approval record model and local approval store checks complete"
 
 # ---------------------------------------------------------------------------
-echo "[23/24] Live operation preflight checker (preflight.py)..."
+echo "[23/25] Live operation preflight checker (preflight.py)..."
 # ---------------------------------------------------------------------------
 
 # preflight.py importable with all public symbols
@@ -2546,7 +2546,7 @@ fi
 pass "Live operation preflight checker checks complete"
 
 # ---------------------------------------------------------------------------
-echo "[24/24] Server live guard (live_guard.py + server route)..."
+echo "[24/25] Server live guard (live_guard.py + server route)..."
 # ---------------------------------------------------------------------------
 
 # live_guard.py importable with all public symbols
@@ -2727,6 +2727,171 @@ else
 fi
 
 pass "Server live guard checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[25/25] Phase 6 — Live guard audit event emission..."
+# ---------------------------------------------------------------------------
+
+# build_live_guard_audit_event importable from audit
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from audit import build_live_guard_audit_event
+" 2>&1); then
+    pass "audit.py: build_live_guard_audit_event importable"
+else
+    fail "audit.py: build_live_guard_audit_event not importable"
+fi
+
+# build_live_guard_audit_event does not include forbidden fields
+for forbidden_field in "tenant_id" "client_id" "approval_id" "credential_ref" "secret_id" \
+    "customer_id" "login_customer_id" "refresh_token" "access_token" "developer_token" "client_secret"; do
+    if grep -A 35 "def build_live_guard_audit_event" "$OPENCLAW_DIR/audit.py" 2>/dev/null \
+        | grep -q "\"${forbidden_field}\""; then
+        fail "Forbidden field '${forbidden_field}' found in build_live_guard_audit_event body"
+    else
+        pass "build_live_guard_audit_event does not emit '${forbidden_field}'"
+    fi
+done
+
+# build_live_guard_audit_event: correct shape, no forbidden identifiers
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from audit import build_live_guard_audit_event
+from live_guard import LIVE_OPERATION_FORBIDDEN_RESPONSE_KEYS
+ev = build_live_guard_audit_event(
+    operation='test_op', ok=False, event_type='live_gate_check',
+    error_codes=['live_disabled'], request_id='req-1', trace_id='trace-1',
+    live_enabled=False, approval_present=True, approval_valid=True,
+    credential_status='ACTIVE', live_gate_allowed=False,
+)
+assert ev['event_type'] == 'live_gate_check', f'event_type: {ev[\"event_type\"]}'
+assert ev['integration_type'] == 'google_ads', f'integration_type: {ev[\"integration_type\"]}'
+assert ev['source'] == 'server_live_guard', f'source: {ev[\"source\"]}'
+assert ev['live_api_tested'] is False, 'live_api_tested must be False'
+assert ev['ok'] is False, 'ok must match param'
+assert ev['error_codes'] == ['live_disabled'], f'error_codes: {ev[\"error_codes\"]}'
+found_forbidden = [k for k in LIVE_OPERATION_FORBIDDEN_RESPONSE_KEYS if k in ev]
+assert not found_forbidden, f'forbidden keys in audit event: {found_forbidden}'
+" 2>/dev/null); then
+    pass "build_live_guard_audit_event: correct shape, no forbidden identifiers"
+else
+    fail "build_live_guard_audit_event: shape or forbidden key check failed"
+fi
+
+# Server route emits live_gate_check + live_mode_denied when audit enabled
+GUARD_AUDIT_TMP=$(mktemp -d /tmp/kaiju_smoke_v5_guard_audit_XXXXXX)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=true \
+    OPENCLAW_AUDIT_ROOT="$GUARD_AUDIT_TMP" \
+    $PYTHON -c "
+import os, sys
+for mod in list(sys.modules.keys()):
+    if mod in ('server', 'admin', 'config', 'auth', 'live_guard', 'live_gate',
+               'preflight', 'approval', 'audit', 'audit_maintenance', 'rate_limit'):
+        del sys.modules[mod]
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app, raise_server_exceptions=True)
+r = client.post('/openclaw/admin/live-google-ads/preflight', json={
+    'approval_present': True, 'approval_valid': True, 'preflight_passed': True,
+    'audit_enabled': True, 'credential_configured': True, 'credential_status': 'ACTIVE',
+    'tenant_allowed': True, 'client_allowed': True,
+    'rollback_plan_present': True, 'operator_confirmed': True,
+})
+assert r.status_code == 403, f'expected 403, got {r.status_code}'
+import json, pathlib
+audit_root = pathlib.Path(os.environ['OPENCLAW_AUDIT_ROOT'])
+audit_files = list(audit_root.glob('*.jsonl'))
+assert len(audit_files) == 1, f'expected 1 audit file, got {len(audit_files)}'
+lines = [l for l in audit_files[0].read_text().splitlines() if l.strip()]
+assert len(lines) >= 2, f'expected >=2 audit events, got {len(lines)}'
+events = [json.loads(l) for l in lines]
+event_types = [e['event_type'] for e in events]
+assert 'live_gate_check' in event_types, f'live_gate_check missing: {event_types}'
+assert 'live_mode_denied' in event_types, f'live_mode_denied missing: {event_types}'
+FORBIDDEN = {'tenant_id', 'client_id', 'approval_id', 'credential_ref', 'secret_id',
+             'customer_id', 'login_customer_id', 'refresh_token', 'access_token',
+             'developer_token', 'client_secret'}
+for ev in events:
+    found = [k for k in FORBIDDEN if k in ev]
+    assert not found, f'forbidden keys in audit event {ev.get(\"event_type\")}: {found}'
+" 2>/dev/null); then
+    pass "server route: emits live_gate_check + live_mode_denied, no forbidden keys"
+else
+    fail "server route: audit event emission or forbidden key check failed"
+fi
+rm -rf "$GUARD_AUDIT_TMP"
+
+# verify_audit_file passes on live guard emitted events
+GUARD_AUDIT_TMP2=$(mktemp -d /tmp/kaiju_smoke_v5_guard_audit_XXXXXX)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=true \
+    OPENCLAW_AUDIT_ROOT="$GUARD_AUDIT_TMP2" \
+    $PYTHON -c "
+import os, sys
+for mod in list(sys.modules.keys()):
+    if mod in ('server', 'admin', 'config', 'auth', 'live_guard', 'live_gate',
+               'preflight', 'approval', 'audit', 'audit_maintenance', 'rate_limit'):
+        del sys.modules[mod]
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app, raise_server_exceptions=True)
+client.post('/openclaw/admin/live-google-ads/preflight', json={
+    'approval_present': True, 'approval_valid': True, 'preflight_passed': True,
+    'audit_enabled': True, 'credential_configured': True, 'credential_status': 'ACTIVE',
+    'tenant_allowed': True, 'client_allowed': True,
+    'rollback_plan_present': True, 'operator_confirmed': True,
+})
+import pathlib
+from audit_maintenance import verify_audit_file
+audit_root = pathlib.Path(os.environ['OPENCLAW_AUDIT_ROOT'])
+audit_files = list(audit_root.glob('*.jsonl'))
+result = verify_audit_file(audit_files[0])
+assert result['ok'] is True, f'verify_audit_file failed: {result}'
+assert result['events_checked'] >= 2, f'expected >=2 events: {result}'
+assert result['errors'] == [], f'chain errors: {result[\"errors\"]}'
+" 2>/dev/null); then
+    pass "verify_audit_file: passes on live guard emitted events"
+else
+    fail "verify_audit_file: failed on live guard emitted events"
+fi
+rm -rf "$GUARD_AUDIT_TMP2"
+
+# run_server_live_guard_demo.py with Phase 6 audit section: all assertions pass
+_OUT_GUARD_P6=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=false \
+    $PYTHON run_server_live_guard_demo.py 2>&1)
+echo "$_OUT_GUARD_P6" | grep -q "All assertions passed." \
+    && pass "run_server_live_guard_demo.py (incl. Phase 6 audit section): All assertions passed" \
+    || { echo "  ✗ run_server_live_guard_demo.py Phase 6: assertion not found"; echo "$_OUT_GUARD_P6" | tail -30; exit 1; }
+
+echo "$_OUT_GUARD_P6" | grep -q "phase6 builder: event_type=live_gate_check" \
+    && pass "Phase 6 demo: live_gate_check builder assertion confirmed" \
+    || { echo "  ✗ Phase 6 demo: live_gate_check builder marker not found"; echo "$_OUT_GUARD_P6" | tail -30; exit 1; }
+
+echo "$_OUT_GUARD_P6" | grep -q "phase6 verify_audit_file: ok=True" \
+    && pass "Phase 6 demo: verify_audit_file ok=True confirmed" \
+    || { echo "  ✗ Phase 6 demo: verify_audit_file marker not found"; echo "$_OUT_GUARD_P6" | tail -30; exit 1; }
+
+# audit.py must not include GOOGLE_ADS_LIVE_ENABLED=true
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" "$OPENCLAW_DIR/audit.py" 2>/dev/null; then
+    fail "audit.py contains GOOGLE_ADS_LIVE_ENABLED=true"
+else
+    pass "audit.py: GOOGLE_ADS_LIVE_ENABLED=true absent"
+fi
+
+pass "Phase 6 live guard audit event emission checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

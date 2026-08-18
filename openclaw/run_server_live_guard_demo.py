@@ -298,6 +298,104 @@ def run_demo():
         _assert(response_has_no_forbidden_keys(dirty) is False,
                 "dirty dict: tenant_id present → False")
 
+        # ── Phase 6: live guard audit event builder and emission ─────────────────
+        print("\n── Phase 6: live guard audit event builder and emission")
+        import shutil as _shutil6
+        _p6_tmp = tempfile.mkdtemp(prefix="kaiju_live_guard_audit_")
+        try:
+            os.environ["OPENCLAW_AUDIT_ENABLED"] = "true"
+            os.environ["OPENCLAW_AUDIT_ROOT"] = _p6_tmp
+
+            from audit import build_live_guard_audit_event, append_audit_event
+            from audit_maintenance import verify_audit_file
+            from pathlib import Path as _Path6
+            import json as _json6
+
+            _denied_ev = build_live_guard_audit_event(
+                operation="smoke_preflight_test",
+                ok=False,
+                event_type="live_gate_check",
+                error_codes=["live_disabled"],
+                request_id="req-smoke-1",
+                trace_id="trace-smoke-1",
+                live_enabled=False,
+                approval_present=True,
+                approval_valid=True,
+                credential_status="ACTIVE",
+                live_gate_allowed=False,
+            )
+            _assert(_denied_ev.get("event_type") == "live_gate_check",
+                    "phase6 builder: event_type=live_gate_check")
+            _assert(_denied_ev.get("integration_type") == "google_ads",
+                    "phase6 builder: integration_type=google_ads")
+            _assert(_denied_ev.get("source") == "server_live_guard",
+                    "phase6 builder: source=server_live_guard")
+            _assert(_denied_ev.get("live_api_tested") is False,
+                    "phase6 builder: live_api_tested=False")
+            _no_forbidden_keys(_denied_ev, "phase6 builder denied: no forbidden identifiers")
+
+            _allowed_ev = build_live_guard_audit_event(
+                operation="smoke_preflight_allow",
+                ok=True,
+                event_type="live_preflight_allowed",
+                request_id="req-smoke-2",
+                trace_id="trace-smoke-2",
+                live_enabled=True,
+                approval_present=True,
+                approval_valid=True,
+                credential_status="ACTIVE",
+                live_gate_allowed=True,
+            )
+            _assert(_allowed_ev.get("event_type") == "live_preflight_allowed",
+                    "phase6 builder allowed: event_type=live_preflight_allowed")
+            _assert(_allowed_ev.get("ok") is True,
+                    "phase6 builder allowed: ok=True")
+            _assert(_allowed_ev.get("live_gate_allowed") is True,
+                    "phase6 builder allowed: live_gate_allowed=True")
+
+            _denied2_ev = build_live_guard_audit_event(
+                operation="smoke_preflight_deny",
+                ok=False,
+                event_type="live_mode_denied",
+                error_codes=["live_disabled"],
+                request_id="req-smoke-3",
+                trace_id="trace-smoke-3",
+                live_enabled=False,
+                live_gate_allowed=False,
+            )
+            _assert(_denied2_ev.get("event_type") == "live_mode_denied",
+                    "phase6 builder denied secondary: event_type=live_mode_denied")
+
+            _ar1 = append_audit_event(_denied_ev)
+            _assert(_ar1.get("ok") is True, "phase6 append (1): ok=True")
+            _assert(_ar1.get("seq") == 1, "phase6 append (1): seq=1")
+
+            _ar2 = append_audit_event(_allowed_ev)
+            _assert(_ar2.get("ok") is True, "phase6 append (2): ok=True")
+            _assert(_ar2.get("seq") == 2, "phase6 append (2): seq=2")
+
+            _audit_files = list(_Path6(_p6_tmp).glob("*.jsonl"))
+            _assert(len(_audit_files) == 1,
+                    f"phase6 audit: 1 audit file created (got {len(_audit_files)})")
+            if _audit_files:
+                _vr = verify_audit_file(_audit_files[0])
+                _assert(_vr.get("ok") is True, "phase6 verify_audit_file: ok=True")
+                _assert(_vr.get("events_checked") == 2,
+                        f"phase6 verify_audit_file: events_checked=2 "
+                        f"(got {_vr.get('events_checked')})")
+
+                _lines = [l for l in _audit_files[0].read_text().splitlines() if l.strip()]
+                _parsed = [_json6.loads(l) for l in _lines]
+                for _pe in _parsed:
+                    _no_forbidden_keys(
+                        _pe,
+                        f"phase6 parsed event ({_pe.get('event_type')}): no forbidden keys",
+                    )
+        finally:
+            os.environ["OPENCLAW_AUDIT_ENABLED"] = "false"
+            os.environ.pop("OPENCLAW_AUDIT_ROOT", None)
+            _shutil6.rmtree(_p6_tmp, ignore_errors=True)
+
     finally:
         for k, v in original_env.items():
             if v is None:

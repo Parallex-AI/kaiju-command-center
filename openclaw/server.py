@@ -33,6 +33,7 @@ from admin import (
     GOOGLE_ADS_SECRET_FIELDS,
 )
 from live_guard import guard_live_google_ads_from_signals
+from audit import append_audit_event, build_live_guard_audit_event
 
 SERVICE_NAME = "kaiju-openclaw"
 
@@ -666,7 +667,37 @@ async def admin_live_google_ads_preflight(request: Request):
     result["request_id"] = request_id
     result["trace_id"] = trace_id
 
-    status_code = 200 if result.get("live_allowed") else 403
+    _operation = str(payload.get("operation", ""))
+    _error_codes = [result["error_code"]] if result.get("error_code") else []
+    _live_allowed = bool(result.get("live_allowed", False))
+
+    append_audit_event(build_live_guard_audit_event(
+        operation=_operation,
+        ok=bool(result.get("ok", False)),
+        event_type="live_gate_check",
+        error_codes=_error_codes,
+        request_id=request_id,
+        trace_id=trace_id,
+        live_enabled=live_enabled,
+        approval_present=bool(payload.get("approval_present", False)),
+        approval_valid=bool(payload.get("approval_valid", False)),
+        credential_status=str(payload.get("credential_status", "CONFIGURED")),
+        live_gate_allowed=_live_allowed,
+    ))
+
+    _secondary_type = "live_preflight_allowed" if _live_allowed else "live_mode_denied"
+    append_audit_event(build_live_guard_audit_event(
+        operation=_operation,
+        ok=bool(result.get("ok", False)),
+        event_type=_secondary_type,
+        error_codes=_error_codes,
+        request_id=request_id,
+        trace_id=trace_id,
+        live_enabled=live_enabled,
+        live_gate_allowed=_live_allowed,
+    ))
+
+    status_code = 200 if _live_allowed else 403
     return JSONResponse(status_code=status_code, content=result)
 
 
