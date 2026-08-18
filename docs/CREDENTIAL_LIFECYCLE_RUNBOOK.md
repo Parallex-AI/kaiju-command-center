@@ -1,6 +1,6 @@
 # Credential Lifecycle Runbook
 
-**Kaiju Command Center — V5.14 / V5.15 / V5.16 / V5.17**
+**Kaiju Command Center — V5.14 / V5.15 / V5.16 / V5.17 / V5.19**
 
 This runbook documents the operator-facing procedures for managing Google Ads credentials through the OpenClaw admin API. It covers token setup, credential onboarding, validation, rotation, deletion, and audit maintenance. All curl examples use placeholder values only.
 
@@ -755,7 +755,230 @@ Only proceed with real credential onboarding when all boxes above are checked.
 
 ---
 
-## 18. Related Documents
+## 18. V5.19 — Real Credential Readiness Gates
+
+V5.19 builds the safety controls, approval workflow, preflight infrastructure, runtime guardrails, and audit requirements that gate any real Google Ads credential onboarding or live API validation. This section documents the components, approval workflow, live gate conditions, server preflight route, audit events, operator procedure, rollback path, and the current deferred boundary.
+
+`GOOGLE_ADS_LIVE_ENABLED=false` throughout V5.19. No real credentials. No Google Ads API calls. No deploy.
+
+### A. Purpose
+
+The V5.19 gate system answers the question: "Is this system ready to onboard real Google Ads credentials and attempt live API validation?" Each gate is a structured, auditable, blocking condition. All gates must pass before any credential onboarding or live API call can proceed.
+
+The system is designed to fail safely: any single gate failure returns a structured error with a specific denial code, emits an audit event, and does not proceed to any credential access or API call.
+
+### B. Components
+
+| Component | Module | Purpose |
+|-----------|--------|---------|
+| Live gate | `openclaw/live_gate.py` | Pure evaluation of 11 boolean readiness signals; no I/O; no env reads |
+| Approval model | `openclaw/approval.py` | `ApprovalRecord` dataclass, `LocalFileApprovalStore`, validity checking |
+| Preflight checker | `openclaw/preflight.py` | Composes approval validation and gate check into a single call |
+| Live guard | `openclaw/live_guard.py` | HTTP-layer guard functions and safe response builders |
+| Server preflight route | `openclaw/server.py` | `POST /openclaw/admin/live-google-ads/preflight` — operator-callable probe |
+| Live guard audit events | `openclaw/audit.py` | `build_live_guard_audit_event()` — never includes forbidden identifiers |
+
+### C. Approval Record Procedure
+
+An `ApprovalRecord` must exist and be valid for any tenant/client pair before the live gate will pass. The approval record is created out-of-band by an operator — Claude Code does not self-approve.
+
+**Fields required in an approval record:**
+
+| Field | Description |
+|-------|-------------|
+| `approved_by` | Operator label (not a credential value) |
+| `approved_at` | ISO 8601 timestamp |
+| `scope` | One of: `google_ads_live_validation`, `google_ads_credential_onboarding`, `google_ads_credential_rotation`, `google_ads_credential_revoke` |
+| `intended_operation` | Plain-text description of what will be called |
+| `expiry` | ISO 8601 timestamp or `null` |
+| `rollback_plan` | Non-empty text describing the rollback path |
+| `revoked` | Boolean; `true` = approval is revoked and gate will fail |
+
+**Fields that must never appear in an approval record:**
+
+`approval_id`, `tenant_id`, `client_id`, `credential_ref`, `secret_id`, `customer_id`, `login_customer_id`, `refresh_token`, `access_token`, `developer_token`, `client_secret`
+
+**Validation rules:**
+
+- `revoked: true` → gate fails with `approval_invalid`
+- `expiry` set and in the past → gate fails with `approval_invalid`
+- `scope` does not match the required scope → gate fails with `approval_invalid`
+- Approval absent → gate fails with `approval_missing`
+
+Approval records are stored in `LocalFileApprovalStore` for local development and testing. Real operator approvals require a separate out-of-band process not implemented in V5.19.
+
+### D. Live Gate Conditions
+
+`check_live_gate()` in `openclaw/live_gate.py` evaluates 11 boolean signals in priority order. `live_disabled` is always checked first — if `GOOGLE_ADS_LIVE_ENABLED=false`, the gate returns immediately with `live_disabled` without evaluating other signals.
+
+| Priority | Denial code | Signal evaluated | Required value |
+|----------|-------------|-----------------|---------------|
+| 1 | `live_disabled` | `live_enabled` | `true` |
+| 2 | `approval_missing` | `approval_present` | `true` |
+| 3 | `approval_invalid` | `approval_valid` | `true` |
+| 4 | `preflight_missing` | `preflight_passed` | `true` |
+| 5 | `audit_disabled` | `audit_enabled` | `true` |
+| 6 | `credential_missing` | `credential_configured` | `true` |
+| 7 | `credential_not_active` | `credential_status` | `"active"` |
+| 8 | `tenant_not_allowed` | `tenant_allowed` | `true` |
+| 9 | `client_not_allowed` | `client_allowed` | `true` |
+| 10 | `rollback_plan_missing` | `rollback_plan_present` | `true` |
+| 11 | `operator_confirmation_missing` | `operator_confirmed` | `true` |
+
+`check_live_gate()` is pure Python: it reads no environment variables and makes no I/O calls. The caller is responsible for supplying pre-resolved boolean signals.
+
+### E. Server Preflight Route
+
+**Endpoint:** `POST /openclaw/admin/live-google-ads/preflight`
+**Minimum scope:** `VALIDATE`
+**Rate limit category:** `STANDARD`
+
+This route is an operator-callable probe that checks whether the current server configuration would allow a live Google Ads operation. It does not perform a live Google Ads API call. `live_api_tested` is always `false` in the response.
+
+`live_enabled` is always derived from `GOOGLE_ADS_LIVE_ENABLED` in the server environment — never from the request body. With the default `GOOGLE_ADS_LIVE_ENABLED=false`, the gate always returns `live_disabled`.
+
+**Denied response (HTTP 403):**
+
+```json
+{
+  "ok": false,
+  "error": "live_preflight_failed",
+  "live_api_tested": false,
+  "live_gate_allowed": false,
+  "error_code": "<denial_code>"
+}
+```
+
+**Allowed response (HTTP 200 — only if `GOOGLE_ADS_LIVE_ENABLED=true` and all other gates pass):**
+
+```json
+{
+  "ok": true,
+  "error": null,
+  "live_api_tested": false,
+  "live_gate_allowed": true,
+  "error_code": null
+}
+```
+
+The response never includes `tenant_id`, `client_id`, `approval_id`, `credential_ref`, `secret_id`, `customer_id`, `login_customer_id`, `refresh_token`, `access_token`, `developer_token`, or `client_secret`.
+
+### F. Audit Events
+
+Two audit events are emitted per preflight route call. All live guard audit events use `source="server_live_guard"` and `integration_type="google_ads"`, and include `live_api_tested=false`.
+
+**Event 1 — always emitted:**
+
+| Field | Value |
+|-------|-------|
+| `event_type` | `"live_gate_check"` |
+| `ok` | `true` if gate passed; `false` if denied |
+| `live_enabled` | `false` until `GOOGLE_ADS_LIVE_ENABLED=true` is explicitly set |
+| `approval_present` | Boolean — derived from request signals |
+| `approval_valid` | Boolean |
+| `credential_status` | String status value |
+| `live_gate_allowed` | Boolean |
+| `live_api_tested` | Always `false` |
+| `error_codes` | List of denial codes, or `[]` on pass |
+
+**Event 2 — outcome-specific:**
+
+| Outcome | `event_type` | `ok` |
+|---------|-------------|------|
+| Gate denied | `"live_mode_denied"` | `false` |
+| Gate allowed | `"live_preflight_allowed"` | `true` |
+
+**Fields never included in live guard audit events:**
+
+`tenant_id`, `client_id`, `approval_id`, `credential_ref`, `secret_id`, `customer_id`, `login_customer_id`, `refresh_token`, `access_token`, `developer_token`, `client_secret`
+
+The audit chain (`seq` + `file_digest`) is maintained by `append_audit_event()` and verifiable by `verify_audit_file()` in `audit_maintenance.py`.
+
+### G. Operator Procedure
+
+To check live readiness using the preflight route:
+
+```bash
+curl -X POST \
+  "http://localhost:8100/openclaw/admin/live-google-ads/preflight" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+With `GOOGLE_ADS_LIVE_ENABLED=false` (the default and required state for all V5.19 operations), the response is always:
+
+```json
+{
+  "ok": false,
+  "error": "live_preflight_failed",
+  "live_api_tested": false,
+  "live_gate_allowed": false,
+  "error_code": "live_disabled"
+}
+```
+
+**To verify the audit chain after a preflight call:**
+
+```python
+from openclaw.audit_maintenance import verify_audit_file
+from datetime import datetime, timezone
+
+date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+result = verify_audit_file(f"openclaw/audit/{date_str}.jsonl")
+# result["ok"] must be True; result["events_checked"] increases by 2 per preflight call
+```
+
+**Enabling live mode (future, gated):**
+
+`GOOGLE_ADS_LIVE_ENABLED=true` must never be set in any environment until all of the following apply:
+1. All Pre-Real-Onboarding Checklist items (Section 17) are verified.
+2. An operator-authored approval record with a valid scope, non-expired expiry, and non-empty rollback plan exists.
+3. All other gate conditions pass via the preflight route.
+4. The change is explicitly authorized per the GCP cost and authority rules for this project.
+
+### H. Rollback and Emergency Revoke
+
+For the full rollback and emergency revoke procedure, see Section 14 (Rollback and Recovery) of this runbook.
+
+**V5.19 addition — revoke the approval record after credential revocation:**
+
+After completing a credential delete/revoke via `DELETE /credentials/google-ads`, mark the corresponding approval record revoked:
+
+```json
+{ "revoked": true, "revoked_at": "<ISO8601_timestamp>", "notes": "<incident_description>" }
+```
+
+This prevents the approval from being reused for a subsequent live operation attempt. A new approval record must be authored by an operator before the live gate will pass again.
+
+**V5.19 addition — verify preflight returns denied after revoke:**
+
+```bash
+curl -X POST \
+  "http://localhost:8100/openclaw/admin/live-google-ads/preflight" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+# With GOOGLE_ADS_LIVE_ENABLED=false: expect ok=false, error_code=live_disabled
+# If live mode were enabled: expect ok=false, error_code=approval_missing or approval_invalid
+```
+
+No credential values in any incident record. No GCP resource paths. No `approval_id` values that could correlate to operator identity.
+
+### I. Current Deferred Boundary
+
+V5.19 implements the gate infrastructure and operator tooling. The following actions require separate explicit authorization and are not performed in V5.19:
+
+| Deferred action | Gate condition required first |
+|----------------|------------------------------|
+| Real Google Ads OAuth credential onboarding | All V5.19 gates PASS; `GOOGLE_ADS_LIVE_ENABLED=true` explicitly authorized |
+| Real Google Ads live API validation | Real credentials onboarded; explicit operator approval per-prompt |
+| Setting `GOOGLE_ADS_LIVE_ENABLED=true` | Section 17 checklist complete; preflight route returns `live_gate_allowed: true` |
+| Secret Manager prior-version destruction | Separate implementation authorization; irreversible |
+| Cloud Run deployment | IAM, billing, service account authorization |
+| External approval UI | Separate frontend milestone |
+
+`GOOGLE_ADS_LIVE_ENABLED=false` is the authoritative gate. Until it is explicitly set to `true` by an authorized operator action, no live Google Ads API call can occur regardless of any other configuration.
+
+---
+
+## 19. Related Documents
 
 | Document | Purpose |
 |---|---|
@@ -774,3 +997,8 @@ Only proceed with real credential onboarding when all boxes above are checked.
 | [docs/V5_17_PER_TENANT_PERMISSION_DESIGN.md](V5_17_PER_TENANT_PERMISSION_DESIGN.md) | V5.17 Phase 3 design: `OPENCLAW_TENANT_KEYS` format, request evaluation order, backward compat, future IAM path |
 | [docs/V5_17_RATE_LIMITING_DESIGN.md](V5_17_RATE_LIMITING_DESIGN.md) | V5.17 Phase 4 design: sliding-window rate limiting, env vars, route categories, anonymous bucket, interaction with RBAC/tenant isolation |
 | [docs/V5_17_AUDIT_HARDENING_DECISION.md](V5_17_AUDIT_HARDENING_DECISION.md) | V5.17 Phase 5 design decision: fcntl file locking for audit append, options evaluated, limitations, future paths |
+| [docs/V5_19_IMPLEMENTATION_PLAN.md](V5_19_IMPLEMENTATION_PLAN.md) | V5.19 full implementation plan: live gate, approval workflow, preflight checker, server guardrails, audit events, runbook scope |
+| [openclaw/live_gate.py](../openclaw/live_gate.py) | `check_live_gate()`, `LiveGateInput`, `LiveGateResult`, 11 denial codes — pure evaluation, no I/O |
+| [openclaw/approval.py](../openclaw/approval.py) | `ApprovalRecord` dataclass, `LocalFileApprovalStore`, `is_approval_valid()`, `sanitize_approval_record()` |
+| [openclaw/preflight.py](../openclaw/preflight.py) | `check_live_operation_preflight()`, `LiveOperationPreflightInput`, `LiveOperationPreflightResult` |
+| [openclaw/live_guard.py](../openclaw/live_guard.py) | `guard_live_google_ads_from_signals()`, safe response builders, `LIVE_OPERATION_FORBIDDEN_RESPONSE_KEYS` |

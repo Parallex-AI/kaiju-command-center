@@ -548,13 +548,13 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 
 ### Phase breakdown
 
-- [ ] **Phase 1 — Planning and branch setup** — `V5_19_IMPLEMENTATION_PLAN.md`; ROADMAP update; README update; branch `v5.19-real-credential-readiness-gates`
-- [ ] **Phase 2 — Live-mode gate design** — `check_live_gate()` in `openclaw/live_gate.py`; all gate conditions; error codes; unit tests
-- [ ] **Phase 3 — Approval record model** — `ApprovalRecord` dataclass; `ApprovalStore` interface; `LocalFileApprovalStore`; `is_approval_valid()`; unit tests
-- [ ] **Phase 4 — Preflight checker** — `run_live_preflight()` function; per-check result structure; integration with gate; unit tests
-- [ ] **Phase 5 — API/server guardrails** — server route guard for any live-mode path; `live_mode_disabled` short-circuit; FastAPI TestClient tests
-- [ ] **Phase 6 — Audit event additions** — `op=live_gate_check`, `op=live_mode_denied`, `op=preflight_check`, `op=adapter_invoked`; smoke test extension
-- [ ] **Phase 7 — Runbook updates** — `CREDENTIAL_LIFECYCLE_RUNBOOK.md` Section 11 gates + approval procedure; `GCP_SECRET_MANAGER_RUNBOOK.md` version lifecycle policy
+- [x] **Phase 1 — Planning and branch setup** — `V5_19_IMPLEMENTATION_PLAN.md`; ROADMAP update; README update; branch `v5.19-real-credential-readiness-gates`
+- [x] **Phase 2 — Live-mode gate design** — `check_live_gate()` in `openclaw/live_gate.py`; all gate conditions; error codes; unit tests
+- [x] **Phase 3 — Approval record model** — `ApprovalRecord` dataclass; `ApprovalStore` interface; `LocalFileApprovalStore`; `is_approval_valid()`; unit tests
+- [x] **Phase 4 — Preflight checker** — `run_live_preflight()` function; per-check result structure; integration with gate; unit tests
+- [x] **Phase 5 — API/server guardrails** — server route guard for any live-mode path; `live_mode_disabled` short-circuit; FastAPI TestClient tests
+- [x] **Phase 6 — Audit event additions** — `op=live_gate_check`, `op=live_mode_denied`, `op=preflight_check`, `op=adapter_invoked`; smoke test extension
+- [x] **Phase 7 — Runbook updates** — `CREDENTIAL_LIFECYCLE_RUNBOOK.md` V5.19 gates + approval procedure; `GCP_SECRET_MANAGER_RUNBOOK.md` version lifecycle policy
 - [ ] **Phase 8 — Test coverage** — new smoke test section for gate denial paths; full test pass
 - [ ] **Phase 9 — Closure docs and release notes** — `V5_19_BRANCH_CLOSURE.md`; `RELEASE_NOTES_V5_19_0_BETA.md`; ROADMAP/README updates
 - [ ] **Phase 10 — Merge, tag, release** — merge to master; `v5.19.0-beta` tag; GitHub Release

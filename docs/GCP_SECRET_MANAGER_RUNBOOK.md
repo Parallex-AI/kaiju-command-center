@@ -525,7 +525,87 @@ Live testing of the Google Ads API integration requires real credentials and mus
 
 ---
 
-## 18. Related Documents
+## 18. V5.19 Secret Manager Version Lifecycle Policy
+
+V5.19 evaluated the policy for managing GCP Secret Manager secret versions after credential rotation. This section documents the options considered, the selected policy, and the deferred implementation scope.
+
+### Current state (V5.12–V5.18)
+
+`put_secret_bundle()` calls `add_secret_version`. The prior version remains enabled and accessible to any IAM principal with `secretAccessor` on the secret. In V5.18, both secret versions were destroyed together via `delete_secret_bundle()` / `gcloud secrets delete` at the end of the fake-credential lifecycle rehearsal.
+
+The prior version is not automatically disabled or destroyed after rotation. For real credentials, prior versions accumulate and remain accessible until explicitly managed. This is a security hygiene concern that increases exposure surface after each rotation.
+
+### Policy options evaluated
+
+| Option | Description | Trade-off |
+|--------|-------------|-----------|
+| A. Disable prior version on rotate | After `add_secret_version`, call `disable_secret_version` on the previous version | Prevents prior-version access; reversible; requires additional IAM (`secretVersionManager`); version still exists |
+| B. Destroy prior version on rotate after grace period | After `add_secret_version`, call `destroy_secret_version` on version N-1 after a configurable delay | Irreversible; simplest long-term hygiene; requires `secretVersionManager`; no recovery possible |
+| C. Keep all versions enabled | Current behavior — no additional action | Simplest code; accumulates versions; prior versions remain accessible |
+| D. Operator-managed lifecycle | Don't touch versions in code; document that operators must manage version lifecycle externally via `gcloud secrets versions disable/destroy` | Zero code change; operational burden on operator |
+
+### V5.19 policy decision
+
+**Operative policy: Option D (operator-managed lifecycle). Planned next step: Option A (disable prior version on rotate).**
+
+Rationale:
+- Option B (destroy) is irreversible and requires separate authorization before any implementation.
+- Option A (disable) prevents prior-version access without being irreversible and is the recommended starting point for a future implementation phase.
+- Until Option A is implemented, operators must manually disable prior versions after each rotation using `gcloud secrets versions disable` (see Section 13 of this runbook).
+- Option C (keep all versions) remains the current code behavior — no code changes in V5.19.
+
+This policy applies to `GCPSecretManagerStore.put_secret_bundle()`. `InMemorySecretStore` has no version concept.
+
+### Operator responsibility (current — Option D)
+
+After each credential rotation (Section 13), the operator must manually disable the prior version:
+
+```bash
+# List versions to identify the prior version number:
+gcloud secrets versions list "kaiju-prod-google_ads-CREDENTIAL_REF" \
+  --project=PROJECT_ID
+
+# Disable the prior version after confirming the new version is active:
+gcloud secrets versions disable PRIOR_VERSION_NUMBER \
+  --secret="kaiju-prod-google_ads-CREDENTIAL_REF" \
+  --project=PROJECT_ID
+```
+
+Replace `CREDENTIAL_REF` and `PROJECT_ID` with the actual values for the target environment. Do not destroy a version unless explicitly authorized. Destruction is irreversible.
+
+Verify the new version is active via the credential status endpoint before disabling the prior version:
+
+```bash
+curl -X GET \
+  "https://SERVICE_URL/openclaw/admin/tenants/TENANT/clients/CLIENT/credentials/google-ads/status" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+# Expect: credential_status.status=active, secret_status.configured=true
+```
+
+### Planned Option A implementation (deferred from V5.19)
+
+If authorized in a future milestone:
+
+- Add `_disable_prior_secret_version(secret_id: str, current_version: str)` to `GCPSecretManagerStore`
+- Call after successful `add_secret_version` in `put_secret_bundle()`
+- Error on disable is non-fatal: log a warning; do not fail the rotation
+- Additional IAM permission required: `secretmanager.versions.disable` (part of `roles/secretmanager.secretVersionManager`)
+- The prior version is disabled, not destroyed — it can be re-enabled if recovery is needed
+
+**Do not implement Option A without explicit authorization.** The additional IAM permission changes the Cloud Run service account's permission surface and requires review.
+
+### Option B (destroy) — explicitly deferred
+
+Destruction of prior secret versions after rotation requires:
+- Separate explicit authorization
+- A configurable grace period before destruction
+- An irreversibility acknowledgment from the operator
+
+See `docs/V5_19_IMPLEMENTATION_PLAN.md` Section E for the full options analysis.
+
+---
+
+## 19. Related Documents
 
 | Document | Purpose |
 |---|---|
@@ -536,3 +616,4 @@ Live testing of the Google Ads API integration requires real credentials and mus
 | [docs/GCP_DEPLOYMENT_PLAN.md](GCP_DEPLOYMENT_PLAN.md) | Cloud Run deployment overview for OpenClaw service |
 | [docs/V5_BETA_RELEASE_NOTES.md](V5_BETA_RELEASE_NOTES.md) | V5 beta summary including credential architecture |
 | [scripts/smoke_test_v5_12_gcp_secret_manager.sh](../scripts/smoke_test_v5_12_gcp_secret_manager.sh) | Mocked smoke test — run before any production deployment |
+| [docs/V5_19_IMPLEMENTATION_PLAN.md](V5_19_IMPLEMENTATION_PLAN.md) | V5.19 implementation plan including Section E: Secret Manager version lifecycle policy options and V5.19 decision |
