@@ -3,7 +3,7 @@
 **Branch:** `v5.19-real-credential-readiness-gates`
 **Base:** `v5.18.0-beta` / master after `da2796e`
 **Working title:** Real Credential Readiness Gates
-**Status:** Phase 2 in progress — `live_gate.py` implementation underway
+**Status:** Phase 3 in progress — `approval.py` local model and store implementation underway
 
 ---
 
@@ -80,6 +80,14 @@ Define a `_check_live_gate(config, tenant_id, client_id)` function in `openclaw/
 - `GOOGLE_ADS_LIVE_ENABLED=false` always passes the gate check with `live_mode_disabled` — the check is short-circuit safe.
 
 **Default must remain `false`.** No V5.19 code or test should set it to `true`.
+
+---
+
+### B. Real Credential Approval Workflow — Phase 3 implementation note
+
+**Phase 3 adds `openclaw/approval.py`** with a local `ApprovalRecord` dataclass, `LocalFileApprovalStore`, `validate_approval_record()`, `is_approval_valid()`, and `sanitize_approval_record()`. Approval records contain no secrets, no credential values, no credential references, and no GCP resource paths. This local store is for development and testing only. Real operator approvals require a separate out-of-band process not implemented in V5.19.
+
+**This does not authorize real Google Ads API usage.** No real Google Ads credential onboarding is performed. `GOOGLE_ADS_LIVE_ENABLED` remains `false` throughout V5.19.
 
 ---
 

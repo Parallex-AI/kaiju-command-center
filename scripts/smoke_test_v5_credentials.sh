@@ -1840,7 +1840,7 @@ pass "Rate limiting checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[20/21] Audit file locking (fcntl)..."
+echo "[20/22] Audit file locking (fcntl)..."
 # ---------------------------------------------------------------------------
 
 # _HAS_FCNTL constant importable from audit module
@@ -1915,7 +1915,7 @@ pass "Audit file locking checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[21/21] Live Google Ads readiness gate (live_gate.py)..."
+echo "[21/22] Live Google Ads readiness gate (live_gate.py)..."
 # ---------------------------------------------------------------------------
 
 # live_gate.py importable with all public symbols
@@ -2019,6 +2019,311 @@ echo "$_OUT_GATE" | grep -q "All assertions passed." \
     || { echo "  ✗ run_live_gate_demo.py: All assertions passed not found"; echo "$_OUT_GATE" | tail -30; exit 1; }
 
 pass "Live Google Ads readiness gate checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[22/22] Approval record model and local approval store..."
+# ---------------------------------------------------------------------------
+
+# approval.py importable with all public symbols
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import (
+    ApprovalStatus, ApprovalScope, ApprovalRecord, ApprovalValidationResult,
+    LocalFileApprovalStore, create_approval_record, validate_approval_record,
+    is_approval_valid, sanitize_approval_record,
+)
+" 2>&1); then
+    pass "approval.py: all public symbols importable"
+else
+    fail "approval.py: import failed"
+fi
+
+# ApprovalStatus and ApprovalScope constants
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope
+assert ApprovalStatus.PENDING == 'pending'
+assert ApprovalStatus.APPROVED == 'approved'
+assert ApprovalStatus.REVOKED == 'revoked'
+assert ApprovalStatus.EXPIRED == 'expired'
+assert ApprovalStatus.REJECTED == 'rejected'
+assert ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION == 'google_ads_live_validation'
+assert ApprovalScope.GOOGLE_ADS_CREDENTIAL_ONBOARDING == 'google_ads_credential_onboarding'
+assert ApprovalScope.GOOGLE_ADS_CREDENTIAL_ROTATION == 'google_ads_credential_rotation'
+assert ApprovalScope.GOOGLE_ADS_CREDENTIAL_REVOKE == 'google_ads_credential_revoke'
+" 2>/dev/null); then
+    pass "ApprovalStatus and ApprovalScope: all constants correct"
+else
+    fail "ApprovalStatus or ApprovalScope: missing or wrong value"
+fi
+
+# create_approval_record produces a valid approved record
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='smoke-tenant', client_id='smoke-client',
+    integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='smoke-operator',
+    reason='Smoke test approval',
+    rollback_plan='Disable live mode and revoke',
+    status=ApprovalStatus.APPROVED,
+)
+assert rec.approval_id, 'approval_id empty'
+assert rec.approved_at, 'approved_at not set for APPROVED'
+result = validate_approval_record(rec)
+assert result.valid is True, f'valid should be True: {result.error_codes}'
+assert result.error_codes == [], f'error_codes should be empty: {result.error_codes}'
+" 2>/dev/null); then
+    pass "create_approval_record + validate_approval_record: valid approved record passes"
+else
+    fail "create_approval_record + validate_approval_record: approved record check failed"
+fi
+
+# is_approval_valid: correct context → True
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, is_approval_valid
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+)
+assert is_approval_valid(rec, ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION, 't1', 'c1', 'google_ads') is True
+" 2>/dev/null); then
+    pass "is_approval_valid: correct context → True"
+else
+    fail "is_approval_valid: correct context check failed"
+fi
+
+# is_approval_valid: wrong tenant/client/scope → False
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, is_approval_valid
+def make():
+    return create_approval_record(
+        tenant_id='t1', client_id='c1', integration_type='google_ads',
+        scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+        operator_label='op', reason='reason', rollback_plan='plan',
+        status=ApprovalStatus.APPROVED,
+    )
+assert is_approval_valid(make(), ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION, 'wrong-tenant', 'c1', 'google_ads') is False
+assert is_approval_valid(make(), ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION, 't1', 'wrong-client', 'google_ads') is False
+assert is_approval_valid(make(), ApprovalScope.GOOGLE_ADS_CREDENTIAL_ROTATION, 't1', 'c1', 'google_ads') is False
+" 2>/dev/null); then
+    pass "is_approval_valid: wrong tenant/client/scope each → False"
+else
+    fail "is_approval_valid: wrong context mismatch check failed"
+fi
+
+# validate_approval_record: expired → approval_expired
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    expires_at='2020-01-01T00:00:00Z',
+)
+result = validate_approval_record(rec)
+assert result.valid is False, 'expired record should not be valid'
+assert 'approval_expired' in result.error_codes, f'expected approval_expired: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: expired approval → approval_expired"
+else
+    fail "validate_approval_record: expired approval check failed"
+fi
+
+# validate_approval_record: revoked → approval_not_approved
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.REVOKED,
+)
+result = validate_approval_record(rec)
+assert result.valid is False
+assert any('approval_not_approved' in c for c in result.error_codes), f'expected approval_not_approved: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: revoked → approval_not_approved"
+else
+    fail "validate_approval_record: revoked check failed"
+fi
+
+# validate_approval_record: missing rollback_plan → rollback_plan_missing
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='   ',
+    status=ApprovalStatus.APPROVED,
+)
+result = validate_approval_record(rec)
+assert result.valid is False
+assert 'rollback_plan_missing' in result.error_codes, f'expected rollback_plan_missing: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: missing rollback_plan → rollback_plan_missing"
+else
+    fail "validate_approval_record: rollback_plan_missing check failed"
+fi
+
+# validate_approval_record: forbidden field name in evidence
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    evidence={'credential_ref': 'some-ref'},
+)
+result = validate_approval_record(rec)
+assert result.valid is False
+assert 'evidence_metadata_forbidden_field' in result.error_codes, f'expected forbidden_field: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: forbidden field name in evidence → evidence_metadata_forbidden_field"
+else
+    fail "validate_approval_record: forbidden field name check failed"
+fi
+
+# validate_approval_record: forbidden value pattern in evidence
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    evidence={'notes': 'ya' + '29.some-token-value-here'},
+)
+result = validate_approval_record(rec)
+assert result.valid is False
+assert 'evidence_metadata_forbidden_value_pattern' in result.error_codes, f'expected forbidden_value: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: forbidden oauth-token-prefix in evidence → evidence_metadata_forbidden_value_pattern"
+else
+    fail "validate_approval_record: forbidden value pattern check failed"
+fi
+
+# validate_approval_record: forbidden value pattern — GCP resource path
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    evidence={'ref': 'projects/my-project/secrets/my-secret/versions/1'},
+)
+result = validate_approval_record(rec)
+assert result.valid is False
+assert 'evidence_metadata_forbidden_value_pattern' in result.error_codes, f'expected forbidden_value: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: GCP resource path in evidence → evidence_metadata_forbidden_value_pattern"
+else
+    fail "validate_approval_record: GCP resource path forbidden value check failed"
+fi
+
+# sanitize_approval_record: forbidden key removed, safe key preserved
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, sanitize_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    evidence={'credential_ref': 'x', 'safe_key': 'safe_value'},
+)
+s = sanitize_approval_record(rec)
+assert 'credential_ref' not in s['evidence'], 'credential_ref should be removed'
+assert 'safe_key' in s['evidence'], 'safe_key should be preserved'
+assert 'approval_id' in s, 'approval_id should be present'
+assert 'tenant_id' in s, 'tenant_id should be present'
+" 2>/dev/null); then
+    pass "sanitize_approval_record: forbidden field removed, safe field preserved"
+else
+    fail "sanitize_approval_record: sanitization check failed"
+fi
+
+# LocalFileApprovalStore: put / get / list / revoke round-trip
+APPROVAL_STORE_TMP=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import sys
+from pathlib import Path
+from approval import (
+    ApprovalStatus, ApprovalScope, LocalFileApprovalStore,
+    create_approval_record, validate_approval_record,
+)
+store = LocalFileApprovalStore(Path('${APPROVAL_STORE_TMP}'))
+rec = create_approval_record(
+    tenant_id='store-tenant', client_id='store-client',
+    integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='store-op', reason='store test', rollback_plan='revert',
+    status=ApprovalStatus.APPROVED,
+)
+store.put(rec)
+fetched = store.get(rec.approval_id)
+assert fetched is not None, 'get returned None'
+assert fetched.approval_id == rec.approval_id, 'id mismatch'
+assert fetched.status == ApprovalStatus.APPROVED
+listed = store.list_for_client('store-tenant', 'store-client')
+assert len(listed) == 1, f'expected 1, got {len(listed)}'
+assert listed[0].approval_id == rec.approval_id
+ok = store.revoke(rec.approval_id, reason='smoke test revoke')
+assert ok is True, 'revoke should return True'
+after = store.get(rec.approval_id)
+assert after.status == ApprovalStatus.REVOKED, f'expected REVOKED: {after.status}'
+assert after.revoked_at, 'revoked_at should be set'
+missing = store.revoke('no-such-id', reason='noop')
+assert missing is False, 'revoke nonexistent should return False'
+" 2>/dev/null); then
+    pass "LocalFileApprovalStore: put/get/list/revoke all correct"
+else
+    fail "LocalFileApprovalStore: round-trip check failed"
+fi
+rm -f "$APPROVAL_STORE_TMP"
+
+# run_approval_demo.py: all assertions pass
+_OUT_APPROVAL=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON run_approval_demo.py 2>&1)
+echo "$_OUT_APPROVAL" | grep -q "All assertions passed." \
+    && pass "run_approval_demo.py: All assertions passed" \
+    || { echo "  ✗ run_approval_demo.py: All assertions passed not found"; echo "$_OUT_APPROVAL" | tail -30; exit 1; }
+
+# approval.py must not contain GCP imports or os.environ reads
+if grep -qE "^(import google|from google|import gcloud)" "$OPENCLAW_DIR/approval.py" 2>/dev/null; then
+    fail "approval.py contains GCP imports"
+else
+    pass "approval.py: no GCP imports"
+fi
+
+# No GOOGLE_ADS_LIVE_ENABLED=true in approval.py or run_approval_demo.py
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" "$OPENCLAW_DIR/approval.py" "$OPENCLAW_DIR/run_approval_demo.py" 2>/dev/null; then
+    fail "approval files contain GOOGLE_ADS_LIVE_ENABLED=true"
+else
+    pass "approval.py and run_approval_demo.py: GOOGLE_ADS_LIVE_ENABLED=true absent"
+fi
+
+pass "Approval record model and local approval store checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
