@@ -1840,7 +1840,7 @@ pass "Rate limiting checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[20/20] Audit file locking (fcntl)..."
+echo "[20/26] Audit file locking (fcntl)..."
 # ---------------------------------------------------------------------------
 
 # _HAS_FCNTL constant importable from audit module
@@ -1912,6 +1912,1085 @@ done
 pass "Section U: no forbidden fields in audit locking output"
 
 pass "Audit file locking checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[21/26] Live Google Ads readiness gate (live_gate.py)..."
+# ---------------------------------------------------------------------------
+
+# live_gate.py importable with all public symbols
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_gate import LiveGateInput, LiveGateResult, LiveGateDenialCode, check_live_gate
+" 2>&1); then
+    pass "live_gate.py: LiveGateInput, LiveGateResult, LiveGateDenialCode, check_live_gate importable"
+else
+    fail "live_gate.py: import failed"
+fi
+
+# LiveGateDenialCode has all 11 constants
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_gate import LiveGateDenialCode
+codes = [
+    LiveGateDenialCode.LIVE_DISABLED,
+    LiveGateDenialCode.APPROVAL_MISSING,
+    LiveGateDenialCode.APPROVAL_INVALID,
+    LiveGateDenialCode.PREFLIGHT_MISSING,
+    LiveGateDenialCode.AUDIT_DISABLED,
+    LiveGateDenialCode.CREDENTIAL_MISSING,
+    LiveGateDenialCode.CREDENTIAL_NOT_ACTIVE,
+    LiveGateDenialCode.TENANT_NOT_ALLOWED,
+    LiveGateDenialCode.CLIENT_NOT_ALLOWED,
+    LiveGateDenialCode.ROLLBACK_PLAN_MISSING,
+    LiveGateDenialCode.OPERATOR_CONFIRMATION_MISSING,
+]
+assert len(codes) == 11
+assert all(isinstance(c, str) for c in codes)
+" 2>/dev/null); then
+    pass "LiveGateDenialCode: all 11 denial codes present and are strings"
+else
+    fail "LiveGateDenialCode: missing or wrong type for one or more codes"
+fi
+
+# check_live_gate: live_disabled is the first gate — fires even if no other condition is met
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_gate import LiveGateInput, LiveGateDenialCode, check_live_gate
+inp = LiveGateInput(
+    live_enabled=False,
+    approval_present=False, approval_valid=False, preflight_passed=False,
+    audit_enabled=False, credential_configured=False, credential_status='REVOKED',
+    tenant_allowed=False, client_allowed=False, rollback_plan_present=False,
+    operator_confirmed=False,
+)
+r = check_live_gate(inp)
+assert r.allowed is False, f'allowed should be False: {r}'
+assert r.error_code == LiveGateDenialCode.LIVE_DISABLED, f'expected live_disabled: {r.error_code}'
+" 2>/dev/null); then
+    pass "check_live_gate: live_disabled fires first even when all other conditions fail"
+else
+    fail "check_live_gate: live_disabled priority check failed"
+fi
+
+# check_live_gate: allow path returns allowed=True with error_code=None
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_gate import LiveGateInput, check_live_gate
+inp = LiveGateInput(
+    live_enabled=True,
+    approval_present=True, approval_valid=True, preflight_passed=True,
+    audit_enabled=True, credential_configured=True, credential_status='ACTIVE',
+    tenant_allowed=True, client_allowed=True, rollback_plan_present=True,
+    operator_confirmed=True,
+)
+r = check_live_gate(inp)
+assert r.allowed is True, f'expected allowed=True: {r}'
+assert r.error_code is None, f'expected error_code=None: {r.error_code}'
+assert r.required_actions == [], f'expected no required_actions: {r.required_actions}'
+" 2>/dev/null); then
+    pass "check_live_gate: allow path → allowed=True, error_code=None, required_actions=[]"
+else
+    fail "check_live_gate: allow path did not return expected result"
+fi
+
+# GOOGLE_ADS_LIVE_ENABLED must not be true in live_gate.py
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" "$OPENCLAW_DIR/live_gate.py" 2>/dev/null; then
+    fail "live_gate.py contains GOOGLE_ADS_LIVE_ENABLED=true — must never be set true in module"
+else
+    pass "live_gate.py: GOOGLE_ADS_LIVE_ENABLED=true absent"
+fi
+
+# live_gate.py must not contain any os.environ reads (pure signal-based, no env coupling)
+if grep -q "os.environ" "$OPENCLAW_DIR/live_gate.py" 2>/dev/null; then
+    fail "live_gate.py reads os.environ — gate must evaluate pre-supplied signals only"
+else
+    pass "live_gate.py: no os.environ reads (pure signal evaluation)"
+fi
+
+# run_live_gate_demo.py: all 14 assertions pass
+_OUT_GATE=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON run_live_gate_demo.py 2>&1)
+echo "$_OUT_GATE" | grep -q "All assertions passed." \
+    && pass "run_live_gate_demo.py: All assertions passed" \
+    || { echo "  ✗ run_live_gate_demo.py: All assertions passed not found"; echo "$_OUT_GATE" | tail -30; exit 1; }
+
+pass "Live Google Ads readiness gate checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[22/26] Approval record model and local approval store..."
+# ---------------------------------------------------------------------------
+
+# approval.py importable with all public symbols
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import (
+    ApprovalStatus, ApprovalScope, ApprovalRecord, ApprovalValidationResult,
+    LocalFileApprovalStore, create_approval_record, validate_approval_record,
+    is_approval_valid, sanitize_approval_record,
+)
+" 2>&1); then
+    pass "approval.py: all public symbols importable"
+else
+    fail "approval.py: import failed"
+fi
+
+# ApprovalStatus and ApprovalScope constants
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope
+assert ApprovalStatus.PENDING == 'pending'
+assert ApprovalStatus.APPROVED == 'approved'
+assert ApprovalStatus.REVOKED == 'revoked'
+assert ApprovalStatus.EXPIRED == 'expired'
+assert ApprovalStatus.REJECTED == 'rejected'
+assert ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION == 'google_ads_live_validation'
+assert ApprovalScope.GOOGLE_ADS_CREDENTIAL_ONBOARDING == 'google_ads_credential_onboarding'
+assert ApprovalScope.GOOGLE_ADS_CREDENTIAL_ROTATION == 'google_ads_credential_rotation'
+assert ApprovalScope.GOOGLE_ADS_CREDENTIAL_REVOKE == 'google_ads_credential_revoke'
+" 2>/dev/null); then
+    pass "ApprovalStatus and ApprovalScope: all constants correct"
+else
+    fail "ApprovalStatus or ApprovalScope: missing or wrong value"
+fi
+
+# create_approval_record produces a valid approved record
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='smoke-tenant', client_id='smoke-client',
+    integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='smoke-operator',
+    reason='Smoke test approval',
+    rollback_plan='Disable live mode and revoke',
+    status=ApprovalStatus.APPROVED,
+)
+assert rec.approval_id, 'approval_id empty'
+assert rec.approved_at, 'approved_at not set for APPROVED'
+result = validate_approval_record(rec)
+assert result.valid is True, f'valid should be True: {result.error_codes}'
+assert result.error_codes == [], f'error_codes should be empty: {result.error_codes}'
+" 2>/dev/null); then
+    pass "create_approval_record + validate_approval_record: valid approved record passes"
+else
+    fail "create_approval_record + validate_approval_record: approved record check failed"
+fi
+
+# is_approval_valid: correct context → True
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, is_approval_valid
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+)
+assert is_approval_valid(rec, ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION, 't1', 'c1', 'google_ads') is True
+" 2>/dev/null); then
+    pass "is_approval_valid: correct context → True"
+else
+    fail "is_approval_valid: correct context check failed"
+fi
+
+# is_approval_valid: wrong tenant/client/scope → False
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, is_approval_valid
+def make():
+    return create_approval_record(
+        tenant_id='t1', client_id='c1', integration_type='google_ads',
+        scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+        operator_label='op', reason='reason', rollback_plan='plan',
+        status=ApprovalStatus.APPROVED,
+    )
+assert is_approval_valid(make(), ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION, 'wrong-tenant', 'c1', 'google_ads') is False
+assert is_approval_valid(make(), ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION, 't1', 'wrong-client', 'google_ads') is False
+assert is_approval_valid(make(), ApprovalScope.GOOGLE_ADS_CREDENTIAL_ROTATION, 't1', 'c1', 'google_ads') is False
+" 2>/dev/null); then
+    pass "is_approval_valid: wrong tenant/client/scope each → False"
+else
+    fail "is_approval_valid: wrong context mismatch check failed"
+fi
+
+# validate_approval_record: expired → approval_expired
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    expires_at='2020-01-01T00:00:00Z',
+)
+result = validate_approval_record(rec)
+assert result.valid is False, 'expired record should not be valid'
+assert 'approval_expired' in result.error_codes, f'expected approval_expired: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: expired approval → approval_expired"
+else
+    fail "validate_approval_record: expired approval check failed"
+fi
+
+# validate_approval_record: revoked → approval_not_approved
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.REVOKED,
+)
+result = validate_approval_record(rec)
+assert result.valid is False
+assert any('approval_not_approved' in c for c in result.error_codes), f'expected approval_not_approved: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: revoked → approval_not_approved"
+else
+    fail "validate_approval_record: revoked check failed"
+fi
+
+# validate_approval_record: missing rollback_plan → rollback_plan_missing
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='   ',
+    status=ApprovalStatus.APPROVED,
+)
+result = validate_approval_record(rec)
+assert result.valid is False
+assert 'rollback_plan_missing' in result.error_codes, f'expected rollback_plan_missing: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: missing rollback_plan → rollback_plan_missing"
+else
+    fail "validate_approval_record: rollback_plan_missing check failed"
+fi
+
+# validate_approval_record: forbidden field name in evidence
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    evidence={'credential_ref': 'some-ref'},
+)
+result = validate_approval_record(rec)
+assert result.valid is False
+assert 'evidence_metadata_forbidden_field' in result.error_codes, f'expected forbidden_field: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: forbidden field name in evidence → evidence_metadata_forbidden_field"
+else
+    fail "validate_approval_record: forbidden field name check failed"
+fi
+
+# validate_approval_record: forbidden value pattern in evidence
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    evidence={'notes': 'ya' + '29.some-token-value-here'},
+)
+result = validate_approval_record(rec)
+assert result.valid is False
+assert 'evidence_metadata_forbidden_value_pattern' in result.error_codes, f'expected forbidden_value: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: forbidden oauth-token-prefix in evidence → evidence_metadata_forbidden_value_pattern"
+else
+    fail "validate_approval_record: forbidden value pattern check failed"
+fi
+
+# validate_approval_record: forbidden value pattern — GCP resource path
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, validate_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    evidence={'ref': 'projects/my-project/secrets/my-secret/versions/1'},
+)
+result = validate_approval_record(rec)
+assert result.valid is False
+assert 'evidence_metadata_forbidden_value_pattern' in result.error_codes, f'expected forbidden_value: {result.error_codes}'
+" 2>/dev/null); then
+    pass "validate_approval_record: GCP resource path in evidence → evidence_metadata_forbidden_value_pattern"
+else
+    fail "validate_approval_record: GCP resource path forbidden value check failed"
+fi
+
+# sanitize_approval_record: forbidden key removed, safe key preserved
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record, sanitize_approval_record
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    evidence={'credential_ref': 'x', 'safe_key': 'safe_value'},
+)
+s = sanitize_approval_record(rec)
+assert 'credential_ref' not in s['evidence'], 'credential_ref should be removed'
+assert 'safe_key' in s['evidence'], 'safe_key should be preserved'
+assert 'approval_id' in s, 'approval_id should be present'
+assert 'tenant_id' in s, 'tenant_id should be present'
+" 2>/dev/null); then
+    pass "sanitize_approval_record: forbidden field removed, safe field preserved"
+else
+    fail "sanitize_approval_record: sanitization check failed"
+fi
+
+# LocalFileApprovalStore: put / get / list / revoke round-trip
+APPROVAL_STORE_TMP=$(mktemp /tmp/kaiju_smoke_v5_XXXXXX.json)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import sys
+from pathlib import Path
+from approval import (
+    ApprovalStatus, ApprovalScope, LocalFileApprovalStore,
+    create_approval_record, validate_approval_record,
+)
+store = LocalFileApprovalStore(Path('${APPROVAL_STORE_TMP}'))
+rec = create_approval_record(
+    tenant_id='store-tenant', client_id='store-client',
+    integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='store-op', reason='store test', rollback_plan='revert',
+    status=ApprovalStatus.APPROVED,
+)
+store.put(rec)
+fetched = store.get(rec.approval_id)
+assert fetched is not None, 'get returned None'
+assert fetched.approval_id == rec.approval_id, 'id mismatch'
+assert fetched.status == ApprovalStatus.APPROVED
+listed = store.list_for_client('store-tenant', 'store-client')
+assert len(listed) == 1, f'expected 1, got {len(listed)}'
+assert listed[0].approval_id == rec.approval_id
+ok = store.revoke(rec.approval_id, reason='smoke test revoke')
+assert ok is True, 'revoke should return True'
+after = store.get(rec.approval_id)
+assert after.status == ApprovalStatus.REVOKED, f'expected REVOKED: {after.status}'
+assert after.revoked_at, 'revoked_at should be set'
+missing = store.revoke('no-such-id', reason='noop')
+assert missing is False, 'revoke nonexistent should return False'
+" 2>/dev/null); then
+    pass "LocalFileApprovalStore: put/get/list/revoke all correct"
+else
+    fail "LocalFileApprovalStore: round-trip check failed"
+fi
+rm -f "$APPROVAL_STORE_TMP"
+
+# run_approval_demo.py: all assertions pass
+_OUT_APPROVAL=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON run_approval_demo.py 2>&1)
+echo "$_OUT_APPROVAL" | grep -q "All assertions passed." \
+    && pass "run_approval_demo.py: All assertions passed" \
+    || { echo "  ✗ run_approval_demo.py: All assertions passed not found"; echo "$_OUT_APPROVAL" | tail -30; exit 1; }
+
+# approval.py must not contain GCP imports or os.environ reads
+if grep -qE "^(import google|from google|import gcloud)" "$OPENCLAW_DIR/approval.py" 2>/dev/null; then
+    fail "approval.py contains GCP imports"
+else
+    pass "approval.py: no GCP imports"
+fi
+
+# No GOOGLE_ADS_LIVE_ENABLED=true in approval.py or run_approval_demo.py
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" "$OPENCLAW_DIR/approval.py" "$OPENCLAW_DIR/run_approval_demo.py" 2>/dev/null; then
+    fail "approval files contain GOOGLE_ADS_LIVE_ENABLED=true"
+else
+    pass "approval.py and run_approval_demo.py: GOOGLE_ADS_LIVE_ENABLED=true absent"
+fi
+
+pass "Approval record model and local approval store checks complete"
+
+# ---------------------------------------------------------------------------
+echo "[23/26] Live operation preflight checker (preflight.py)..."
+# ---------------------------------------------------------------------------
+
+# preflight.py importable with all public symbols
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from preflight import (
+    LiveOperationPreflightInput,
+    LiveOperationPreflightResult,
+    check_live_operation_preflight,
+)
+" 2>&1); then
+    pass "preflight.py: LiveOperationPreflightInput, LiveOperationPreflightResult, check_live_operation_preflight importable"
+else
+    fail "preflight.py: import failed"
+fi
+
+# LiveOperationPreflightInput and LiveOperationPreflightResult are dataclasses
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+import dataclasses
+from preflight import LiveOperationPreflightInput, LiveOperationPreflightResult
+assert dataclasses.is_dataclass(LiveOperationPreflightInput)
+assert dataclasses.is_dataclass(LiveOperationPreflightResult)
+" 2>/dev/null); then
+    pass "preflight.py: LiveOperationPreflightInput and LiveOperationPreflightResult are dataclasses"
+else
+    fail "preflight.py: dataclass check failed"
+fi
+
+# check_live_operation_preflight: live_disabled
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record
+from live_gate import LiveGateDenialCode
+from preflight import LiveOperationPreflightInput, check_live_operation_preflight
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+)
+inp = LiveOperationPreflightInput(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    operation='fetch', live_enabled=False,
+    approval_record=rec,
+    required_approval_scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    preflight_passed=True, audit_enabled=True, credential_configured=True,
+    credential_status='ACTIVE', tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+r = check_live_operation_preflight(inp)
+assert r.allowed is False, 'live_disabled should deny'
+assert r.error_code == LiveGateDenialCode.LIVE_DISABLED, f'expected live_disabled, got {r.error_code}'
+" 2>/dev/null); then
+    pass "check_live_operation_preflight: live_disabled → allowed=False"
+else
+    fail "check_live_operation_preflight: live_disabled check failed"
+fi
+
+# check_live_operation_preflight: approval_missing
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalScope
+from live_gate import LiveGateDenialCode
+from preflight import LiveOperationPreflightInput, check_live_operation_preflight
+inp = LiveOperationPreflightInput(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    operation='fetch', live_enabled=True,
+    approval_record=None,
+    required_approval_scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    preflight_passed=True, audit_enabled=True, credential_configured=True,
+    credential_status='ACTIVE', tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+r = check_live_operation_preflight(inp)
+assert r.allowed is False, 'approval_missing should deny'
+assert r.error_code == LiveGateDenialCode.APPROVAL_MISSING, f'expected approval_missing, got {r.error_code}'
+assert r.approval_valid is False, 'approval_valid should be False when record is None'
+assert r.sanitized_summary['approval_present'] is False, 'summary.approval_present should be False'
+" 2>/dev/null); then
+    pass "check_live_operation_preflight: approval_missing → allowed=False, approval_valid=False"
+else
+    fail "check_live_operation_preflight: approval_missing check failed"
+fi
+
+# check_live_operation_preflight: expired approval → approval_invalid
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record
+from live_gate import LiveGateDenialCode
+from preflight import LiveOperationPreflightInput, check_live_operation_preflight
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+    expires_at='2020-01-01T00:00:00Z',
+)
+inp = LiveOperationPreflightInput(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    operation='fetch', live_enabled=True,
+    approval_record=rec,
+    required_approval_scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    preflight_passed=True, audit_enabled=True, credential_configured=True,
+    credential_status='ACTIVE', tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+r = check_live_operation_preflight(inp)
+assert r.allowed is False, 'expired approval should deny'
+assert r.error_code == LiveGateDenialCode.APPROVAL_INVALID, f'expected approval_invalid, got {r.error_code}'
+assert r.approval_valid is False, 'approval_valid should be False for expired record'
+" 2>/dev/null); then
+    pass "check_live_operation_preflight: expired approval → approval_invalid"
+else
+    fail "check_live_operation_preflight: expired approval check failed"
+fi
+
+# check_live_operation_preflight: allow path
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record
+from preflight import LiveOperationPreflightInput, check_live_operation_preflight
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+)
+inp = LiveOperationPreflightInput(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    operation='fetch', live_enabled=True,
+    approval_record=rec,
+    required_approval_scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    preflight_passed=True, audit_enabled=True, credential_configured=True,
+    credential_status='ACTIVE', tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+r = check_live_operation_preflight(inp)
+assert r.allowed is True, f'all-pass should allow, got error_code={r.error_code}'
+assert r.error_code is None, f'error_code should be None, got {r.error_code}'
+assert r.approval_valid is True, 'approval_valid should be True'
+assert r.live_gate_allowed is True, 'live_gate_allowed should be True'
+assert r.required_actions == [], f'required_actions should be empty: {r.required_actions}'
+" 2>/dev/null); then
+    pass "check_live_operation_preflight: allow path → allowed=True, approval_valid=True"
+else
+    fail "check_live_operation_preflight: allow path check failed"
+fi
+
+# sanitized_summary must not contain tenant_id / client_id / approval_id / credential fields
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record
+from preflight import LiveOperationPreflightInput, check_live_operation_preflight
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+)
+inp = LiveOperationPreflightInput(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    operation='fetch', live_enabled=True,
+    approval_record=rec,
+    required_approval_scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    preflight_passed=True, audit_enabled=True, credential_configured=True,
+    credential_status='ACTIVE', tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+r = check_live_operation_preflight(inp)
+s = r.sanitized_summary
+forbidden_keys = {'tenant_id', 'client_id', 'approval_id', 'refresh_token',
+                  'developer_token', 'client_secret', 'access_token'}
+found = [k for k in forbidden_keys if k in s]
+assert not found, f'forbidden keys in sanitized_summary: {found}'
+assert isinstance(s.get('approval_present'), bool), 'approval_present must be bool'
+assert isinstance(s.get('approval_valid'), bool), 'approval_valid must be bool'
+assert 'operation' in s, 'operation must be in summary'
+assert 'integration_type' in s, 'integration_type must be in summary'
+" 2>/dev/null); then
+    pass "sanitized_summary: no forbidden identifiers; approval_present/approval_valid are bools"
+else
+    fail "sanitized_summary: forbidden key or type check failed"
+fi
+
+# run_preflight_demo.py: all assertions pass
+_OUT_PREFLIGHT=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    $PYTHON run_preflight_demo.py 2>&1)
+echo "$_OUT_PREFLIGHT" | grep -q "All assertions passed." \
+    && pass "run_preflight_demo.py: All assertions passed" \
+    || { echo "  ✗ run_preflight_demo.py: All assertions passed not found"; echo "$_OUT_PREFLIGHT" | tail -30; exit 1; }
+
+# preflight.py must not import GCP or Google Ads libraries
+if grep -qE "^(import google|from google|import gcloud)" "$OPENCLAW_DIR/preflight.py" 2>/dev/null; then
+    fail "preflight.py: contains GCP/Google imports"
+else
+    pass "preflight.py: no GCP or Google Ads imports"
+fi
+
+# preflight.py must not read os.environ directly
+if grep -q "os\.environ" "$OPENCLAW_DIR/preflight.py" 2>/dev/null; then
+    fail "preflight.py: contains os.environ reads"
+else
+    pass "preflight.py: no os.environ reads"
+fi
+
+# No GOOGLE_ADS_LIVE_ENABLED=true in preflight.py or run_preflight_demo.py
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" "$OPENCLAW_DIR/preflight.py" "$OPENCLAW_DIR/run_preflight_demo.py" 2>/dev/null; then
+    fail "preflight files contain GOOGLE_ADS_LIVE_ENABLED=true"
+else
+    pass "preflight.py and run_preflight_demo.py: GOOGLE_ADS_LIVE_ENABLED=true absent"
+fi
+
+pass "Live operation preflight checker checks complete"
+
+# ---------------------------------------------------------------------------
+echo "[24/26] Server live guard (live_guard.py + server route)..."
+# ---------------------------------------------------------------------------
+
+# live_guard.py importable with all public symbols
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_guard import (
+    LIVE_GUARD_INTEGRATION_TYPE,
+    LIVE_OPERATION_FORBIDDEN_RESPONSE_KEYS,
+    build_live_guard_denied_response,
+    build_live_guard_allowed_response,
+    guard_live_google_ads_operation,
+    guard_live_google_ads_from_signals,
+    response_has_no_forbidden_keys,
+)
+" 2>&1); then
+    pass "live_guard.py: all public symbols importable"
+else
+    fail "live_guard.py: import failed"
+fi
+
+# LIVE_OPERATION_FORBIDDEN_RESPONSE_KEYS contains expected keys
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_guard import LIVE_OPERATION_FORBIDDEN_RESPONSE_KEYS
+required = {'approval_id', 'tenant_id', 'client_id', 'credential_ref',
+            'secret_id', 'refresh_token', 'access_token', 'developer_token'}
+missing = required - LIVE_OPERATION_FORBIDDEN_RESPONSE_KEYS
+assert not missing, f'missing forbidden keys: {missing}'
+" 2>/dev/null); then
+    pass "live_guard.py: LIVE_OPERATION_FORBIDDEN_RESPONSE_KEYS contains required keys"
+else
+    fail "live_guard.py: LIVE_OPERATION_FORBIDDEN_RESPONSE_KEYS missing required keys"
+fi
+
+# guard_live_google_ads_from_signals: live_disabled
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_guard import guard_live_google_ads_from_signals, response_has_no_forbidden_keys
+from live_gate import LiveGateDenialCode
+result = guard_live_google_ads_from_signals(
+    live_enabled=False,
+    approval_present=True, approval_valid=True, preflight_passed=True,
+    audit_enabled=True, credential_configured=True, credential_status='ACTIVE',
+    tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+assert result['ok'] is False, 'live_disabled should deny'
+assert result['error_code'] == LiveGateDenialCode.LIVE_DISABLED, f'expected live_disabled, got {result[\"error_code\"]}'
+assert result['live_api_tested'] is False, 'live_api_tested must be False'
+assert response_has_no_forbidden_keys(result), 'forbidden key in response'
+" 2>/dev/null); then
+    pass "guard_live_google_ads_from_signals: live_disabled → ok=false, live_api_tested=false"
+else
+    fail "guard_live_google_ads_from_signals: live_disabled check failed"
+fi
+
+# guard_live_google_ads_from_signals: approval_missing
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from live_guard import guard_live_google_ads_from_signals
+from live_gate import LiveGateDenialCode
+result = guard_live_google_ads_from_signals(
+    live_enabled=True,
+    approval_present=False, approval_valid=False, preflight_passed=True,
+    audit_enabled=True, credential_configured=True, credential_status='ACTIVE',
+    tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+assert result['error_code'] == LiveGateDenialCode.APPROVAL_MISSING, f'expected approval_missing, got {result[\"error_code\"]}'
+assert result['live_api_tested'] is False, 'live_api_tested must be False'
+" 2>/dev/null); then
+    pass "guard_live_google_ads_from_signals: approval_missing → error_code correct"
+else
+    fail "guard_live_google_ads_from_signals: approval_missing check failed"
+fi
+
+# guard_live_google_ads_operation: allow path with full ApprovalRecord
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from approval import ApprovalStatus, ApprovalScope, create_approval_record
+from preflight import LiveOperationPreflightInput
+from live_guard import guard_live_google_ads_operation, response_has_no_forbidden_keys
+rec = create_approval_record(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    operator_label='op', reason='reason', rollback_plan='plan',
+    status=ApprovalStatus.APPROVED,
+)
+inp = LiveOperationPreflightInput(
+    tenant_id='t1', client_id='c1', integration_type='google_ads',
+    operation='fetch', live_enabled=True,
+    approval_record=rec,
+    required_approval_scope=ApprovalScope.GOOGLE_ADS_LIVE_VALIDATION,
+    preflight_passed=True, audit_enabled=True, credential_configured=True,
+    credential_status='ACTIVE', tenant_allowed=True, client_allowed=True,
+    rollback_plan_present=True, operator_confirmed=True,
+)
+result = guard_live_google_ads_operation(inp)
+assert result['ok'] is True, f'allow path should pass, got error_code={result.get(\"error_code\")}'
+assert result['live_allowed'] is True, 'live_allowed must be True'
+assert result['live_api_tested'] is False, 'live_api_tested must be False'
+assert result['approval_valid'] is True, 'approval_valid must be True'
+assert response_has_no_forbidden_keys(result), 'forbidden key in allow response'
+" 2>/dev/null); then
+    pass "guard_live_google_ads_operation: allow path → ok=true, live_api_tested=false"
+else
+    fail "guard_live_google_ads_operation: allow path check failed"
+fi
+
+# server route: POST /openclaw/admin/live-google-ads/preflight → live_disabled
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=false \
+    $PYTHON -c "
+import os, sys
+for mod in list(sys.modules.keys()):
+    if mod in ('server', 'admin', 'config', 'auth', 'live_guard', 'live_gate', 'preflight', 'approval'):
+        del sys.modules[mod]
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app, raise_server_exceptions=True)
+r = client.post('/openclaw/admin/live-google-ads/preflight', json={
+    'approval_present': True, 'approval_valid': True, 'preflight_passed': True,
+    'audit_enabled': True, 'credential_configured': True, 'credential_status': 'ACTIVE',
+    'tenant_allowed': True, 'client_allowed': True,
+    'rollback_plan_present': True, 'operator_confirmed': True,
+})
+d = r.json()
+assert r.status_code == 403, f'expected 403, got {r.status_code}'
+assert d.get('ok') is False, 'ok must be False'
+assert d.get('error_code') == 'live_disabled', f'expected live_disabled, got {d.get(\"error_code\")}'
+assert d.get('live_allowed') is False, 'live_allowed must be False'
+assert d.get('live_api_tested') is False, 'live_api_tested must be False'
+forbidden = {'tenant_id','client_id','approval_id','credential_ref','secret_id','refresh_token','access_token'}
+found = [k for k in forbidden if k in d]
+assert not found, f'forbidden keys in response: {found}'
+assert 'request_id' in d, 'request_id must be present'
+assert 'trace_id' in d, 'trace_id must be present'
+" 2>/dev/null); then
+    pass "server route POST /openclaw/admin/live-google-ads/preflight: live_disabled, safe response"
+else
+    fail "server route: live guard preflight route check failed"
+fi
+
+# run_server_live_guard_demo.py: all assertions pass
+_OUT_GUARD=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=false \
+    $PYTHON run_server_live_guard_demo.py 2>&1)
+echo "$_OUT_GUARD" | grep -q "All assertions passed." \
+    && pass "run_server_live_guard_demo.py: All assertions passed" \
+    || { echo "  ✗ run_server_live_guard_demo.py: All assertions passed not found"; echo "$_OUT_GUARD" | tail -30; exit 1; }
+
+# live_guard.py must not import GCP or Google Ads libraries
+if grep -qE "^(import google|from google|import gcloud)" "$OPENCLAW_DIR/live_guard.py" 2>/dev/null; then
+    fail "live_guard.py: contains GCP/Google imports"
+else
+    pass "live_guard.py: no GCP or Google Ads imports"
+fi
+
+# live_guard.py must not read os.environ
+if grep -q "os\.environ" "$OPENCLAW_DIR/live_guard.py" 2>/dev/null; then
+    fail "live_guard.py: contains os.environ reads"
+else
+    pass "live_guard.py: no os.environ reads (pure — env read is in route handler only)"
+fi
+
+# No GOOGLE_ADS_LIVE_ENABLED=true in live_guard.py or run_server_live_guard_demo.py
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" "$OPENCLAW_DIR/live_guard.py" "$OPENCLAW_DIR/run_server_live_guard_demo.py" 2>/dev/null; then
+    fail "live_guard files contain GOOGLE_ADS_LIVE_ENABLED=true"
+else
+    pass "live_guard.py and run_server_live_guard_demo.py: GOOGLE_ADS_LIVE_ENABLED=true absent"
+fi
+
+pass "Server live guard checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[25/26] Phase 6 — Live guard audit event emission..."
+# ---------------------------------------------------------------------------
+
+# build_live_guard_audit_event importable from audit
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from audit import build_live_guard_audit_event
+" 2>&1); then
+    pass "audit.py: build_live_guard_audit_event importable"
+else
+    fail "audit.py: build_live_guard_audit_event not importable"
+fi
+
+# build_live_guard_audit_event does not include forbidden fields
+for forbidden_field in "tenant_id" "client_id" "approval_id" "credential_ref" "secret_id" \
+    "customer_id" "login_customer_id" "refresh_token" "access_token" "developer_token" "client_secret"; do
+    if grep -A 35 "def build_live_guard_audit_event" "$OPENCLAW_DIR/audit.py" 2>/dev/null \
+        | grep -q "\"${forbidden_field}\""; then
+        fail "Forbidden field '${forbidden_field}' found in build_live_guard_audit_event body"
+    else
+        pass "build_live_guard_audit_event does not emit '${forbidden_field}'"
+    fi
+done
+
+# build_live_guard_audit_event: correct shape, no forbidden identifiers
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON -c "
+from audit import build_live_guard_audit_event
+from live_guard import LIVE_OPERATION_FORBIDDEN_RESPONSE_KEYS
+ev = build_live_guard_audit_event(
+    operation='test_op', ok=False, event_type='live_gate_check',
+    error_codes=['live_disabled'], request_id='req-1', trace_id='trace-1',
+    live_enabled=False, approval_present=True, approval_valid=True,
+    credential_status='ACTIVE', live_gate_allowed=False,
+)
+assert ev['event_type'] == 'live_gate_check', f'event_type: {ev[\"event_type\"]}'
+assert ev['integration_type'] == 'google_ads', f'integration_type: {ev[\"integration_type\"]}'
+assert ev['source'] == 'server_live_guard', f'source: {ev[\"source\"]}'
+assert ev['live_api_tested'] is False, 'live_api_tested must be False'
+assert ev['ok'] is False, 'ok must match param'
+assert ev['error_codes'] == ['live_disabled'], f'error_codes: {ev[\"error_codes\"]}'
+found_forbidden = [k for k in LIVE_OPERATION_FORBIDDEN_RESPONSE_KEYS if k in ev]
+assert not found_forbidden, f'forbidden keys in audit event: {found_forbidden}'
+" 2>/dev/null); then
+    pass "build_live_guard_audit_event: correct shape, no forbidden identifiers"
+else
+    fail "build_live_guard_audit_event: shape or forbidden key check failed"
+fi
+
+# Server route emits live_gate_check + live_mode_denied when audit enabled
+GUARD_AUDIT_TMP=$(mktemp -d /tmp/kaiju_smoke_v5_guard_audit_XXXXXX)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=true \
+    OPENCLAW_AUDIT_ROOT="$GUARD_AUDIT_TMP" \
+    $PYTHON -c "
+import os, sys
+for mod in list(sys.modules.keys()):
+    if mod in ('server', 'admin', 'config', 'auth', 'live_guard', 'live_gate',
+               'preflight', 'approval', 'audit', 'audit_maintenance', 'rate_limit'):
+        del sys.modules[mod]
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app, raise_server_exceptions=True)
+r = client.post('/openclaw/admin/live-google-ads/preflight', json={
+    'approval_present': True, 'approval_valid': True, 'preflight_passed': True,
+    'audit_enabled': True, 'credential_configured': True, 'credential_status': 'ACTIVE',
+    'tenant_allowed': True, 'client_allowed': True,
+    'rollback_plan_present': True, 'operator_confirmed': True,
+})
+assert r.status_code == 403, f'expected 403, got {r.status_code}'
+import json, pathlib
+audit_root = pathlib.Path(os.environ['OPENCLAW_AUDIT_ROOT'])
+audit_files = list(audit_root.glob('*.jsonl'))
+assert len(audit_files) == 1, f'expected 1 audit file, got {len(audit_files)}'
+lines = [l for l in audit_files[0].read_text().splitlines() if l.strip()]
+assert len(lines) >= 2, f'expected >=2 audit events, got {len(lines)}'
+events = [json.loads(l) for l in lines]
+event_types = [e['event_type'] for e in events]
+assert 'live_gate_check' in event_types, f'live_gate_check missing: {event_types}'
+assert 'live_mode_denied' in event_types, f'live_mode_denied missing: {event_types}'
+FORBIDDEN = {'tenant_id', 'client_id', 'approval_id', 'credential_ref', 'secret_id',
+             'customer_id', 'login_customer_id', 'refresh_token', 'access_token',
+             'developer_token', 'client_secret'}
+for ev in events:
+    found = [k for k in FORBIDDEN if k in ev]
+    assert not found, f'forbidden keys in audit event {ev.get(\"event_type\")}: {found}'
+" 2>/dev/null); then
+    pass "server route: emits live_gate_check + live_mode_denied, no forbidden keys"
+else
+    fail "server route: audit event emission or forbidden key check failed"
+fi
+rm -rf "$GUARD_AUDIT_TMP"
+
+# verify_audit_file passes on live guard emitted events
+GUARD_AUDIT_TMP2=$(mktemp -d /tmp/kaiju_smoke_v5_guard_audit_XXXXXX)
+if (cd "$OPENCLAW_DIR" && PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=true \
+    OPENCLAW_AUDIT_ROOT="$GUARD_AUDIT_TMP2" \
+    $PYTHON -c "
+import os, sys
+for mod in list(sys.modules.keys()):
+    if mod in ('server', 'admin', 'config', 'auth', 'live_guard', 'live_gate',
+               'preflight', 'approval', 'audit', 'audit_maintenance', 'rate_limit'):
+        del sys.modules[mod]
+from fastapi.testclient import TestClient
+from server import app
+client = TestClient(app, raise_server_exceptions=True)
+client.post('/openclaw/admin/live-google-ads/preflight', json={
+    'approval_present': True, 'approval_valid': True, 'preflight_passed': True,
+    'audit_enabled': True, 'credential_configured': True, 'credential_status': 'ACTIVE',
+    'tenant_allowed': True, 'client_allowed': True,
+    'rollback_plan_present': True, 'operator_confirmed': True,
+})
+import pathlib
+from audit_maintenance import verify_audit_file
+audit_root = pathlib.Path(os.environ['OPENCLAW_AUDIT_ROOT'])
+audit_files = list(audit_root.glob('*.jsonl'))
+result = verify_audit_file(audit_files[0])
+assert result['ok'] is True, f'verify_audit_file failed: {result}'
+assert result['events_checked'] >= 2, f'expected >=2 events: {result}'
+assert result['errors'] == [], f'chain errors: {result[\"errors\"]}'
+" 2>/dev/null); then
+    pass "verify_audit_file: passes on live guard emitted events"
+else
+    fail "verify_audit_file: failed on live guard emitted events"
+fi
+rm -rf "$GUARD_AUDIT_TMP2"
+
+# run_server_live_guard_demo.py with Phase 6 audit section: all assertions pass
+_OUT_GUARD_P6=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=false \
+    $PYTHON run_server_live_guard_demo.py 2>&1)
+echo "$_OUT_GUARD_P6" | grep -q "All assertions passed." \
+    && pass "run_server_live_guard_demo.py (incl. Phase 6 audit section): All assertions passed" \
+    || { echo "  ✗ run_server_live_guard_demo.py Phase 6: assertion not found"; echo "$_OUT_GUARD_P6" | tail -30; exit 1; }
+
+echo "$_OUT_GUARD_P6" | grep -q "phase6 builder: event_type=live_gate_check" \
+    && pass "Phase 6 demo: live_gate_check builder assertion confirmed" \
+    || { echo "  ✗ Phase 6 demo: live_gate_check builder marker not found"; echo "$_OUT_GUARD_P6" | tail -30; exit 1; }
+
+echo "$_OUT_GUARD_P6" | grep -q "phase6 verify_audit_file: ok=True" \
+    && pass "Phase 6 demo: verify_audit_file ok=True confirmed" \
+    || { echo "  ✗ Phase 6 demo: verify_audit_file marker not found"; echo "$_OUT_GUARD_P6" | tail -30; exit 1; }
+
+# audit.py must not include GOOGLE_ADS_LIVE_ENABLED=true
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" "$OPENCLAW_DIR/audit.py" 2>/dev/null; then
+    fail "audit.py contains GOOGLE_ADS_LIVE_ENABLED=true"
+else
+    pass "audit.py: GOOGLE_ADS_LIVE_ENABLED=true absent"
+fi
+
+pass "Phase 6 live guard audit event emission checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[26/26] Phase 8 — Test coverage hardening (V5.19)..."
+# ---------------------------------------------------------------------------
+
+# run_live_gate_demo.py: Tests 15-18 (empty/unknown cred status, required_actions, no forbidden keys)
+_OUT_GATE_P8=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_live_gate_demo.py 2>&1)
+echo "$_OUT_GATE_P8" | grep -q "All assertions passed." \
+    && pass "run_live_gate_demo.py (Phase 8): All assertions passed" \
+    || { echo "  ✗ run_live_gate_demo.py Phase 8: All assertions passed not found"; echo "$_OUT_GATE_P8" | tail -20; exit 1; }
+
+echo "$_OUT_GATE_P8" | grep -q "credential_not_active(empty)" \
+    && pass "live gate Phase 8: empty credential_status denied confirmed" \
+    || { echo "  ✗ live gate Phase 8: credential_not_active(empty) marker not found"; echo "$_OUT_GATE_P8" | tail -20; exit 1; }
+
+echo "$_OUT_GATE_P8" | grep -q "required_actions non-empty" \
+    && pass "live gate Phase 8: required_actions non-empty for all denial paths" \
+    || { echo "  ✗ live gate Phase 8: required_actions non-empty marker not found"; echo "$_OUT_GATE_P8" | tail -20; exit 1; }
+
+echo "$_OUT_GATE_P8" | grep -q "no forbidden field names in LiveGateResult" \
+    && pass "live gate Phase 8: no forbidden field names in LiveGateResult confirmed" \
+    || { echo "  ✗ live gate Phase 8: no forbidden field names marker not found"; echo "$_OUT_GATE_P8" | tail -20; exit 1; }
+
+# run_approval_demo.py: Tests 17-24 (PENDING/REJECTED/EXPIRED/reason/expiry/integration/metadata)
+_OUT_APPR_P8=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_approval_demo.py 2>&1)
+echo "$_OUT_APPR_P8" | grep -q "All assertions passed." \
+    && pass "run_approval_demo.py (Phase 8): All assertions passed" \
+    || { echo "  ✗ run_approval_demo.py Phase 8: All assertions passed not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "PENDING: valid=False" \
+    && pass "approval Phase 8: PENDING status denied confirmed" \
+    || { echo "  ✗ approval Phase 8: PENDING marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "REJECTED: valid=False" \
+    && pass "approval Phase 8: REJECTED status denied confirmed" \
+    || { echo "  ✗ approval Phase 8: REJECTED marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "EXPIRED: valid=False" \
+    && pass "approval Phase 8: EXPIRED status denied confirmed" \
+    || { echo "  ✗ approval Phase 8: EXPIRED marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "future expiry: valid=True" \
+    && pass "approval Phase 8: future expires_at allows confirmed" \
+    || { echo "  ✗ approval Phase 8: future expiry marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "wrong integration_type" \
+    && pass "approval Phase 8: wrong integration_type denied confirmed" \
+    || { echo "  ✗ approval Phase 8: wrong integration_type marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+echo "$_OUT_APPR_P8" | grep -q "forbidden-metadata-field" \
+    && pass "approval Phase 8: forbidden field in metadata denied confirmed" \
+    || { echo "  ✗ approval Phase 8: forbidden-metadata-field marker not found"; echo "$_OUT_APPR_P8" | tail -20; exit 1; }
+
+# run_preflight_demo.py: Tests 18-20 (wrong integration, CONFIGURED/VALIDATION_FAILED cred status)
+_OUT_PFL_P8=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_preflight_demo.py 2>&1)
+echo "$_OUT_PFL_P8" | grep -q "All assertions passed." \
+    && pass "run_preflight_demo.py (Phase 8): All assertions passed" \
+    || { echo "  ✗ run_preflight_demo.py Phase 8: All assertions passed not found"; echo "$_OUT_PFL_P8" | tail -20; exit 1; }
+
+echo "$_OUT_PFL_P8" | grep -q "wrong integration: allowed=False" \
+    && pass "preflight Phase 8: wrong integration_type denied confirmed" \
+    || { echo "  ✗ preflight Phase 8: wrong integration marker not found"; echo "$_OUT_PFL_P8" | tail -20; exit 1; }
+
+echo "$_OUT_PFL_P8" | grep -q "credential CONFIGURED: allowed=False" \
+    && pass "preflight Phase 8: CONFIGURED cred status denied confirmed" \
+    || { echo "  ✗ preflight Phase 8: credential CONFIGURED marker not found"; echo "$_OUT_PFL_P8" | tail -20; exit 1; }
+
+echo "$_OUT_PFL_P8" | grep -q "credential VALIDATION_FAILED: allowed=False" \
+    && pass "preflight Phase 8: VALIDATION_FAILED cred status denied confirmed" \
+    || { echo "  ✗ preflight Phase 8: credential VALIDATION_FAILED marker not found"; echo "$_OUT_PFL_P8" | tail -20; exit 1; }
+
+# run_server_live_guard_demo.py: Phase 8A auth + 8B scope enforcement
+_OUT_GUARD_P8=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    GCP_SECRET_MANAGER_ENABLED=false \
+    GOOGLE_ADS_LIVE_ENABLED=false \
+    OPENCLAW_API_AUTH_ENABLED=false \
+    OPENCLAW_AUDIT_ENABLED=false \
+    $PYTHON run_server_live_guard_demo.py 2>&1)
+echo "$_OUT_GUARD_P8" | grep -q "All assertions passed." \
+    && pass "run_server_live_guard_demo.py (Phase 8): All assertions passed" \
+    || { echo "  ✗ run_server_live_guard_demo.py Phase 8: assertion not found"; echo "$_OUT_GUARD_P8" | tail -20; exit 1; }
+
+echo "$_OUT_GUARD_P8" | grep -q "phase8a auth: 401 without token" \
+    && pass "server live guard Phase 8A: 401 without token confirmed" \
+    || { echo "  ✗ server live guard Phase 8A: 401 marker not found"; echo "$_OUT_GUARD_P8" | tail -20; exit 1; }
+
+echo "$_OUT_GUARD_P8" | grep -q "phase8b scope: 403 for READ token" \
+    && pass "server live guard Phase 8B: 403 for READ token confirmed" \
+    || { echo "  ✗ server live guard Phase 8B: 403 marker not found"; echo "$_OUT_GUARD_P8" | tail -20; exit 1; }
+
+pass "Phase 8 test coverage hardening checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

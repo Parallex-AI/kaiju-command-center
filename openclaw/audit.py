@@ -112,6 +112,46 @@ def build_credential_audit_event(
     }
 
 
+def build_live_guard_audit_event(
+    operation: str,
+    ok: bool,
+    event_type: str = "live_gate_check",
+    error_codes: Optional[List[str]] = None,
+    request_id: str = "",
+    trace_id: str = "",
+    live_api_tested: bool = False,
+    live_enabled: bool = False,
+    approval_present: bool = False,
+    approval_valid: bool = False,
+    credential_status: str = "",
+    live_gate_allowed: bool = False,
+) -> Dict:
+    """
+    Build a safe audit event for live guard/preflight checks.
+
+    Never includes tenant_id, client_id, approval_id, credential_ref,
+    secret_id, customer_id, login_customer_id, refresh_token, access_token,
+    developer_token, client_secret, or any secret payload values.
+    """
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "event_type": event_type,
+        "integration_type": "google_ads",
+        "operation": operation,
+        "ok": ok,
+        "live_enabled": live_enabled,
+        "approval_present": approval_present,
+        "approval_valid": approval_valid,
+        "credential_status": credential_status,
+        "live_gate_allowed": live_gate_allowed,
+        "live_api_tested": live_api_tested,
+        "error_codes": error_codes or [],
+        "request_id": request_id or "",
+        "trace_id": trace_id or "",
+        "source": "server_live_guard",
+    }
+
+
 def append_audit_event(event: dict) -> dict:
     if not is_audit_enabled():
         return {"ok": False, "skipped": True, "reason": "audit disabled"}

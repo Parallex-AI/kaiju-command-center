@@ -538,22 +538,54 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 
 ---
 
-## V5.19 — Real Onboarding Readiness and Production Gating (planned)
+## V5.19 — Real Credential Readiness Gates (branch: `v5.19-real-credential-readiness-gates`)
 
-**Goal:** Establish controlled gates and operator procedures for transitioning from fake-secret validation to real Google Ads credential onboarding. No live Google Ads API calls without explicit separate approval.
+**Goal:** Build the safety controls, approval workflow, preflight infrastructure, runtime guardrails, audit requirements, and operator documentation needed before any real Google Ads credential onboarding or live API validation can occur. Does not perform real onboarding or live API calls.
 
 **Base release:** `v5.18.0-beta`
 
-Suggested scope (requires explicit operator approval before execution):
+**Implementation plan:** `docs/V5_19_IMPLEMENTATION_PLAN.md`
 
-- [ ] Pre-real-onboarding checklist completion (`docs/CREDENTIAL_LIFECYCLE_RUNBOOK.md` Section 11 gates)
-- [ ] OAuth2 credential preparation and readiness review (no live onboarding without explicit approval)
-- [ ] Secret Manager version lifecycle policy design — disable prior versions on rotate
-- [ ] Operator approval gate design for `GOOGLE_ADS_LIVE_ENABLED=true` promotion
-- [ ] Production onboarding runbook update
+### Phase breakdown
+
+- [x] **Phase 1 — Planning and branch setup** — `V5_19_IMPLEMENTATION_PLAN.md`; ROADMAP update; README update; branch `v5.19-real-credential-readiness-gates`
+- [x] **Phase 2 — Live-mode gate design** — `check_live_gate()` in `openclaw/live_gate.py`; all gate conditions; error codes; unit tests
+- [x] **Phase 3 — Approval record model** — `ApprovalRecord` dataclass; `ApprovalStore` interface; `LocalFileApprovalStore`; `is_approval_valid()`; unit tests
+- [x] **Phase 4 — Preflight checker** — `run_live_preflight()` function; per-check result structure; integration with gate; unit tests
+- [x] **Phase 5 — API/server guardrails** — server route guard for any live-mode path; `live_mode_disabled` short-circuit; FastAPI TestClient tests
+- [x] **Phase 6 — Audit event additions** — `op=live_gate_check`, `op=live_mode_denied`, `op=preflight_check`, `op=adapter_invoked`; smoke test extension
+- [x] **Phase 7 — Runbook updates** — `CREDENTIAL_LIFECYCLE_RUNBOOK.md` V5.19 gates + approval procedure; `GCP_SECRET_MANAGER_RUNBOOK.md` version lifecycle policy
+- [x] **Phase 8 — Test coverage** — new smoke test section for gate denial paths; full test pass
+- [x] **Phase 9 — Closure docs and release notes** — `V5_19_BRANCH_CLOSURE.md`; `RELEASE_NOTES_V5_19_0_BETA.md`; ROADMAP/README updates
+- [ ] **Phase 10 — Merge, tag, release** — merge to master; `v5.19.0-beta` tag; GitHub Release
+
+### Gate conditions (`check_live_gate()`)
+
+| Condition | Error code on failure |
+|-----------|----------------------|
+| `GOOGLE_ADS_LIVE_ENABLED=true` | `live_mode_disabled` |
+| Approval record present and valid | `approval_missing` / `approval_expired` / `approval_revoked` |
+| Preflight checks pass | `preflight_failed` |
+| Credential status ACTIVE | `credential_not_ready` |
+| Structural completeness confirmed | `credential_incomplete` |
+| Tenant token boundary enforced | `tenant_gate_failed` |
+| Audit enabled | `audit_not_enabled` |
+
+### V5.19 scope constraints
+
+- No real Google Ads credentials
+- `GOOGLE_ADS_LIVE_ENABLED=false` throughout
+- No Cloud Run deployment
+- No IAM changes
+- No API enablement
+- No billing changes
+- No fixed-cost infrastructure
 
 **Explicitly deferred from V5.19 until separate authorization:**
-- Real Google Ads OAuth credential submission to production
+- Real Google Ads OAuth credential onboarding
 - Real Google Ads live API validation (`GOOGLE_ADS_LIVE_ENABLED=true`)
 - Cloud Run deployment
 - IAM hardening beyond current validated posture
+- Secret Manager prior-version destruction (irreversible; separate authorization required)
+- External approval UI
+- BigQuery audit replication / Cloud Storage archival

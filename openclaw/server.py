@@ -1,6 +1,7 @@
 from pathlib import Path as _Path
 import sys as _sys
 import json
+import os
 
 _OPENCLAW_DIR = str(_Path(__file__).resolve().parent)
 if _OPENCLAW_DIR not in _sys.path:
@@ -31,6 +32,8 @@ from admin import (
     rotate_google_ads_credentials,
     GOOGLE_ADS_SECRET_FIELDS,
 )
+from live_guard import guard_live_google_ads_from_signals
+from audit import append_audit_event, build_live_guard_audit_event
 
 SERVICE_NAME = "kaiju-openclaw"
 
@@ -572,6 +575,129 @@ async def admin_rotate_google_ads_credentials(
         status_code = 200
     else:
         status_code = 400
+    return JSONResponse(status_code=status_code, content=result)
+
+
+@app.post("/openclaw/admin/live-google-ads/preflight")
+async def admin_live_google_ads_preflight(request: Request):
+    """
+    V5.19 Phase 5 — Live Google Ads operation preflight probe.
+
+    Evaluates live gate readiness using pre-resolved boolean signals supplied by
+    the caller. live_enabled is always derived from GOOGLE_ADS_LIVE_ENABLED (server-
+    side env var, default false) — never accepted from the request body.
+
+    Does NOT call Google Ads API. Does NOT fetch credentials. Does NOT call GCP.
+    Returns a safe structured response with live_api_tested=false always.
+    Auth applies when OPENCLAW_API_AUTH_ENABLED=true (requires VALIDATE scope).
+    """
+    request_id = request.headers.get("x-request-id") or generate_request_id()
+    trace_id = request.headers.get("x-trace-id") or generate_trace_id()
+    config = get_config()
+
+    auth_ok, auth_errors = validate_api_auth(
+        headers=dict(request.headers), required_scope=AdminScope.VALIDATE, config=config
+    )
+    if not auth_ok:
+        _codes = [e.get("code") for e in auth_errors if isinstance(e, dict)]
+        return JSONResponse(
+            status_code=403 if "scope_not_granted" in _codes else 401,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "integration_type": "google_ads",
+                "errors": auth_errors,
+            },
+        )
+
+    token = extract_bearer_token(
+        dict(request.headers).get("authorization") or dict(request.headers).get("Authorization")
+    )
+    rl_ok, rl_errors = check_rate_limit(token, RateLimitCategory.STANDARD, config)
+    if not rl_ok:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "integration_type": "google_ads",
+                "errors": rl_errors,
+            },
+        )
+
+    try:
+        body = await request.body()
+        payload = json.loads(body) if body else {}
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "ok": False,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "integration_type": "google_ads",
+                "errors": [make_error(
+                    "invalid_json",
+                    "Request body is not valid JSON.",
+                    recoverable=False,
+                    source="openclaw_admin",
+                )],
+            },
+        )
+
+    # live_enabled is server-side config — never accepted from request body.
+    live_enabled = os.getenv("GOOGLE_ADS_LIVE_ENABLED", "false").strip().lower() in ("true", "1")
+
+    result = guard_live_google_ads_from_signals(
+        live_enabled=live_enabled,
+        approval_present=bool(payload.get("approval_present", False)),
+        approval_valid=bool(payload.get("approval_valid", False)),
+        preflight_passed=bool(payload.get("preflight_passed", False)),
+        audit_enabled=bool(payload.get("audit_enabled", config.audit_enabled)),
+        credential_configured=bool(payload.get("credential_configured", False)),
+        credential_status=str(payload.get("credential_status", "CONFIGURED")),
+        tenant_allowed=bool(payload.get("tenant_allowed", False)),
+        client_allowed=bool(payload.get("client_allowed", False)),
+        rollback_plan_present=bool(payload.get("rollback_plan_present", False)),
+        operator_confirmed=bool(payload.get("operator_confirmed", False)),
+        operation=str(payload.get("operation", "")),
+    )
+    result["request_id"] = request_id
+    result["trace_id"] = trace_id
+
+    _operation = str(payload.get("operation", ""))
+    _error_codes = [result["error_code"]] if result.get("error_code") else []
+    _live_allowed = bool(result.get("live_allowed", False))
+
+    append_audit_event(build_live_guard_audit_event(
+        operation=_operation,
+        ok=bool(result.get("ok", False)),
+        event_type="live_gate_check",
+        error_codes=_error_codes,
+        request_id=request_id,
+        trace_id=trace_id,
+        live_enabled=live_enabled,
+        approval_present=bool(payload.get("approval_present", False)),
+        approval_valid=bool(payload.get("approval_valid", False)),
+        credential_status=str(payload.get("credential_status", "CONFIGURED")),
+        live_gate_allowed=_live_allowed,
+    ))
+
+    _secondary_type = "live_preflight_allowed" if _live_allowed else "live_mode_denied"
+    append_audit_event(build_live_guard_audit_event(
+        operation=_operation,
+        ok=bool(result.get("ok", False)),
+        event_type=_secondary_type,
+        error_codes=_error_codes,
+        request_id=request_id,
+        trace_id=trace_id,
+        live_enabled=live_enabled,
+        live_gate_allowed=_live_allowed,
+    ))
+
+    status_code = 200 if _live_allowed else 403
     return JSONResponse(status_code=status_code, content=result)
 
 
