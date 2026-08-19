@@ -8,7 +8,9 @@ AI agent lab for Kaiju Digital.
 
 V5.19 builds the safety controls, approval workflow, preflight infrastructure, runtime guardrails, audit requirements, and operator documentation needed before any real Google Ads credential onboarding or live API validation. No real credentials. `GOOGLE_ADS_LIVE_ENABLED=false` throughout. No deploy. No cloud changes.
 
-See [V5.19 Implementation Plan](docs/V5_19_IMPLEMENTATION_PLAN.md).
+**Branch closure complete — Phases 1–8 PASS — ready for merge and tag (`v5.19.0-beta`).** V5.18.0-beta remains the latest shipped tag.
+
+See [V5.19 Branch Closure](docs/V5_19_BRANCH_CLOSURE.md) · [v5.19.0-beta Release Notes](docs/RELEASE_NOTES_V5_19_0_BETA.md) · [V5.19 Implementation Plan](docs/V5_19_IMPLEMENTATION_PLAN.md).
 
 ---
 
@@ -81,6 +83,8 @@ cd ~/kaiju/projects/demo-client
 - [V5.18 Branch Closure](docs/V5_18_BRANCH_CLOSURE.md)
 - [v5.18.0-beta Release Notes](docs/RELEASE_NOTES_V5_18_0_BETA.md)
 - [V5.19 Implementation Plan](docs/V5_19_IMPLEMENTATION_PLAN.md)
+- [V5.19 Branch Closure](docs/V5_19_BRANCH_CLOSURE.md)
+- [v5.19.0-beta Release Notes](docs/RELEASE_NOTES_V5_19_0_BETA.md)
 
 ## Admin credential configuration (V5.16+)
 
@@ -126,4 +130,4 @@ A valid token with insufficient scope returns `403 scope_not_granted`. A missing
 | V5.16 | Admin RBAC · audit seq/digest · credential rotation endpoint | **Beta complete** — `v5.16.0-beta` |
 | V5.17 | Production readiness · tenant isolation · rate limiting · audit locking · operator runbook | **Beta complete** — `v5.17.0-beta` |
 | V5.18 | Live GCP fake-secret validation · write → validate → rotate → delete → audit | **Beta complete** — `v5.18.0-beta` |
-| V5.19 | Real credential readiness gates · live-mode gate · approval workflow · preflight · guardrails · audit | **In progress** — `v5.19-real-credential-readiness-gates` |
+| V5.19 | Real credential readiness gates · live-mode gate · approval workflow · preflight · guardrails · audit | **Branch closure complete** — ready for `v5.19.0-beta` |

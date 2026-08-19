@@ -556,7 +556,7 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - [x] **Phase 6 — Audit event additions** — `op=live_gate_check`, `op=live_mode_denied`, `op=preflight_check`, `op=adapter_invoked`; smoke test extension
 - [x] **Phase 7 — Runbook updates** — `CREDENTIAL_LIFECYCLE_RUNBOOK.md` V5.19 gates + approval procedure; `GCP_SECRET_MANAGER_RUNBOOK.md` version lifecycle policy
 - [x] **Phase 8 — Test coverage** — new smoke test section for gate denial paths; full test pass
-- [ ] **Phase 9 — Closure docs and release notes** — `V5_19_BRANCH_CLOSURE.md`; `RELEASE_NOTES_V5_19_0_BETA.md`; ROADMAP/README updates
+- [x] **Phase 9 — Closure docs and release notes** — `V5_19_BRANCH_CLOSURE.md`; `RELEASE_NOTES_V5_19_0_BETA.md`; ROADMAP/README updates
 - [ ] **Phase 10 — Merge, tag, release** — merge to master; `v5.19.0-beta` tag; GitHub Release
 
 ### Gate conditions (`check_live_gate()`)
