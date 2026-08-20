@@ -603,7 +603,7 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 ### Phase breakdown
 
 - [x] **Phase 1 — Planning and branch setup** — `V5_20_IMPLEMENTATION_PLAN.md`; ROADMAP update; README update; branch `v5.20-controlled-real-google-ads-onboarding-readiness`
-- [ ] **Phase 2 — Real onboarding checklist document** — `docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md`; ceremony template; preflight checklist; rollback sequence; sign-off block
+- [x] **Phase 2 — Real onboarding checklist document** — `docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md`; ceremony template; preflight checklist; rollback sequence; sign-off block; no real credentials; no OAuth; no API calls
 - [ ] **Phase 3 — Onboarding approval ceremony model** — `openclaw/onboarding_ceremony.py`; `OnboardingApprovalCeremony` dataclass; `validate_onboarding_checklist()`; unit tests
 - [ ] **Phase 4 — Credential intake dry-run design** — `openclaw/credential_intake.py`; intake boundary enforcement; fake intake dry-run demo; unit tests
 - [ ] **Phase 5 — First live API validation plan** — `docs/GOOGLE_ADS_FIRST_LIVE_CALL_PLAN.md`; exact endpoint, scope, constraints, audit sequence, rollback trigger; design only, no execution

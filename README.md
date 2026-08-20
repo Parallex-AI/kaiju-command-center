@@ -8,9 +8,9 @@ AI agent lab for Kaiju Digital.
 
 V5.20 defines and implements the final operator-controlled readiness process required before any real Google Ads credential onboarding or live API validation. No real credentials. `GOOGLE_ADS_LIVE_ENABLED=false` throughout. No deploy. No GCP commands. No IAM/API/billing changes.
 
-**Phase 1 — Planning in progress.** v5.19.0-beta is the latest shipped beta.
+**Phase 2 — Checklist document complete.** v5.19.0-beta is the latest shipped beta.
 
-See [V5.20 Implementation Plan](docs/V5_20_IMPLEMENTATION_PLAN.md).
+See [V5.20 Implementation Plan](docs/V5_20_IMPLEMENTATION_PLAN.md) and the [Google Ads Real Onboarding Checklist](docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md) (operator checklist only — does not authorize real onboarding).
 
 ---
 
@@ -86,6 +86,7 @@ cd ~/kaiju/projects/demo-client
 - [V5.19 Branch Closure](docs/V5_19_BRANCH_CLOSURE.md)
 - [v5.19.0-beta Release Notes](docs/RELEASE_NOTES_V5_19_0_BETA.md)
 - [V5.20 Implementation Plan](docs/V5_20_IMPLEMENTATION_PLAN.md)
+- [Google Ads Real Onboarding Checklist](docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md) — operator checklist only; does not authorize real onboarding
 
 ## Admin credential configuration (V5.16+)
 

@@ -2,7 +2,7 @@
 
 **Branch:** `v5.20-controlled-real-google-ads-onboarding-readiness`
 **Base:** `v5.19.0-beta` / master at `631abbd`
-**Status:** Phase 1 — Planning
+**Status:** Phase 2 — Real Onboarding Checklist Document
 
 ---
 
@@ -284,6 +284,24 @@ V5.20 is releasable as `v5.20.0-beta` when all of the following are true:
 - [ ] No Google Ads API calls
 - [ ] No GCP commands
 - [ ] Closure docs complete
+
+---
+
+## Phase 2 Implementation Note
+
+Phase 2 (`docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md`) is complete as of commit on branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
+
+| Item | Status |
+|---|---|
+| Checklist document created | **Complete** — `docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md` |
+| Real credentials used | **No** — none at any point in Phase 2 |
+| OAuth execution | **No** — no OAuth consent flow, no token exchange, no refresh token capture |
+| Google Ads API calls | **No** — no live or test API calls |
+| GCP commands | **No** — no `gcloud` or GCP API calls |
+| `GOOGLE_ADS_LIVE_ENABLED=true` set at runtime | **No** — flag remains `false` |
+| Phase 3 status | **Pending** — `openclaw/onboarding_ceremony.py`; `OnboardingApprovalCeremony` dataclass; `validate_onboarding_checklist()`; unit tests |
+
+V5.20 is **not complete**. Phases 3–10 remain pending.
 
 ---
 
