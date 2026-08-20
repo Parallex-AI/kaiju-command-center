@@ -2,7 +2,7 @@
 
 **Branch:** `v5.20-controlled-real-google-ads-onboarding-readiness`
 **Base:** `v5.19.0-beta` / master at `631abbd`
-**Status:** Phase 4 — Credential Intake Dry-Run Enforcement
+**Status:** Phase 5 — First Live API Validation Plan
 
 ---
 
@@ -240,7 +240,7 @@ No real Google Ads API calls in any V5.20 test. All tests use fake credentials, 
 | 2 | Real onboarding checklist document | `docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md`; all sections A–H above represented as operator-fillable checklist |
 | 3 | Onboarding approval ceremony model | `openclaw/onboarding_ceremony.py`; `OnboardingApprovalCeremony` dataclass; `validate_onboarding_checklist()`; unit tests |
 | 4 | Credential intake dry-run design | `openclaw/credential_intake.py`; intake boundary validation (no real values); fake intake dry-run demo; unit tests |
-| 5 | First live API validation plan | `docs/GOOGLE_ADS_FIRST_LIVE_CALL_PLAN.md`; exact endpoint, scope, constraints, audit sequence, rollback trigger — design only, no execution |
+| 5 | First live API validation plan | `docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md`; preconditions, endpoint constraints, execution window, audit sequence, stop conditions, rollback sequence, evidence package — design only, no execution |
 | 6 | Rollback/emergency revoke drill | `openclaw/run_revoke_drill_demo.py`; full fake credential revoke sequence; audit chain verification; smoke test extension |
 | 7 | Secret Manager version lifecycle implementation | Implement chosen option (A or B from Section H); `openclaw/secret_lifecycle.py`; operator policy decision recorded |
 | 8 | Final readiness review | All checklist items from Section D verified in test context; gap analysis; no open blockers |
@@ -287,6 +287,25 @@ V5.20 is releasable as `v5.20.0-beta` when all of the following are true:
 
 ---
 
+## Phase 5 Implementation Note
+
+Phase 5 (`docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md`) is complete as of the current state of branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
+
+| Item | Status |
+|---|---|
+| `GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md` created | **Complete** — sections A–L: purpose; 19-item precondition checklist; explicit non-goals; candidate first API call design; execution window constraints; runtime flag template; 10-step audit sequence; 17 stop conditions; 11-step rollback sequence; evidence package; operator authorization template; Phase 5 conclusion |
+| Real credentials used | **No** |
+| OAuth execution | **No** |
+| Google Ads API called | **No** |
+| GCP commands run | **No** |
+| `GOOGLE_ADS_LIVE_ENABLED=true` at runtime | **No** |
+| Executable API call code | **No** — design only; no curl commands, no real customer IDs, no real tokens |
+| Phase 6 status | **Pending** — `openclaw/run_revoke_drill_demo.py`; rollback/emergency revoke drill with fake credential |
+
+V5.20 is **not complete**. Phases 6–10 remain pending.
+
+---
+
 ## Phase 4 Implementation Note
 
 Phase 4 (`openclaw/credential_intake.py` + `openclaw/run_credential_intake_demo.py`) is complete as of commit on branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
@@ -305,7 +324,7 @@ Phase 4 (`openclaw/credential_intake.py` + `openclaw/run_credential_intake_demo.
 | Google Ads API calls | **No** |
 | GCP commands | **No** |
 | `GOOGLE_ADS_LIVE_ENABLED=true` at runtime | **No** |
-| Phase 5 status | **Pending** — `docs/GOOGLE_ADS_FIRST_LIVE_CALL_PLAN.md`; first live API validation plan; design only |
+| Phase 5 status | **Complete** — `docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md`; first live API validation plan; sections A–L; design only; no execution |
 
 V5.20 is **not complete**. Phases 5–10 remain pending.
 

@@ -8,13 +8,15 @@ AI agent lab for Kaiju Digital.
 
 V5.20 defines and implements the final operator-controlled readiness process required before any real Google Ads credential onboarding or live API validation. No real credentials. `GOOGLE_ADS_LIVE_ENABLED=false` throughout. No deploy. No GCP commands. No IAM/API/billing changes.
 
-**Phase 4 — Credential intake dry-run validator added.** v5.19.0-beta is the latest shipped beta.
+**Phase 5 — First live API validation plan added.** v5.19.0-beta is the latest shipped beta.
 
 See [V5.20 Implementation Plan](docs/V5_20_IMPLEMENTATION_PLAN.md) and the [Google Ads Real Onboarding Checklist](docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md) (operator checklist only — does not authorize real onboarding).
 
 **Phase 3 — Onboarding ceremony validator** (`openclaw/onboarding_ceremony.py`): local-only `validate_onboarding_ceremony()` function; checks all readiness, approval, boundary, and forbidden-field/value conditions; does not execute real onboarding, OAuth, or API calls.
 
 **Phase 4 — Credential intake dry-run validator** (`openclaw/credential_intake.py`): local-only `validate_credential_intake_dry_run()` function; enforces all 7 intake boundary rules, 4 plan requirements, 4 reference confirmations, and 6 hard-stop detection conditions; 25 failure codes; does not ingest real credentials, execute OAuth, call GCP, or make network calls.
+
+**Phase 5 — First live API validation plan** (`docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md`): design-only plan for the first controlled read-only Google Ads API validation; 19-item precondition checklist; 17 stop conditions; 11-step rollback sequence; evidence package; no execution, no real credentials, no API calls.
 
 ---
 
@@ -91,6 +93,7 @@ cd ~/kaiju/projects/demo-client
 - [v5.19.0-beta Release Notes](docs/RELEASE_NOTES_V5_19_0_BETA.md)
 - [V5.20 Implementation Plan](docs/V5_20_IMPLEMENTATION_PLAN.md)
 - [Google Ads Real Onboarding Checklist](docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md) — operator checklist only; does not authorize real onboarding
+- [Google Ads First Live API Validation Plan](docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md) — design-only; does not authorize execution
 
 ## Admin credential configuration (V5.16+)
 

@@ -316,6 +316,27 @@ The validator returns `ok=True` (PASS) only when all 25 conditions are satisfied
 
 ---
 
+## N. Phase 5 — First Live API Validation Plan
+
+`docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md` defines the controlled first live Google Ads API validation procedure for a future separately authorized phase. It is documentation only — no execution, no real credentials, no API calls.
+
+| Plan section | Validates |
+|---|---|
+| Section B (Preconditions) | 19 items including: V5.19 shipped, checklist complete, ceremony PASS, intake PASS, approval record valid, audit enabled, rollback documented, live gate PASS, smoke tests PASS |
+| Section C (Non-goals) | No mutations, no bulk ops, no multi-client validation, no persistent live mode |
+| Section D (Candidate call) | Read-only accessible-customers style check; no campaign, budget, keyword, or conversion data |
+| Section E (Execution window) | Single tenant/client/operator/credential/call; no background or scheduled execution |
+| Section F (Runtime flags) | `GOOGLE_ADS_LIVE_ENABLED=false` pre/post window; must be reverted immediately after validation |
+| Section G (Audit sequence) | 10 steps: approval created → ceremony PASS → intake PASS → preflight → live gate → window opens → call → flag disabled → status confirmed → audit verified |
+| Section H (Stop conditions) | 17 items: approval issues, validator failures, gate denials, secret leakage, unexpected scopes, mutations, unrevertable live flag |
+| Section I (Rollback sequence) | 11 ordered steps: disable flag → revoke approval → revoke credential → delete bundle → verify gate → smoke tests → safety grep → audit chain → GCP out-of-band → archive → document |
+| Section J (Evidence package) | Required: sanitized approval, ceremony/intake/preflight/gate PASS, operation name, time window, redacted result, flag disabled confirmation, smoke, grep, audit; Forbidden: real IDs, tokens, raw payloads |
+| Section K (Authorization template) | Structural template only — not an executed approval |
+
+The plan does **not** authorize execution. Any future live validation requires a separate explicit named-operator approval in `LocalFileApprovalStore`, not expired, passing `validate_approval_record()`.
+
+---
+
 ## L. Phase 2 Conclusion
 
 This document concludes V5.20 Phase 2.
