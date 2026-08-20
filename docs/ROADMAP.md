@@ -589,3 +589,50 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - Secret Manager prior-version destruction (irreversible; separate authorization required)
 - External approval UI
 - BigQuery audit replication / Cloud Storage archival
+
+---
+
+## V5.20 — Controlled Real Google Ads Onboarding Readiness (branch: `v5.20-controlled-real-google-ads-onboarding-readiness`)
+
+**Goal:** Define and implement the final operator-controlled readiness process required before any real Google Ads credential onboarding or live API validation. Builds on V5.19 gates, approvals, and audit infrastructure. Does not perform real credential intake, does not execute OAuth flows, does not call the Google Ads API, and does not set `GOOGLE_ADS_LIVE_ENABLED=true` at runtime.
+
+**Base release:** `v5.19.0-beta`
+
+**Implementation plan:** `docs/V5_20_IMPLEMENTATION_PLAN.md`
+
+### Phase breakdown
+
+- [x] **Phase 1 — Planning and branch setup** — `V5_20_IMPLEMENTATION_PLAN.md`; ROADMAP update; README update; branch `v5.20-controlled-real-google-ads-onboarding-readiness`
+- [ ] **Phase 2 — Real onboarding checklist document** — `docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md`; ceremony template; preflight checklist; rollback sequence; sign-off block
+- [ ] **Phase 3 — Onboarding approval ceremony model** — `openclaw/onboarding_ceremony.py`; `OnboardingApprovalCeremony` dataclass; `validate_onboarding_checklist()`; unit tests
+- [ ] **Phase 4 — Credential intake dry-run design** — `openclaw/credential_intake.py`; intake boundary enforcement; fake intake dry-run demo; unit tests
+- [ ] **Phase 5 — First live API validation plan** — `docs/GOOGLE_ADS_FIRST_LIVE_CALL_PLAN.md`; exact endpoint, scope, constraints, audit sequence, rollback trigger; design only, no execution
+- [ ] **Phase 6 — Rollback/emergency revoke drill** — `openclaw/run_revoke_drill_demo.py`; full fake credential revoke sequence; audit chain verification; smoke test extension
+- [ ] **Phase 7 — Secret Manager version lifecycle implementation** — policy decision (Option A or B); `openclaw/secret_lifecycle.py`; operator policy recorded
+- [ ] **Phase 8 — Final readiness review** — all checklist items verified in test context; gap analysis; no open blockers
+- [ ] **Phase 9 — Closure docs and release notes** — `docs/V5_20_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_20_0_BETA.md`; ROADMAP/README updates
+- [ ] **Phase 10 — Merge, tag, release** — merge to master; `v5.20.0-beta` tag; GitHub Release
+
+### V5.20 scope constraints
+
+- No real Google Ads credentials
+- `GOOGLE_ADS_LIVE_ENABLED=false` throughout
+- No OAuth consent flow execution
+- No Google Ads API calls
+- No GCP commands
+- No IAM changes
+- No API enablement
+- No billing changes
+- No production deployment
+- No cloud resource creation
+
+**Explicitly deferred from V5.20 until separate authorization:**
+- Actual real credential intake
+- Real OAuth consent flow execution
+- Setting `GOOGLE_ADS_LIVE_ENABLED=true`
+- First real Google Ads API call
+- Production Cloud Run deployment
+- IAM hardening
+- Destructive Secret Manager version lifecycle (policy decided in Phase 7; destroy requires separate authorization)
+- External approval UI
+- Real production client or tenant onboarding
