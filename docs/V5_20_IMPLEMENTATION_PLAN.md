@@ -2,7 +2,7 @@
 
 **Branch:** `v5.20-controlled-real-google-ads-onboarding-readiness`
 **Base:** `v5.19.0-beta` / master at `631abbd`
-**Status:** Phase 2 — Real Onboarding Checklist Document
+**Status:** Phase 3 — Onboarding Approval Ceremony Model
 
 ---
 
@@ -284,6 +284,29 @@ V5.20 is releasable as `v5.20.0-beta` when all of the following are true:
 - [ ] No Google Ads API calls
 - [ ] No GCP commands
 - [ ] Closure docs complete
+
+---
+
+## Phase 3 Implementation Note
+
+Phase 3 (`openclaw/onboarding_ceremony.py` + `openclaw/run_onboarding_ceremony_demo.py`) is complete as of commit on branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
+
+| Item | Status |
+|---|---|
+| `onboarding_ceremony.py` created | **Complete** — `OnboardingCeremonyInput`, `OnboardingCeremonyResult`, `validate_onboarding_ceremony()`, `ChecklistFailureCode` enum (27 codes) |
+| Pure local Python | **Confirmed** — no GCP, no Google Ads, no network, no os.environ reads, no filesystem I/O |
+| Forbidden field/value detection | **Confirmed** — 14 forbidden field names, 7 forbidden value patterns |
+| Sanitized summary | **Confirmed** — excludes tenant_id, client_id, operator_label, evidence, metadata, approved_at, expires_at |
+| 36-assertion demo | **Complete** — `run_onboarding_ceremony_demo.py`; all 36 PASS |
+| Smoke test section [27/27] | **Added** — import check, symbol check, no-cloud-import check, demo run |
+| Real credentials used | **No** |
+| OAuth execution | **No** |
+| Google Ads API calls | **No** |
+| GCP commands | **No** |
+| `GOOGLE_ADS_LIVE_ENABLED=true` at runtime | **No** |
+| Phase 4 status | **Pending** — `openclaw/credential_intake.py`; intake boundary enforcement; fake intake dry-run |
+
+V5.20 is **not complete**. Phases 4–10 remain pending.
 
 ---
 

@@ -2895,7 +2895,7 @@ pass "Phase 6 live guard audit event emission checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[26/26] Phase 8 — Test coverage hardening (V5.19)..."
+echo "[26/27] Phase 8 — Test coverage hardening (V5.19)..."
 # ---------------------------------------------------------------------------
 
 # run_live_gate_demo.py: Tests 15-18 (empty/unknown cred status, required_actions, no forbidden keys)
@@ -2991,6 +2991,66 @@ echo "$_OUT_GUARD_P8" | grep -q "phase8b scope: 403 for READ token" \
     || { echo "  ✗ server live guard Phase 8B: 403 marker not found"; echo "$_OUT_GUARD_P8" | tail -20; exit 1; }
 
 pass "Phase 8 test coverage hardening checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[27/27] V5.20 onboarding ceremony validator..."
+# ---------------------------------------------------------------------------
+
+# run_onboarding_ceremony_demo.py: all 36 assertions
+_OUT_CEREMONY=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_onboarding_ceremony_demo.py 2>&1)
+echo "$_OUT_CEREMONY" | grep -q "All assertions passed." \
+    && pass "run_onboarding_ceremony_demo.py: All assertions passed" \
+    || { echo "  ✗ run_onboarding_ceremony_demo.py: assertion not found"; echo "$_OUT_CEREMONY" | tail -20; exit 1; }
+
+# Core symbol checks in onboarding_ceremony.py
+for symbol in \
+    "OnboardingCeremonyInput" \
+    "validate_onboarding_ceremony" \
+    "real_credentials_present" \
+    "google_ads_api_called" \
+    "gcp_commands_used" \
+    "live_flag_false_confirmed" \
+    "oauth_boundary_design_only" \
+    "forbidden_field_present" \
+    "forbidden_value_present" \
+    "sanitized_summary"
+do
+    if grep -q "$symbol" "$OPENCLAW_DIR/onboarding_ceremony.py" 2>/dev/null; then
+        pass "onboarding_ceremony.py: '$symbol' present"
+    else
+        fail "onboarding_ceremony.py: '$symbol' missing"
+    fi
+done
+
+# Symbol check in demo
+if grep -q "validate_onboarding_ceremony" "$OPENCLAW_DIR/run_onboarding_ceremony_demo.py" 2>/dev/null; then
+    pass "run_onboarding_ceremony_demo.py: validate_onboarding_ceremony imported and used"
+else
+    fail "run_onboarding_ceremony_demo.py: validate_onboarding_ceremony not found"
+fi
+
+# No forbidden cloud imports in onboarding_ceremony.py (fixed-string grep to avoid . matching _)
+for forbidden_import in "google.cloud" "google.ads" "requests" "urllib" "httpx"; do
+    if grep -Fq "$forbidden_import" "$OPENCLAW_DIR/onboarding_ceremony.py" 2>/dev/null; then
+        fail "onboarding_ceremony.py: forbidden import '$forbidden_import' found"
+    else
+        pass "onboarding_ceremony.py: no '$forbidden_import' import"
+    fi
+done
+
+# GOOGLE_ADS_LIVE_ENABLED=true must not appear in ceremony module or demo
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" \
+    "$OPENCLAW_DIR/onboarding_ceremony.py" \
+    "$OPENCLAW_DIR/run_onboarding_ceremony_demo.py" 2>/dev/null; then
+    fail "GOOGLE_ADS_LIVE_ENABLED=true found in ceremony files"
+else
+    pass "GOOGLE_ADS_LIVE_ENABLED=true absent from ceremony files"
+fi
+
+pass "V5.20 onboarding ceremony validator checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

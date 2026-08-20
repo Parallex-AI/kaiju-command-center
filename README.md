@@ -8,9 +8,11 @@ AI agent lab for Kaiju Digital.
 
 V5.20 defines and implements the final operator-controlled readiness process required before any real Google Ads credential onboarding or live API validation. No real credentials. `GOOGLE_ADS_LIVE_ENABLED=false` throughout. No deploy. No GCP commands. No IAM/API/billing changes.
 
-**Phase 2 — Checklist document complete.** v5.19.0-beta is the latest shipped beta.
+**Phase 3 — Onboarding ceremony validator added.** v5.19.0-beta is the latest shipped beta.
 
 See [V5.20 Implementation Plan](docs/V5_20_IMPLEMENTATION_PLAN.md) and the [Google Ads Real Onboarding Checklist](docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md) (operator checklist only — does not authorize real onboarding).
+
+**Phase 3 — Onboarding ceremony validator** (`openclaw/onboarding_ceremony.py`): local-only `validate_onboarding_ceremony()` function; checks all readiness, approval, boundary, and forbidden-field/value conditions; does not execute real onboarding, OAuth, or API calls.
 
 ---
 
