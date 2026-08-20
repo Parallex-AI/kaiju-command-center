@@ -2,7 +2,7 @@
 
 **Branch:** `v5.20-controlled-real-google-ads-onboarding-readiness`
 **Base:** `v5.19.0-beta` / master at `631abbd`
-**Status:** Phase 3 — Onboarding Approval Ceremony Model
+**Status:** Phase 4 — Credential Intake Dry-Run Enforcement
 
 ---
 
@@ -287,6 +287,30 @@ V5.20 is releasable as `v5.20.0-beta` when all of the following are true:
 
 ---
 
+## Phase 4 Implementation Note
+
+Phase 4 (`openclaw/credential_intake.py` + `openclaw/run_credential_intake_demo.py`) is complete as of commit on branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
+
+| Item | Status |
+|---|---|
+| `credential_intake.py` created | **Complete** — `CredentialIntakeDryRunInput`, `CredentialIntakeDryRunResult`, `validate_credential_intake_dry_run()`, `CredentialIntakeFailureCode` enum (25 codes) |
+| Pure local Python | **Confirmed** — no GCP, no Google Ads, no network, no os.environ reads, no filesystem I/O |
+| Forbidden field detection | **Confirmed** — 18 forbidden field names (all lowercase; case-insensitive key check) |
+| Forbidden value detection | **Confirmed** — 10 forbidden value patterns including OAuth tokens, API key prefixes, GCP paths, email-like, JSON key refs, fake sentinels, bare credential field names |
+| Sanitized summary | **Confirmed** — includes intake_mode + 24 boolean fields + ok/decision/failure_count; excludes evidence and metadata |
+| 33-scenario demo | **Complete** — `run_credential_intake_demo.py`; 70 assertions; all PASS |
+| Smoke test section [28/28] | **Added** — demo run, 11 symbol checks, import checks (grep -Fq), GOOGLE_ADS_LIVE_ENABLED=true absent |
+| Real credentials used | **No** |
+| OAuth execution | **No** |
+| Google Ads API calls | **No** |
+| GCP commands | **No** |
+| `GOOGLE_ADS_LIVE_ENABLED=true` at runtime | **No** |
+| Phase 5 status | **Pending** — `docs/GOOGLE_ADS_FIRST_LIVE_CALL_PLAN.md`; first live API validation plan; design only |
+
+V5.20 is **not complete**. Phases 5–10 remain pending.
+
+---
+
 ## Phase 3 Implementation Note
 
 Phase 3 (`openclaw/onboarding_ceremony.py` + `openclaw/run_onboarding_ceremony_demo.py`) is complete as of commit on branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
@@ -304,7 +328,7 @@ Phase 3 (`openclaw/onboarding_ceremony.py` + `openclaw/run_onboarding_ceremony_d
 | Google Ads API calls | **No** |
 | GCP commands | **No** |
 | `GOOGLE_ADS_LIVE_ENABLED=true` at runtime | **No** |
-| Phase 4 status | **Pending** — `openclaw/credential_intake.py`; intake boundary enforcement; fake intake dry-run |
+| Phase 4 status | **Complete** — `openclaw/credential_intake.py`; `validate_credential_intake_dry_run()`; 33-scenario demo; smoke [28/28] |
 
 V5.20 is **not complete**. Phases 4–10 remain pending.
 

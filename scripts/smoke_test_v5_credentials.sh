@@ -2994,7 +2994,7 @@ pass "Phase 8 test coverage hardening checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[27/27] V5.20 onboarding ceremony validator..."
+echo "[27/28] V5.20 onboarding ceremony validator..."
 # ---------------------------------------------------------------------------
 
 # run_onboarding_ceremony_demo.py: all 36 assertions
@@ -3051,6 +3051,67 @@ else
 fi
 
 pass "V5.20 onboarding ceremony validator checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[28/28] V5.20 credential intake dry-run validator..."
+# ---------------------------------------------------------------------------
+
+# run_credential_intake_demo.py: all 33 test scenarios
+_OUT_INTAKE=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_credential_intake_demo.py 2>&1)
+echo "$_OUT_INTAKE" | grep -q "All assertions passed." \
+    && pass "run_credential_intake_demo.py: All assertions passed" \
+    || { echo "  ✗ run_credential_intake_demo.py: assertion not found"; echo "$_OUT_INTAKE" | tail -20; exit 1; }
+
+# Core symbol checks in credential_intake.py
+for symbol in \
+    "CredentialIntakeDryRunInput" \
+    "validate_credential_intake_dry_run" \
+    "real_secret_material_present" \
+    "oauth_execution_detected" \
+    "google_ads_api_call_detected" \
+    "gcp_command_detected" \
+    "filesystem_write_detected" \
+    "network_call_detected" \
+    "forbidden_field_present" \
+    "forbidden_value_present" \
+    "sanitized_summary"
+do
+    if grep -q "$symbol" "$OPENCLAW_DIR/credential_intake.py" 2>/dev/null; then
+        pass "credential_intake.py: '$symbol' present"
+    else
+        fail "credential_intake.py: '$symbol' missing"
+    fi
+done
+
+# Symbol check in demo
+if grep -q "validate_credential_intake_dry_run" "$OPENCLAW_DIR/run_credential_intake_demo.py" 2>/dev/null; then
+    pass "run_credential_intake_demo.py: validate_credential_intake_dry_run imported and used"
+else
+    fail "run_credential_intake_demo.py: validate_credential_intake_dry_run not found"
+fi
+
+# No forbidden cloud imports in credential_intake.py (fixed-string grep to avoid . matching _)
+for forbidden_import in "google.cloud" "google.ads" "requests" "urllib" "httpx"; do
+    if grep -Fq "$forbidden_import" "$OPENCLAW_DIR/credential_intake.py" 2>/dev/null; then
+        fail "credential_intake.py: forbidden import '$forbidden_import' found"
+    else
+        pass "credential_intake.py: no '$forbidden_import' import"
+    fi
+done
+
+# GOOGLE_ADS_LIVE_ENABLED=true must not appear in intake module or demo
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" \
+    "$OPENCLAW_DIR/credential_intake.py" \
+    "$OPENCLAW_DIR/run_credential_intake_demo.py" 2>/dev/null; then
+    fail "GOOGLE_ADS_LIVE_ENABLED=true found in credential intake files"
+else
+    pass "GOOGLE_ADS_LIVE_ENABLED=true absent from credential intake files"
+fi
+
+pass "V5.20 credential intake dry-run validator checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

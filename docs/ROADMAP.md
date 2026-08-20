@@ -605,7 +605,7 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - [x] **Phase 1 — Planning and branch setup** — `V5_20_IMPLEMENTATION_PLAN.md`; ROADMAP update; README update; branch `v5.20-controlled-real-google-ads-onboarding-readiness`
 - [x] **Phase 2 — Real onboarding checklist document** — `docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md`; ceremony template; preflight checklist; rollback sequence; sign-off block; no real credentials; no OAuth; no API calls
 - [x] **Phase 3 — Onboarding approval ceremony model** — `openclaw/onboarding_ceremony.py`; `OnboardingCeremonyInput` dataclass; `validate_onboarding_ceremony()`; 36-assertion demo; smoke section [27/27]; pure local Python; no GCP/Google Ads/network
-- [ ] **Phase 4 — Credential intake dry-run design** — `openclaw/credential_intake.py`; intake boundary enforcement; fake intake dry-run demo; unit tests
+- [x] **Phase 4 — Credential intake dry-run design** — `openclaw/credential_intake.py`; `CredentialIntakeDryRunInput` dataclass; `validate_credential_intake_dry_run()`; 33-test demo; smoke section [28/28]; 25 failure codes; pure local Python; no GCP/Google Ads/network
 - [ ] **Phase 5 — First live API validation plan** — `docs/GOOGLE_ADS_FIRST_LIVE_CALL_PLAN.md`; exact endpoint, scope, constraints, audit sequence, rollback trigger; design only, no execution
 - [ ] **Phase 6 — Rollback/emergency revoke drill** — `openclaw/run_revoke_drill_demo.py`; full fake credential revoke sequence; audit chain verification; smoke test extension
 - [ ] **Phase 7 — Secret Manager version lifecycle implementation** — policy decision (Option A or B); `openclaw/secret_lifecycle.py`; operator policy recorded

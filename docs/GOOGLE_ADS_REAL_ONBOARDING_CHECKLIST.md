@@ -282,6 +282,40 @@ This template is **not an executed approval**. A completed, signed authorization
 
 ---
 
+## M. Phase 4 — Credential Intake Dry-Run Validator
+
+`openclaw/credential_intake.py` (`validate_credential_intake_dry_run()`) enforces the intake boundary rules defined in Section C of this checklist. It is a pure local validator with no network calls, no GCP access, and no real credential handling.
+
+| Boundary rule | Enforced by |
+|---|---|
+| No credentials via chat or Claude Code | `transfer_path_forbidden_confirmed` check |
+| No real credential values in input | `credential_values_absent` check |
+| `GOOGLE_ADS_LIVE_ENABLED=false` throughout | `live_flag_false_confirmed` check |
+| GCP write is operator-only | `gcp_write_operator_only_confirmed` check |
+| Screen recording prohibited during entry | `screen_recording_prohibited_confirmed` check |
+| No credential committed to repo | `repo_commit_prohibited_confirmed` check |
+| Immediate redaction check after write | `immediate_redaction_confirmed` check |
+| Rollback plan documented | `rollback_plan_present` check |
+| Emergency revoke plan documented | `emergency_revoke_plan_present` check |
+| Operator confirmation obtained | `operator_confirmation_present` check |
+| Audit enabled | `audit_enabled` check |
+| Checklist reference present | `checklist_reference_present` check |
+| Intake boundary doc accepted | `intake_boundary_doc_confirmed` check |
+| Operator identity recorded | `operator_identity_present` check |
+| Approval ceremony completed | `approval_ceremony_reference_present` check |
+| Hard stop: real secret material | `real_secret_material_present` detection |
+| Hard stop: OAuth execution | `oauth_execution_detected` detection |
+| Hard stop: Google Ads API call | `google_ads_api_call_detected` detection |
+| Hard stop: GCP command | `gcp_command_detected` detection |
+| Hard stop: filesystem write | `filesystem_write_detected` detection |
+| Hard stop: network call | `network_call_detected` detection |
+| Forbidden fields in evidence/metadata | `_FORBIDDEN_FIELD_NAMES` check (18 names) |
+| Forbidden values in evidence/metadata | `_FORBIDDEN_VALUE_PATTERNS` check (10 patterns) |
+
+The validator returns `ok=True` (PASS) only when all 25 conditions are satisfied. `GOOGLE_ADS_LIVE_ENABLED` must remain `false` throughout. No real credential intake is executed in V5.20.
+
+---
+
 ## L. Phase 2 Conclusion
 
 This document concludes V5.20 Phase 2.
