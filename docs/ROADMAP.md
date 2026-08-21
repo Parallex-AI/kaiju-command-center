@@ -611,7 +611,7 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - [x] **Phase 7 — Secret Manager version lifecycle policy validator** — `openclaw/secret_version_policy.py`; `validate_secret_version_policy()`; 19 failure codes; `DISABLE_PREVIOUS_WITH_GRACE_PERIOD` authorized; 30-scenario demo; smoke section [30/30]; pure local Python; no GCP/Secret Manager/Google Ads/network
 - [x] **Phase 8 — Final readiness review** — `docs/V5_20_FINAL_READINESS_REVIEW.md`; local validators PASS (244 assertions); smoke 31/31; gap analysis; no open blockers; NOT approved for real execution
 - [x] **Phase 9 — Closure docs and release notes** — `docs/V5_20_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_20_0_BETA.md`; ROADMAP/README updates; smoke 31/31 PASS; safety grep CLEAN; ready for merge and tag
-- [ ] **Phase 10 — Merge, tag, release** — merge to master; `v5.20.0-beta` tag; GitHub Release
+- [x] **Phase 10 — Merge, tag, release** — merged to master; tag `v5.20.0-beta`; GitHub Release published
 
 ### V5.20 scope constraints
 
@@ -638,3 +638,56 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - Real production client or tenant onboarding
 
 **Note:** Real credential onboarding and Google Ads API validation remain deferred and require explicit operator approval in a separate future initiative. V5.20's local readiness PASS does not authorize any real execution path.
+
+**V5.20 complete.** Tag: `v5.20.0-beta`
+
+---
+
+## V5.21 — Controlled Real Google Ads OAuth Onboarding Ceremony (branch: `v5.21-controlled-real-google-ads-oauth-onboarding`)
+
+**Goal:** Convert V5.20 readiness controls into an operator-safe ceremony design for a future real Google Ads OAuth onboarding event. Produces OAuth ceremony checklist, authorization URL design validator, callback/token-exchange boundary validator, secure credential handoff protocol design, operator approval packet model, and a dry-run onboarding runbook — all without executing real OAuth, calling real APIs, or using real credentials.
+
+**Base release:** `v5.20.0-beta`
+
+**Implementation plan:** `docs/V5_21_IMPLEMENTATION_PLAN.md`
+
+### Phase breakdown
+
+- [x] **Phase 1 — Planning and branch setup** — `docs/V5_21_IMPLEMENTATION_PLAN.md`; ROADMAP update; README update; branch `v5.21-controlled-real-google-ads-oauth-onboarding`
+- [ ] **Phase 2 — OAuth ceremony checklist document** — `docs/GOOGLE_ADS_OAUTH_CEREMONY_CHECKLIST.md`; operator ceremony template; OAuth-specific stop conditions; rollback sequence; sign-off block; no real credentials; no OAuth execution
+- [ ] **Phase 3 — OAuth authorization URL design validator** — `openclaw/oauth_auth_url.py`; `validate_oauth_auth_url_design()`; local-only; no real URL generation; no browser; no Google OAuth client
+- [ ] **Phase 4 — OAuth callback and token-exchange boundary design** — `openclaw/oauth_callback.py`; `validate_oauth_callback_design()`; local-only; no real authorization codes; no real token exchange
+- [ ] **Phase 5 — Secure credential handoff protocol design** — `docs/GOOGLE_ADS_CREDENTIAL_HANDOFF_PROTOCOL.md`; handoff sequence; forbidden channels; acceptable channels; Secret Manager write path reference; design only
+- [ ] **Phase 6 — Operator approval packet model** — `openclaw/oauth_approval_packet.py`; `validate_oauth_approval_packet()`; local-only; no real operator identities or tenant IDs in demo inputs
+- [ ] **Phase 7 — Dry-run onboarding runbook and timed execution window model** — `docs/GOOGLE_ADS_OAUTH_DRY_RUN_RUNBOOK.md`; step-by-step runbook; timed window model; pause points; rollback triggers; evidence checklist
+- [ ] **Phase 8 — Pre-execution final review and gap analysis** — `docs/V5_21_FINAL_READINESS_REVIEW.md`; all validators PASS; NOT approved for real execution
+- [ ] **Phase 9 — Closure docs and release notes** — `docs/V5_21_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_21_0_BETA.md`; ROADMAP/README updates
+- [ ] **Phase 10 — Merge, tag, release** — merge to master; `v5.21.0-beta` tag; GitHub Release
+
+### V5.21 scope constraints
+
+- No real Google Ads credentials
+- `GOOGLE_ADS_LIVE_ENABLED=false` throughout
+- No real OAuth consent flow execution
+- No real OAuth browser interaction
+- No Google Ads API calls
+- No GCP commands
+- No Secret Manager calls
+- No IAM changes
+- No API enablement
+- No billing changes
+- No production deployment
+- No cloud resource creation
+
+**V5.21 does not authorize real OAuth execution or Google Ads API usage unless a later phase receives explicit operator approval.**
+
+**Explicitly deferred from V5.21 until separate authorization:**
+- Real OAuth browser execution and Google OAuth consent
+- Real refresh token or access token acquisition
+- Real developer token usage
+- Real customer ID or login customer ID verification
+- Real Secret Manager write with OAuth output
+- Real Google Ads API call
+- `GOOGLE_ADS_LIVE_ENABLED=true` runtime activation
+- Production Cloud Run deployment
+- IAM or billing changes
