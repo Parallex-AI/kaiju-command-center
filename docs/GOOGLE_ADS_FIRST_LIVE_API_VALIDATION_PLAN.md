@@ -328,6 +328,22 @@ The drill is fake/local only. It does not revoke real credentials, call Secret M
 
 ---
 
+## O. Phase 8 Prerequisite — Final Readiness Review
+
+`docs/V5_20_FINAL_READINESS_REVIEW.md` is prerequisite evidence that must exist and show a local readiness PASS before any future live validation window may be considered.
+
+| Prerequisite | Gate |
+|---|---|
+| Final readiness review document exists | `docs/V5_20_FINAL_READINESS_REVIEW.md` present |
+| Local readiness PASS | All four V5.20 validators PASS in the review |
+| Gap analysis complete | No open blockers documented |
+| Security posture confirmed | All 22 security properties confirmed in review |
+| Mandatory pre-execution checklist acknowledged | Sections G1–G15 all recognized and understood |
+
+**Important:** The readiness review does not authorize execution. It is evidence that the local-only readiness infrastructure is in place and working. A separate named-operator approval is still required before any execution window opens.
+
+---
+
 ## N. Phase 7 Prerequisite — Version Lifecycle Policy
 
 If any credential rotation or new credential onboarding occurs before or during the first live validation window, the Secret Manager version lifecycle policy decision must be validated before the rotation proceeds.

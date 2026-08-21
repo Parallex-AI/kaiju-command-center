@@ -3178,7 +3178,7 @@ fi
 pass "V5.20 rollback emergency revoke drill checks complete"
 
 # ---------------------------------------------------------------------------
-echo "[30/30] V5.20 Secret Manager version lifecycle policy validator..."
+echo "[30/31] V5.20 Secret Manager version lifecycle policy validator..."
 
 # Run the demo and confirm it passes
 POLICY_DEMO_OUTPUT=$("$PYTHON" "$OPENCLAW_DIR/run_secret_version_policy_demo.py" 2>&1)
@@ -3239,6 +3239,67 @@ else
 fi
 
 pass "V5.20 Secret Manager version lifecycle policy validator checks complete"
+
+# ---------------------------------------------------------------------------
+echo "[31/31] V5.20 final readiness review docs..."
+
+READINESS_REVIEW="$REPO/docs/V5_20_FINAL_READINESS_REVIEW.md"
+
+if [ -f "$READINESS_REVIEW" ]; then
+    pass "V5_20_FINAL_READINESS_REVIEW.md exists"
+else
+    fail "V5_20_FINAL_READINESS_REVIEW.md missing"
+fi
+
+if grep -q "NOT APPROVED for real Google Ads credential onboarding" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: NOT APPROVED for real credential onboarding found"
+else
+    fail "readiness review: NOT APPROVED for real credential onboarding missing"
+fi
+
+if grep -q "NOT APPROVED for Google Ads API live calls" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: NOT APPROVED for Google Ads API live calls found"
+else
+    fail "readiness review: NOT APPROVED for Google Ads API live calls missing"
+fi
+
+if grep -q "NOT APPROVED for OAuth execution" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: NOT APPROVED for OAuth execution found"
+else
+    fail "readiness review: NOT APPROVED for OAuth execution missing"
+fi
+
+if grep -q "NOT APPROVED for GOOGLE_ADS_LIVE_ENABLED=true runtime activation" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: NOT APPROVED for GOOGLE_ADS_LIVE_ENABLED=true runtime activation found"
+else
+    fail "readiness review: NOT APPROVED for GOOGLE_ADS_LIVE_ENABLED=true runtime activation missing"
+fi
+
+if grep -q "run_secret_version_policy_demo.py" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: run_secret_version_policy_demo.py referenced"
+else
+    fail "readiness review: run_secret_version_policy_demo.py not referenced"
+fi
+
+if grep -q "smoke_test_v5_credentials.sh — 30/30 PASS" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: smoke_test_v5_credentials.sh — 30/30 PASS found"
+else
+    fail "readiness review: smoke_test_v5_credentials.sh — 30/30 PASS missing"
+fi
+
+if grep -q "Phase 9: branch closure docs and release notes" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: Phase 9 reference found"
+else
+    fail "readiness review: Phase 9 reference missing"
+fi
+
+if grep -q "Phase 10: merge/tag/release" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: Phase 10 reference found"
+else
+    fail "readiness review: Phase 10 reference missing"
+fi
+
+pass "V5.20 final readiness review docs checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

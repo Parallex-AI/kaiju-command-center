@@ -2,7 +2,7 @@
 
 **Branch:** `v5.20-controlled-real-google-ads-onboarding-readiness`
 **Base:** `v5.19.0-beta` / master at `631abbd`
-**Status:** Phase 7 — Secret Manager Version Lifecycle Policy Validator
+**Status:** Phase 8 — Final Readiness Review
 
 ---
 
@@ -287,6 +287,34 @@ V5.20 is releasable as `v5.20.0-beta` when all of the following are true:
 
 ---
 
+## Phase 8 Implementation Note
+
+Phase 8 (`docs/V5_20_FINAL_READINESS_REVIEW.md`) is complete as of the current state of branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
+
+| Item | Status |
+|---|---|
+| `V5_20_FINAL_READINESS_REVIEW.md` created | **Complete** — sections A–J: scope, phase matrix, gate summaries, evidence table, security posture, gap analysis, mandatory pre-execution checklist, stop conditions, release decision, next steps |
+| Local readiness gates reviewed | **PASS** — ceremony, intake, rollback drill, version policy, V5.19 live gate, audit |
+| Local validator evidence | **PASS** — 244 assertions across 4 demos; smoke 31/31 and 8/8 |
+| Gap analysis | **Complete** — no open blockers for V5.20 beta; deferred items catalogued |
+| Release readiness decision | **PASS for beta closure after Phase 9 docs** |
+| NOT APPROVED for real credential onboarding | **Confirmed** |
+| NOT APPROVED for Google Ads API live calls | **Confirmed** |
+| NOT APPROVED for OAuth execution | **Confirmed** |
+| NOT APPROVED for GOOGLE_ADS_LIVE_ENABLED=true at runtime | **Confirmed** |
+| NOT APPROVED for GCP/Secret Manager operations | **Confirmed** |
+| Real credentials used | **No** |
+| OAuth execution | **No** |
+| Google Ads API called | **No** |
+| GCP commands run | **No** |
+| Secret Manager called | **No** |
+| `GOOGLE_ADS_LIVE_ENABLED=true` at runtime | **No** |
+| Phase 9 status | **Pending** — `docs/V5_20_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_20_0_BETA.md`; ROADMAP/README updates |
+
+V5.20 is **not complete**. Phases 9–10 remain pending.
+
+---
+
 ## Phase 7 Implementation Note
 
 Phase 7 (`openclaw/secret_version_policy.py` + `openclaw/run_secret_version_policy_demo.py`) is complete as of the current state of branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
@@ -310,7 +338,7 @@ Phase 7 (`openclaw/secret_version_policy.py` + `openclaw/run_secret_version_poli
 | GCP commands run | **No** |
 | Secret Manager called | **No** |
 | `GOOGLE_ADS_LIVE_ENABLED=true` at runtime | **No** |
-| Phase 8 status | **Pending** — Final readiness review; all checklist items verified; gap analysis |
+| Phase 8 status | **Complete** — `docs/V5_20_FINAL_READINESS_REVIEW.md`; local readiness PASS; gap analysis; smoke 31/31 |
 
 V5.20 is **not complete**. Phases 8–10 remain pending.
 

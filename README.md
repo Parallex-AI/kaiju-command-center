@@ -22,6 +22,8 @@ See [V5.20 Implementation Plan](docs/V5_20_IMPLEMENTATION_PLAN.md) and the [Goog
 
 **Phase 7 — Secret Manager version lifecycle policy validator** (`openclaw/secret_version_policy.py`): local-only `validate_secret_version_policy()` function; enforces V5.20 version lifecycle policy (`DISABLE_PREVIOUS_WITH_GRACE_PERIOD`; grace period 1–168 hours); 19 failure codes; does not call Secret Manager, disable or destroy real secret versions, or make GCP commands.
 
+**Phase 8 — Final readiness review** (`docs/V5_20_FINAL_READINESS_REVIEW.md`): local-only readiness assessment; all V5.20 validators PASS; gap analysis complete; no open blockers; NOT approved for real credential onboarding, Google Ads API calls, OAuth execution, or `GOOGLE_ADS_LIVE_ENABLED=true` runtime activation.
+
 ---
 
 *Previous milestone:* **V5.19.0-beta — Real Credential Readiness Gates complete** — tag `v5.19.0-beta`. See [V5.19 Branch Closure](docs/V5_19_BRANCH_CLOSURE.md) and [v5.19.0-beta Release Notes](docs/RELEASE_NOTES_V5_19_0_BETA.md).

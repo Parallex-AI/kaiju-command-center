@@ -372,6 +372,19 @@ This validator does **not** disable or destroy real secret versions. It does **n
 
 ---
 
+## Q. Phase 8 — Final Readiness Review
+
+`docs/V5_20_FINAL_READINESS_REVIEW.md` documents the final local readiness assessment for V5.20. It summarizes all implemented local validators, their pass/fail status, the security posture, the gap analysis, and the mandatory pre-execution checklist.
+
+Key properties:
+- Review type: local-only. No real API calls, no GCP access, no Secret Manager calls, no credentials.
+- Local readiness: **PASS** — all validators implemented and passing; smoke suites 31/31 and 8/8.
+- This checklist remains a prerequisite for any future real Google Ads credential onboarding or live API validation.
+- The readiness review does **not** authorize real execution. A separate named-operator approval with a valid, non-expired `ApprovalRecord` is required before any real operation.
+- Phases 9 and 10 (closure docs and merge/tag/release) remain pending.
+
+---
+
 ## L. Phase 2 Conclusion
 
 This document concludes V5.20 Phase 2.
