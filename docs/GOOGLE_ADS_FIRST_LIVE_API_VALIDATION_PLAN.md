@@ -306,6 +306,28 @@ This document concludes V5.20 Phase 5.
 
 ---
 
+## M. Phase 6 Prerequisite — Rollback Drill
+
+The rollback and emergency revoke drill (`openclaw/rollback_drill.py`, `validate_rollback_drill()`) must return `ok=True` (PASS) before any future live validation window may open.
+
+| Drill prerequisite | Gate |
+|---|---|
+| Live flag confirmed disabled post-window | `live_flag_disabled=True` |
+| Approval record confirmed revoked | `approval_revoked=True` |
+| Credential marked REVOKED | `credential_marked_revoked=True` |
+| Credential bundle deleted or revoked | `credential_bundle_deleted_or_revoked=True` |
+| Post-revoke status verified | `post_revoke_status_verified=True` |
+| Secret state verified out-of-band | `secret_status_verified=True` |
+| Live gate denies after revocation | `live_gate_denied_after_revoke=True` |
+| Smoke tests pass post-drill | `smoke_tests_passed=True` |
+| Safety grep clean post-drill | `safety_grep_clean=True` |
+| Audit chain verified | `audit_chain_verified=True` |
+| Final state documented | `final_state_documented=True` |
+
+The drill is fake/local only. It does not revoke real credentials, call Secret Manager, or call the Google Ads API. No execution is authorized by this document.
+
+---
+
 ## Related Documents
 
 - [V5.20 Implementation Plan](V5_20_IMPLEMENTATION_PLAN.md)

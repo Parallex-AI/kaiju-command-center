@@ -3054,7 +3054,7 @@ pass "V5.20 onboarding ceremony validator checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[28/28] V5.20 credential intake dry-run validator..."
+echo "[28/29] V5.20 credential intake dry-run validator..."
 # ---------------------------------------------------------------------------
 
 # run_credential_intake_demo.py: all 33 test scenarios
@@ -3112,6 +3112,70 @@ else
 fi
 
 pass "V5.20 credential intake dry-run validator checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[29/29] V5.20 rollback emergency revoke drill..."
+# ---------------------------------------------------------------------------
+
+# run_rollback_drill_demo.py: all 28 test scenarios
+_OUT_DRILL=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_rollback_drill_demo.py 2>&1)
+echo "$_OUT_DRILL" | grep -q "All assertions passed." \
+    && pass "run_rollback_drill_demo.py: All assertions passed" \
+    || { echo "  ✗ run_rollback_drill_demo.py: assertion not found"; echo "$_OUT_DRILL" | tail -20; exit 1; }
+
+# Core symbol checks in rollback_drill.py
+for symbol in \
+    "RollbackDrillInput" \
+    "validate_rollback_drill" \
+    "live_flag_disabled" \
+    "approval_revoked" \
+    "credential_marked_revoked" \
+    "credential_bundle_deleted_or_revoked" \
+    "live_gate_denied_after_revoke" \
+    "audit_chain_verified" \
+    "secret_manager_called" \
+    "google_ads_api_called" \
+    "gcp_commands_used" \
+    "forbidden_field_present" \
+    "forbidden_value_present" \
+    "sanitized_summary"
+do
+    if grep -q "$symbol" "$OPENCLAW_DIR/rollback_drill.py" 2>/dev/null; then
+        pass "rollback_drill.py: '$symbol' present"
+    else
+        fail "rollback_drill.py: '$symbol' missing"
+    fi
+done
+
+# Symbol check in demo
+if grep -q "validate_rollback_drill" "$OPENCLAW_DIR/run_rollback_drill_demo.py" 2>/dev/null; then
+    pass "run_rollback_drill_demo.py: validate_rollback_drill imported and used"
+else
+    fail "run_rollback_drill_demo.py: validate_rollback_drill not found"
+fi
+
+# No forbidden cloud imports in rollback_drill.py (fixed-string grep to avoid . matching _)
+for forbidden_import in "google.cloud" "google.ads" "requests" "urllib" "httpx"; do
+    if grep -Fq "$forbidden_import" "$OPENCLAW_DIR/rollback_drill.py" 2>/dev/null; then
+        fail "rollback_drill.py: forbidden import '$forbidden_import' found"
+    else
+        pass "rollback_drill.py: no '$forbidden_import' import"
+    fi
+done
+
+# GOOGLE_ADS_LIVE_ENABLED=true must not appear in rollback module or demo
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" \
+    "$OPENCLAW_DIR/rollback_drill.py" \
+    "$OPENCLAW_DIR/run_rollback_drill_demo.py" 2>/dev/null; then
+    fail "GOOGLE_ADS_LIVE_ENABLED=true found in rollback drill files"
+else
+    pass "GOOGLE_ADS_LIVE_ENABLED=true absent from rollback drill files"
+fi
+
+pass "V5.20 rollback emergency revoke drill checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

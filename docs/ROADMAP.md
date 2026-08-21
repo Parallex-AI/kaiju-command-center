@@ -607,7 +607,7 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - [x] **Phase 3 — Onboarding approval ceremony model** — `openclaw/onboarding_ceremony.py`; `OnboardingCeremonyInput` dataclass; `validate_onboarding_ceremony()`; 36-assertion demo; smoke section [27/27]; pure local Python; no GCP/Google Ads/network
 - [x] **Phase 4 — Credential intake dry-run design** — `openclaw/credential_intake.py`; `CredentialIntakeDryRunInput` dataclass; `validate_credential_intake_dry_run()`; 33-test demo; smoke section [28/28]; 25 failure codes; pure local Python; no GCP/Google Ads/network
 - [x] **Phase 5 — First live API validation plan** — `docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md`; 19-item precondition checklist; execution window constraints; 10-step audit sequence; 17 stop conditions; 11-step rollback sequence; evidence package; design only, no execution
-- [ ] **Phase 6 — Rollback/emergency revoke drill** — `openclaw/run_revoke_drill_demo.py`; full fake credential revoke sequence; audit chain verification; smoke test extension
+- [x] **Phase 6 — Rollback/emergency revoke drill** — `openclaw/rollback_drill.py`; `validate_rollback_drill()`; 20 failure codes; 28-scenario demo; smoke section [29/29]; pure local Python; no GCP/Google Ads/Secret Manager/network
 - [ ] **Phase 7 — Secret Manager version lifecycle implementation** — policy decision (Option A or B); `openclaw/secret_lifecycle.py`; operator policy recorded
 - [ ] **Phase 8 — Final readiness review** — all checklist items verified in test context; gap analysis; no open blockers
 - [ ] **Phase 9 — Closure docs and release notes** — `docs/V5_20_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_20_0_BETA.md`; ROADMAP/README updates

@@ -18,6 +18,8 @@ See [V5.20 Implementation Plan](docs/V5_20_IMPLEMENTATION_PLAN.md) and the [Goog
 
 **Phase 5 — First live API validation plan** (`docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md`): design-only plan for the first controlled read-only Google Ads API validation; 19-item precondition checklist; 17 stop conditions; 11-step rollback sequence; evidence package; no execution, no real credentials, no API calls.
 
+**Phase 6 — Rollback and emergency revoke drill validator** (`openclaw/rollback_drill.py`): local-only `validate_rollback_drill()` function; validates the full rollback sequence including live flag confirmation, approval revocation, credential revocation, bundle deletion, audit chain verification, and live gate denial; 20 failure codes; does not revoke real credentials, call Secret Manager, or call Google Ads API.
+
 ---
 
 *Previous milestone:* **V5.19.0-beta — Real Credential Readiness Gates complete** — tag `v5.19.0-beta`. See [V5.19 Branch Closure](docs/V5_19_BRANCH_CLOSURE.md) and [v5.19.0-beta Release Notes](docs/RELEASE_NOTES_V5_19_0_BETA.md).

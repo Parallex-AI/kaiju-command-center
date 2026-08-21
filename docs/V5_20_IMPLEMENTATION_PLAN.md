@@ -2,7 +2,7 @@
 
 **Branch:** `v5.20-controlled-real-google-ads-onboarding-readiness`
 **Base:** `v5.19.0-beta` / master at `631abbd`
-**Status:** Phase 5 — First Live API Validation Plan
+**Status:** Phase 6 — Rollback and Emergency Revoke Drill
 
 ---
 
@@ -287,6 +287,31 @@ V5.20 is releasable as `v5.20.0-beta` when all of the following are true:
 
 ---
 
+## Phase 6 Implementation Note
+
+Phase 6 (`openclaw/rollback_drill.py` + `openclaw/run_rollback_drill_demo.py`) is complete as of the current state of branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
+
+| Item | Status |
+|---|---|
+| `rollback_drill.py` created | **Complete** — `RollbackDrillInput`, `RollbackDrillResult`, `validate_rollback_drill()`, `RollbackDrillFailureCode` enum (20 codes: 11 rollback-step + 7 detection hard-stops + 2 forbidden field/value) |
+| Pure local Python | **Confirmed** — no GCP, no Google Ads, no network, no Secret Manager, no os.environ reads, no filesystem I/O |
+| Forbidden field detection | **Confirmed** — 19 forbidden field names (all lowercase; case-insensitive key check) |
+| Forbidden value detection | **Confirmed** — 12 forbidden value patterns including OAuth tokens, API key prefixes, GCP paths, Secret Manager paths, email-like, JSON key refs, fake sentinels, bare credential field names, account identifiers |
+| Sanitized summary | **Confirmed** — includes all 18 boolean fields + decision/ok/failure_count; excludes evidence and metadata |
+| 28-scenario demo | **Complete** — `run_rollback_drill_demo.py`; 67 assertions; all PASS |
+| Smoke test section [29/29] | **Added** — demo run, 14 symbol checks, import checks (grep -Fq), GOOGLE_ADS_LIVE_ENABLED=true absent |
+| Real credentials used | **No** |
+| OAuth execution | **No** |
+| Google Ads API called | **No** |
+| GCP commands run | **No** |
+| Secret Manager called | **No** |
+| `GOOGLE_ADS_LIVE_ENABLED=true` at runtime | **No** |
+| Phase 7 status | **Pending** — Secret Manager version lifecycle policy decision (Option A: destroy, or B: disable+grace); `openclaw/secret_lifecycle.py` |
+
+V5.20 is **not complete**. Phases 7–10 remain pending.
+
+---
+
 ## Phase 5 Implementation Note
 
 Phase 5 (`docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md`) is complete as of the current state of branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
@@ -300,7 +325,7 @@ Phase 5 (`docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md`) is complete as of 
 | GCP commands run | **No** |
 | `GOOGLE_ADS_LIVE_ENABLED=true` at runtime | **No** |
 | Executable API call code | **No** — design only; no curl commands, no real customer IDs, no real tokens |
-| Phase 6 status | **Pending** — `openclaw/run_revoke_drill_demo.py`; rollback/emergency revoke drill with fake credential |
+| Phase 6 status | **Complete** — `openclaw/rollback_drill.py`; `validate_rollback_drill()`; 28-scenario demo; smoke [29/29] |
 
 V5.20 is **not complete**. Phases 6–10 remain pending.
 

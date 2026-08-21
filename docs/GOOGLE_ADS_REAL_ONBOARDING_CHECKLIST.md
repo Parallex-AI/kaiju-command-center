@@ -337,6 +337,22 @@ The plan does **not** authorize execution. Any future live validation requires a
 
 ---
 
+## O. Phase 6 — Rollback and Emergency Revoke Drill Validator
+
+`openclaw/rollback_drill.py` (`validate_rollback_drill()`) models and validates a fake/local rollback and emergency revoke drill. It confirms that the full rollback sequence can be rehearsed before any future real Google Ads live validation window opens.
+
+Key properties:
+- Pure local validator; no network calls, no GCP access, no Secret Manager calls, no real credentials.
+- Validates 11 rollback step confirmations (live flag disabled, approval revoked, credential revoked, bundle deleted, status verified, secret state verified, live gate denied, smoke tests passed, safety grep clean, audit chain verified, final state documented).
+- Hard-stops if real credentials are present, Google Ads API was called, GCP commands were used, Secret Manager was called, OAuth was executed, network calls were detected, or filesystem writes occurred.
+- Forbidden field/value detection in evidence and metadata (19 forbidden field names; 12 forbidden value patterns).
+- Sanitized summary excludes evidence, metadata, and all raw credential values.
+- Returns `ok=True` (PASS) only when all 18 conditions are satisfied.
+
+This validator does **not** revoke real credentials. It does **not** call Secret Manager. It does **not** call the Google Ads API. A PASS result from this drill is a prerequisite before any future real live validation execution.
+
+---
+
 ## L. Phase 2 Conclusion
 
 This document concludes V5.20 Phase 2.
