@@ -610,7 +610,7 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - [x] **Phase 6 — Rollback/emergency revoke drill** — `openclaw/rollback_drill.py`; `validate_rollback_drill()`; 20 failure codes; 28-scenario demo; smoke section [29/29]; pure local Python; no GCP/Google Ads/Secret Manager/network
 - [x] **Phase 7 — Secret Manager version lifecycle policy validator** — `openclaw/secret_version_policy.py`; `validate_secret_version_policy()`; 19 failure codes; `DISABLE_PREVIOUS_WITH_GRACE_PERIOD` authorized; 30-scenario demo; smoke section [30/30]; pure local Python; no GCP/Secret Manager/Google Ads/network
 - [x] **Phase 8 — Final readiness review** — `docs/V5_20_FINAL_READINESS_REVIEW.md`; local validators PASS (244 assertions); smoke 31/31; gap analysis; no open blockers; NOT approved for real execution
-- [ ] **Phase 9 — Closure docs and release notes** — `docs/V5_20_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_20_0_BETA.md`; ROADMAP/README updates
+- [x] **Phase 9 — Closure docs and release notes** — `docs/V5_20_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_20_0_BETA.md`; ROADMAP/README updates; smoke 31/31 PASS; safety grep CLEAN; ready for merge and tag
 - [ ] **Phase 10 — Merge, tag, release** — merge to master; `v5.20.0-beta` tag; GitHub Release
 
 ### V5.20 scope constraints
@@ -636,3 +636,5 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - Destructive Secret Manager version lifecycle (policy decided in Phase 7; destroy requires separate authorization)
 - External approval UI
 - Real production client or tenant onboarding
+
+**Note:** Real credential onboarding and Google Ads API validation remain deferred and require explicit operator approval in a separate future initiative. V5.20's local readiness PASS does not authorize any real execution path.
