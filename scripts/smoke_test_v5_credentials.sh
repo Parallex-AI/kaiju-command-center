@@ -3178,7 +3178,7 @@ fi
 pass "V5.20 rollback emergency revoke drill checks complete"
 
 # ---------------------------------------------------------------------------
-echo "[30/32] V5.20 Secret Manager version lifecycle policy validator..."
+echo "[30/33] V5.20 Secret Manager version lifecycle policy validator..."
 
 # Run the demo and confirm it passes
 POLICY_DEMO_OUTPUT=$("$PYTHON" "$OPENCLAW_DIR/run_secret_version_policy_demo.py" 2>&1)
@@ -3241,7 +3241,7 @@ fi
 pass "V5.20 Secret Manager version lifecycle policy validator checks complete"
 
 # ---------------------------------------------------------------------------
-echo "[31/32] V5.20 final readiness review docs..."
+echo "[31/33] V5.20 final readiness review docs..."
 
 READINESS_REVIEW="$REPO/docs/V5_20_FINAL_READINESS_REVIEW.md"
 
@@ -3302,7 +3302,7 @@ fi
 pass "V5.20 final readiness review docs checks complete"
 
 # ---------------------------------------------------------------------------
-echo "[32/32] V5.21 Phase 3 OAuth authorization URL design validator..."
+echo "[32/33] V5.21 Phase 3 OAuth authorization URL design validator..."
 
 # Run the demo and confirm it passes
 OAUTH_AUTH_URL_DEMO_OUTPUT=$("$PYTHON" "$OPENCLAW_DIR/run_oauth_auth_url_demo.py" 2>&1)
@@ -3358,6 +3358,67 @@ else
 fi
 
 pass "V5.21 OAuth authorization URL design validator checks complete"
+
+# ---------------------------------------------------------------------------
+echo "[33/33] V5.21 OAuth callback and token-exchange boundary validator..."
+
+# Run the demo and confirm it passes
+OAUTH_CALLBACK_DEMO_OUTPUT=$("$PYTHON" "$OPENCLAW_DIR/run_oauth_callback_demo.py" 2>&1)
+if echo "$OAUTH_CALLBACK_DEMO_OUTPUT" | grep -q "All assertions passed."; then
+    pass "run_oauth_callback_demo.py: All assertions passed"
+else
+    fail "run_oauth_callback_demo.py: did not print 'All assertions passed.'"
+fi
+
+# Symbol checks in oauth_callback.py
+for symbol in \
+    "OAuthCallbackDesignInput" \
+    "validate_oauth_callback_design" \
+    "callback_url_received" \
+    "callback_url_logged" \
+    "callback_url_committed" \
+    "auth_code_received" \
+    "auth_code_logged" \
+    "auth_code_committed" \
+    "token_exchange_attempted" \
+    "token_response_received" \
+    "refresh_token_present" \
+    "access_token_present" \
+    "state_verification_present" \
+    "state_bound_to_ceremony" \
+    "state_reuse_blocked" \
+    "secure_channel_present" \
+    "redacted_status_verification_present" \
+    "forbidden_field_present" \
+    "forbidden_value_present" \
+    "sanitized_summary"
+do
+    if grep -q "$symbol" "$OPENCLAW_DIR/oauth_callback.py" 2>/dev/null; then
+        pass "oauth_callback.py: '$symbol' present"
+    else
+        fail "oauth_callback.py: '$symbol' missing"
+    fi
+done
+
+# No forbidden cloud/network imports in oauth_callback.py
+for forbidden_import in "google.cloud" "google.ads" "requests" "urllib" "httpx" "webbrowser" "subprocess" "socket"; do
+    if grep -Fq "$forbidden_import" "$OPENCLAW_DIR/oauth_callback.py" 2>/dev/null; then
+        fail "oauth_callback.py: forbidden import '$forbidden_import' found"
+    else
+        pass "oauth_callback.py: no '$forbidden_import' import"
+    fi
+done
+
+# GOOGLE_ADS_LIVE_ENABLED=true must not appear in validator or demo
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" \
+    "$OPENCLAW_DIR/oauth_callback.py" \
+    "$OPENCLAW_DIR/run_oauth_callback_demo.py" 2>/dev/null; then
+    fail "GOOGLE_ADS_LIVE_ENABLED=true found in oauth callback files"
+else
+    pass "GOOGLE_ADS_LIVE_ENABLED=true absent from oauth callback files"
+fi
+
+pass "V5.21 OAuth callback and token-exchange boundary validator checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

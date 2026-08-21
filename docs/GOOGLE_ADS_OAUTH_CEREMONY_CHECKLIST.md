@@ -165,6 +165,8 @@ The following items define the browser execution gate for any future authorized 
 
 **Phase 2 status: Callback and token exchange are not performed in this phase.**
 
+**Phase 4 note:** `openclaw/oauth_callback.py` implements a local-only design validator (`validate_oauth_callback_design()`) that enforces all callback and auth-code handling boundary rules — including hard-stop detection for callback URL receipt, auth code receipt, auth code logging, auth code commit, auth code pasted to chat, token response receipt, token response logging, and token response commit — without receiving any real callback URL, auth code, or token response. No real callback was processed. No auth code was received. No token exchange was attempted. Phase 4 validator passes all 40 demo test scenarios (98 assertions). Validator PASS is a prerequisite before any future authorized ceremony proceeds to this gate.
+
 The following items define auth-code handling requirements for any future authorized ceremony.
 
 | # | Item | Verified |
@@ -187,6 +189,8 @@ The following items define auth-code handling requirements for any future author
 ## H. Token Exchange Boundary Gate
 
 **Phase 2 status: Token exchange is not performed in this phase.**
+
+**Phase 4 note:** `openclaw/oauth_callback.py` also enforces token exchange boundary requirements — token exchange approval, execution window, secure channel, redacted status verification, storage boundary, rollback boundary, and audit requirement must all be on record before any future authorized ceremony proceeds to this gate. The Phase 4 validator checks all of these as boundary requirement booleans. No token exchange was attempted. No token response was received or logged. Phase 5 (secure credential handoff protocol design) remains pending.
 
 The following items define token exchange boundary requirements for any future authorized ceremony.
 
