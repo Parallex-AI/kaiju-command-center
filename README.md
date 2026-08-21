@@ -20,6 +20,8 @@ See [V5.20 Implementation Plan](docs/V5_20_IMPLEMENTATION_PLAN.md) and the [Goog
 
 **Phase 6 — Rollback and emergency revoke drill validator** (`openclaw/rollback_drill.py`): local-only `validate_rollback_drill()` function; validates the full rollback sequence including live flag confirmation, approval revocation, credential revocation, bundle deletion, audit chain verification, and live gate denial; 20 failure codes; does not revoke real credentials, call Secret Manager, or call Google Ads API.
 
+**Phase 7 — Secret Manager version lifecycle policy validator** (`openclaw/secret_version_policy.py`): local-only `validate_secret_version_policy()` function; enforces V5.20 version lifecycle policy (`DISABLE_PREVIOUS_WITH_GRACE_PERIOD`; grace period 1–168 hours); 19 failure codes; does not call Secret Manager, disable or destroy real secret versions, or make GCP commands.
+
 ---
 
 *Previous milestone:* **V5.19.0-beta — Real Credential Readiness Gates complete** — tag `v5.19.0-beta`. See [V5.19 Branch Closure](docs/V5_19_BRANCH_CLOSURE.md) and [v5.19.0-beta Release Notes](docs/RELEASE_NOTES_V5_19_0_BETA.md).

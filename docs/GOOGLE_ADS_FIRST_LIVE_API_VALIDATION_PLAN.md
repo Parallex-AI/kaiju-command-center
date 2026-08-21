@@ -328,6 +328,30 @@ The drill is fake/local only. It does not revoke real credentials, call Secret M
 
 ---
 
+## N. Phase 7 Prerequisite — Version Lifecycle Policy
+
+If any credential rotation or new credential onboarding occurs before or during the first live validation window, the Secret Manager version lifecycle policy decision must be validated before the rotation proceeds.
+
+| Prerequisite | Gate |
+|---|---|
+| Lifecycle mode decided | `lifecycle_mode = DISABLE_PREVIOUS_WITH_GRACE_PERIOD` |
+| Grace period defined | `grace_period_hours` is a positive integer ≤ 168 |
+| Prior version disable confirmed | `disable_previous_version_required=True` |
+| Destroy separately authorized | `destroy_previous_requires_separate_approval=True` |
+| Rollback window documented | `rollback_window_present=True` |
+| Audit enabled | `audit_requirement_present=True` |
+| Evidence documented | `evidence_requirement_present=True` |
+| Operator confirmation obtained | `operator_confirmation_present=True` |
+| Validator PASS | `validate_secret_version_policy()` returns `ok=True` |
+
+**Important constraints:**
+- No Secret Manager version disable or destroy operation is authorized by this plan.
+- `validate_secret_version_policy()` is a local-only check; it does not call Secret Manager.
+- A PASS result from the validator does not authorize any version lifecycle operation — a separate named-operator approval and execution authorization is required.
+- If no rotation occurs before or during the first live validation window, this prerequisite does not gate the validation window.
+
+---
+
 ## Related Documents
 
 - [V5.20 Implementation Plan](V5_20_IMPLEMENTATION_PLAN.md)

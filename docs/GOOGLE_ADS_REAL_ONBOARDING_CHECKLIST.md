@@ -353,6 +353,25 @@ This validator does **not** revoke real credentials. It does **not** call Secret
 
 ---
 
+## P. Phase 7 — Secret Manager Version Lifecycle Policy Validator
+
+`openclaw/secret_version_policy.py` (`validate_secret_version_policy()`) implements and enforces the V5.20 version lifecycle policy decision for GCP Secret Manager secret versions. It must return `ok=True` (PASS) before any future real credential rotation or onboarding that involves Secret Manager version management.
+
+Key properties:
+- Pure local validator; no network calls, no GCP access, no Secret Manager calls, no real credentials.
+- Authorized lifecycle mode for V5.20: `DISABLE_PREVIOUS_WITH_GRACE_PERIOD` — prior secret version disabled after rotation within a defined grace period (1–168 hours).
+- `KEEP_PREVIOUS_ENABLED` is explicitly not allowed; prior versions must not remain enabled after rotation.
+- `DESTROY_PREVIOUS_AFTER_GRACE_PERIOD` requires a separate explicit destructive-action authorization; always fails in V5.20 with `destroy_requires_separate_approval_missing`.
+- `UNDECIDED` always fails; a policy decision is required before real rotation.
+- Hard-stops if real secret references are present, Secret Manager was called, GCP commands were used, Google Ads API was called, OAuth was executed, or destructive actions occurred.
+- Forbidden field/value detection in evidence and metadata (20 forbidden field names; 13 forbidden value patterns, including Secret Manager version paths).
+- Sanitized summary excludes evidence, metadata, and all raw credential values.
+- Returns `ok=True` (PASS) only when lifecycle mode is `DISABLE_PREVIOUS_WITH_GRACE_PERIOD`, grace period is valid (1–168 hours), all six policy confirmation flags are true, and all six detection hard-stops are false.
+
+This validator does **not** disable or destroy real secret versions. It does **not** call Secret Manager. It does **not** call the Google Ads API. A PASS result is a prerequisite before any future authorized real credential rotation that includes version lifecycle management.
+
+---
+
 ## L. Phase 2 Conclusion
 
 This document concludes V5.20 Phase 2.

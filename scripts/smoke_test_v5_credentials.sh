@@ -3115,7 +3115,7 @@ pass "V5.20 credential intake dry-run validator checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[29/29] V5.20 rollback emergency revoke drill..."
+echo "[29/30] V5.20 rollback emergency revoke drill..."
 # ---------------------------------------------------------------------------
 
 # run_rollback_drill_demo.py: all 28 test scenarios
@@ -3176,6 +3176,69 @@ else
 fi
 
 pass "V5.20 rollback emergency revoke drill checks complete"
+
+# ---------------------------------------------------------------------------
+echo "[30/30] V5.20 Secret Manager version lifecycle policy validator..."
+
+# Run the demo and confirm it passes
+POLICY_DEMO_OUTPUT=$("$PYTHON" "$OPENCLAW_DIR/run_secret_version_policy_demo.py" 2>&1)
+if echo "$POLICY_DEMO_OUTPUT" | grep -q "All assertions passed."; then
+    pass "run_secret_version_policy_demo.py: All assertions passed"
+else
+    fail "run_secret_version_policy_demo.py: did not print 'All assertions passed.'"
+fi
+
+# Symbol checks in secret_version_policy.py
+for symbol in \
+    "SecretVersionPolicyInput" \
+    "validate_secret_version_policy" \
+    "DISABLE_PREVIOUS_WITH_GRACE_PERIOD" \
+    "DESTROY_PREVIOUS_AFTER_GRACE_PERIOD" \
+    "KEEP_PREVIOUS_ENABLED" \
+    "lifecycle_mode_undecided" \
+    "keep_previous_enabled_not_allowed" \
+    "grace_period_hours" \
+    "disable_previous_version_required" \
+    "destroy_previous_requires_separate_approval" \
+    "secret_manager_called" \
+    "destructive_action_detected" \
+    "forbidden_field_present" \
+    "forbidden_value_present" \
+    "sanitized_summary"
+do
+    if grep -q "$symbol" "$OPENCLAW_DIR/secret_version_policy.py" 2>/dev/null; then
+        pass "secret_version_policy.py: '$symbol' present"
+    else
+        fail "secret_version_policy.py: '$symbol' missing"
+    fi
+done
+
+# Symbol check in demo
+if grep -q "validate_secret_version_policy" "$OPENCLAW_DIR/run_secret_version_policy_demo.py" 2>/dev/null; then
+    pass "run_secret_version_policy_demo.py: validate_secret_version_policy imported and used"
+else
+    fail "run_secret_version_policy_demo.py: validate_secret_version_policy not found"
+fi
+
+# No forbidden cloud imports in secret_version_policy.py (fixed-string grep to avoid . matching _)
+for forbidden_import in "google.cloud" "google.ads" "requests" "urllib" "httpx"; do
+    if grep -Fq "$forbidden_import" "$OPENCLAW_DIR/secret_version_policy.py" 2>/dev/null; then
+        fail "secret_version_policy.py: forbidden import '$forbidden_import' found"
+    else
+        pass "secret_version_policy.py: no '$forbidden_import' import"
+    fi
+done
+
+# GOOGLE_ADS_LIVE_ENABLED=true must not appear in policy module or demo
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" \
+    "$OPENCLAW_DIR/secret_version_policy.py" \
+    "$OPENCLAW_DIR/run_secret_version_policy_demo.py" 2>/dev/null; then
+    fail "GOOGLE_ADS_LIVE_ENABLED=true found in secret version policy files"
+else
+    pass "GOOGLE_ADS_LIVE_ENABLED=true absent from secret version policy files"
+fi
+
+pass "V5.20 Secret Manager version lifecycle policy validator checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

@@ -2,7 +2,7 @@
 
 **Branch:** `v5.20-controlled-real-google-ads-onboarding-readiness`
 **Base:** `v5.19.0-beta` / master at `631abbd`
-**Status:** Phase 6 — Rollback and Emergency Revoke Drill
+**Status:** Phase 7 — Secret Manager Version Lifecycle Policy Validator
 
 ---
 
@@ -287,6 +287,35 @@ V5.20 is releasable as `v5.20.0-beta` when all of the following are true:
 
 ---
 
+## Phase 7 Implementation Note
+
+Phase 7 (`openclaw/secret_version_policy.py` + `openclaw/run_secret_version_policy_demo.py`) is complete as of the current state of branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
+
+| Item | Status |
+|---|---|
+| `secret_version_policy.py` created | **Complete** — `SecretVersionPolicyInput`, `SecretVersionPolicyResult`, `validate_secret_version_policy()`, `SecretVersionPolicyFailureCode` enum (19 codes: 5 lifecycle mode + 6 policy requirements + 6 detection hard-stops + 2 forbidden field/value) |
+| `SecretVersionLifecycleMode` enum | **Complete** — `DISABLE_PREVIOUS_WITH_GRACE_PERIOD`, `DESTROY_PREVIOUS_AFTER_GRACE_PERIOD`, `KEEP_PREVIOUS_ENABLED`, `UNDECIDED` |
+| Current authorized policy | **`DISABLE_PREVIOUS_WITH_GRACE_PERIOD`** — grace period 1–168 hours; prior version disabled, not destroyed |
+| DESTROY mode | **Deferred** — always fails with `destroy_requires_separate_approval_missing`; requires separate explicit authorization |
+| KEEP_PREVIOUS_ENABLED | **Not allowed** — fails with `keep_previous_enabled_not_allowed` |
+| Pure local Python | **Confirmed** — no GCP, no Google Ads, no Secret Manager, no network, no os.environ reads, no filesystem I/O |
+| Forbidden field detection | **Confirmed** — 20 forbidden field names (all lowercase; case-insensitive key check; adds `secret_version`) |
+| Forbidden value detection | **Confirmed** — 13 forbidden value patterns including OAuth tokens, API key prefixes, GCP paths, Secret Manager paths, version paths, email-like, JSON key refs, fake sentinels, bare credential field names, account identifiers |
+| Sanitized summary | **Confirmed** — 14 input fields + decision/ok/failure_count; excludes evidence and metadata |
+| 30-scenario demo | **Complete** — `run_secret_version_policy_demo.py`; 71 assertions; all PASS |
+| Smoke test section [30/30] | **Added** — demo run, 15 symbol checks, import checks (grep -Fq), GOOGLE_ADS_LIVE_ENABLED=true absent |
+| Real credentials used | **No** |
+| OAuth execution | **No** |
+| Google Ads API called | **No** |
+| GCP commands run | **No** |
+| Secret Manager called | **No** |
+| `GOOGLE_ADS_LIVE_ENABLED=true` at runtime | **No** |
+| Phase 8 status | **Pending** — Final readiness review; all checklist items verified; gap analysis |
+
+V5.20 is **not complete**. Phases 8–10 remain pending.
+
+---
+
 ## Phase 6 Implementation Note
 
 Phase 6 (`openclaw/rollback_drill.py` + `openclaw/run_rollback_drill_demo.py`) is complete as of the current state of branch `v5.20-controlled-real-google-ads-onboarding-readiness`.
@@ -306,7 +335,7 @@ Phase 6 (`openclaw/rollback_drill.py` + `openclaw/run_rollback_drill_demo.py`) i
 | GCP commands run | **No** |
 | Secret Manager called | **No** |
 | `GOOGLE_ADS_LIVE_ENABLED=true` at runtime | **No** |
-| Phase 7 status | **Pending** — Secret Manager version lifecycle policy decision (Option A: destroy, or B: disable+grace); `openclaw/secret_lifecycle.py` |
+| Phase 7 status | **Complete** — `openclaw/secret_version_policy.py`; `validate_secret_version_policy()`; `DISABLE_PREVIOUS_WITH_GRACE_PERIOD` authorized; 30-scenario demo; smoke [30/30] |
 
 V5.20 is **not complete**. Phases 7–10 remain pending.
 
