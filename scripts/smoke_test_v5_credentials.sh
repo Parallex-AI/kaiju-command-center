@@ -2895,7 +2895,7 @@ pass "Phase 6 live guard audit event emission checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
-echo "[26/26] Phase 8 — Test coverage hardening (V5.19)..."
+echo "[26/27] Phase 8 — Test coverage hardening (V5.19)..."
 # ---------------------------------------------------------------------------
 
 # run_live_gate_demo.py: Tests 15-18 (empty/unknown cred status, required_actions, no forbidden keys)
@@ -2991,6 +2991,315 @@ echo "$_OUT_GUARD_P8" | grep -q "phase8b scope: 403 for READ token" \
     || { echo "  ✗ server live guard Phase 8B: 403 marker not found"; echo "$_OUT_GUARD_P8" | tail -20; exit 1; }
 
 pass "Phase 8 test coverage hardening checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[27/28] V5.20 onboarding ceremony validator..."
+# ---------------------------------------------------------------------------
+
+# run_onboarding_ceremony_demo.py: all 36 assertions
+_OUT_CEREMONY=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_onboarding_ceremony_demo.py 2>&1)
+echo "$_OUT_CEREMONY" | grep -q "All assertions passed." \
+    && pass "run_onboarding_ceremony_demo.py: All assertions passed" \
+    || { echo "  ✗ run_onboarding_ceremony_demo.py: assertion not found"; echo "$_OUT_CEREMONY" | tail -20; exit 1; }
+
+# Core symbol checks in onboarding_ceremony.py
+for symbol in \
+    "OnboardingCeremonyInput" \
+    "validate_onboarding_ceremony" \
+    "real_credentials_present" \
+    "google_ads_api_called" \
+    "gcp_commands_used" \
+    "live_flag_false_confirmed" \
+    "oauth_boundary_design_only" \
+    "forbidden_field_present" \
+    "forbidden_value_present" \
+    "sanitized_summary"
+do
+    if grep -q "$symbol" "$OPENCLAW_DIR/onboarding_ceremony.py" 2>/dev/null; then
+        pass "onboarding_ceremony.py: '$symbol' present"
+    else
+        fail "onboarding_ceremony.py: '$symbol' missing"
+    fi
+done
+
+# Symbol check in demo
+if grep -q "validate_onboarding_ceremony" "$OPENCLAW_DIR/run_onboarding_ceremony_demo.py" 2>/dev/null; then
+    pass "run_onboarding_ceremony_demo.py: validate_onboarding_ceremony imported and used"
+else
+    fail "run_onboarding_ceremony_demo.py: validate_onboarding_ceremony not found"
+fi
+
+# No forbidden cloud imports in onboarding_ceremony.py (fixed-string grep to avoid . matching _)
+for forbidden_import in "google.cloud" "google.ads" "requests" "urllib" "httpx"; do
+    if grep -Fq "$forbidden_import" "$OPENCLAW_DIR/onboarding_ceremony.py" 2>/dev/null; then
+        fail "onboarding_ceremony.py: forbidden import '$forbidden_import' found"
+    else
+        pass "onboarding_ceremony.py: no '$forbidden_import' import"
+    fi
+done
+
+# GOOGLE_ADS_LIVE_ENABLED=true must not appear in ceremony module or demo
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" \
+    "$OPENCLAW_DIR/onboarding_ceremony.py" \
+    "$OPENCLAW_DIR/run_onboarding_ceremony_demo.py" 2>/dev/null; then
+    fail "GOOGLE_ADS_LIVE_ENABLED=true found in ceremony files"
+else
+    pass "GOOGLE_ADS_LIVE_ENABLED=true absent from ceremony files"
+fi
+
+pass "V5.20 onboarding ceremony validator checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[28/29] V5.20 credential intake dry-run validator..."
+# ---------------------------------------------------------------------------
+
+# run_credential_intake_demo.py: all 33 test scenarios
+_OUT_INTAKE=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_credential_intake_demo.py 2>&1)
+echo "$_OUT_INTAKE" | grep -q "All assertions passed." \
+    && pass "run_credential_intake_demo.py: All assertions passed" \
+    || { echo "  ✗ run_credential_intake_demo.py: assertion not found"; echo "$_OUT_INTAKE" | tail -20; exit 1; }
+
+# Core symbol checks in credential_intake.py
+for symbol in \
+    "CredentialIntakeDryRunInput" \
+    "validate_credential_intake_dry_run" \
+    "real_secret_material_present" \
+    "oauth_execution_detected" \
+    "google_ads_api_call_detected" \
+    "gcp_command_detected" \
+    "filesystem_write_detected" \
+    "network_call_detected" \
+    "forbidden_field_present" \
+    "forbidden_value_present" \
+    "sanitized_summary"
+do
+    if grep -q "$symbol" "$OPENCLAW_DIR/credential_intake.py" 2>/dev/null; then
+        pass "credential_intake.py: '$symbol' present"
+    else
+        fail "credential_intake.py: '$symbol' missing"
+    fi
+done
+
+# Symbol check in demo
+if grep -q "validate_credential_intake_dry_run" "$OPENCLAW_DIR/run_credential_intake_demo.py" 2>/dev/null; then
+    pass "run_credential_intake_demo.py: validate_credential_intake_dry_run imported and used"
+else
+    fail "run_credential_intake_demo.py: validate_credential_intake_dry_run not found"
+fi
+
+# No forbidden cloud imports in credential_intake.py (fixed-string grep to avoid . matching _)
+for forbidden_import in "google.cloud" "google.ads" "requests" "urllib" "httpx"; do
+    if grep -Fq "$forbidden_import" "$OPENCLAW_DIR/credential_intake.py" 2>/dev/null; then
+        fail "credential_intake.py: forbidden import '$forbidden_import' found"
+    else
+        pass "credential_intake.py: no '$forbidden_import' import"
+    fi
+done
+
+# GOOGLE_ADS_LIVE_ENABLED=true must not appear in intake module or demo
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" \
+    "$OPENCLAW_DIR/credential_intake.py" \
+    "$OPENCLAW_DIR/run_credential_intake_demo.py" 2>/dev/null; then
+    fail "GOOGLE_ADS_LIVE_ENABLED=true found in credential intake files"
+else
+    pass "GOOGLE_ADS_LIVE_ENABLED=true absent from credential intake files"
+fi
+
+pass "V5.20 credential intake dry-run validator checks complete"
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "[29/30] V5.20 rollback emergency revoke drill..."
+# ---------------------------------------------------------------------------
+
+# run_rollback_drill_demo.py: all 28 test scenarios
+_OUT_DRILL=$(cd "$OPENCLAW_DIR" && \
+    PYTHONPATH="$OPENCLAW_DIR:$AGENT_DIR" \
+    $PYTHON run_rollback_drill_demo.py 2>&1)
+echo "$_OUT_DRILL" | grep -q "All assertions passed." \
+    && pass "run_rollback_drill_demo.py: All assertions passed" \
+    || { echo "  ✗ run_rollback_drill_demo.py: assertion not found"; echo "$_OUT_DRILL" | tail -20; exit 1; }
+
+# Core symbol checks in rollback_drill.py
+for symbol in \
+    "RollbackDrillInput" \
+    "validate_rollback_drill" \
+    "live_flag_disabled" \
+    "approval_revoked" \
+    "credential_marked_revoked" \
+    "credential_bundle_deleted_or_revoked" \
+    "live_gate_denied_after_revoke" \
+    "audit_chain_verified" \
+    "secret_manager_called" \
+    "google_ads_api_called" \
+    "gcp_commands_used" \
+    "forbidden_field_present" \
+    "forbidden_value_present" \
+    "sanitized_summary"
+do
+    if grep -q "$symbol" "$OPENCLAW_DIR/rollback_drill.py" 2>/dev/null; then
+        pass "rollback_drill.py: '$symbol' present"
+    else
+        fail "rollback_drill.py: '$symbol' missing"
+    fi
+done
+
+# Symbol check in demo
+if grep -q "validate_rollback_drill" "$OPENCLAW_DIR/run_rollback_drill_demo.py" 2>/dev/null; then
+    pass "run_rollback_drill_demo.py: validate_rollback_drill imported and used"
+else
+    fail "run_rollback_drill_demo.py: validate_rollback_drill not found"
+fi
+
+# No forbidden cloud imports in rollback_drill.py (fixed-string grep to avoid . matching _)
+for forbidden_import in "google.cloud" "google.ads" "requests" "urllib" "httpx"; do
+    if grep -Fq "$forbidden_import" "$OPENCLAW_DIR/rollback_drill.py" 2>/dev/null; then
+        fail "rollback_drill.py: forbidden import '$forbidden_import' found"
+    else
+        pass "rollback_drill.py: no '$forbidden_import' import"
+    fi
+done
+
+# GOOGLE_ADS_LIVE_ENABLED=true must not appear in rollback module or demo
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" \
+    "$OPENCLAW_DIR/rollback_drill.py" \
+    "$OPENCLAW_DIR/run_rollback_drill_demo.py" 2>/dev/null; then
+    fail "GOOGLE_ADS_LIVE_ENABLED=true found in rollback drill files"
+else
+    pass "GOOGLE_ADS_LIVE_ENABLED=true absent from rollback drill files"
+fi
+
+pass "V5.20 rollback emergency revoke drill checks complete"
+
+# ---------------------------------------------------------------------------
+echo "[30/31] V5.20 Secret Manager version lifecycle policy validator..."
+
+# Run the demo and confirm it passes
+POLICY_DEMO_OUTPUT=$("$PYTHON" "$OPENCLAW_DIR/run_secret_version_policy_demo.py" 2>&1)
+if echo "$POLICY_DEMO_OUTPUT" | grep -q "All assertions passed."; then
+    pass "run_secret_version_policy_demo.py: All assertions passed"
+else
+    fail "run_secret_version_policy_demo.py: did not print 'All assertions passed.'"
+fi
+
+# Symbol checks in secret_version_policy.py
+for symbol in \
+    "SecretVersionPolicyInput" \
+    "validate_secret_version_policy" \
+    "DISABLE_PREVIOUS_WITH_GRACE_PERIOD" \
+    "DESTROY_PREVIOUS_AFTER_GRACE_PERIOD" \
+    "KEEP_PREVIOUS_ENABLED" \
+    "lifecycle_mode_undecided" \
+    "keep_previous_enabled_not_allowed" \
+    "grace_period_hours" \
+    "disable_previous_version_required" \
+    "destroy_previous_requires_separate_approval" \
+    "secret_manager_called" \
+    "destructive_action_detected" \
+    "forbidden_field_present" \
+    "forbidden_value_present" \
+    "sanitized_summary"
+do
+    if grep -q "$symbol" "$OPENCLAW_DIR/secret_version_policy.py" 2>/dev/null; then
+        pass "secret_version_policy.py: '$symbol' present"
+    else
+        fail "secret_version_policy.py: '$symbol' missing"
+    fi
+done
+
+# Symbol check in demo
+if grep -q "validate_secret_version_policy" "$OPENCLAW_DIR/run_secret_version_policy_demo.py" 2>/dev/null; then
+    pass "run_secret_version_policy_demo.py: validate_secret_version_policy imported and used"
+else
+    fail "run_secret_version_policy_demo.py: validate_secret_version_policy not found"
+fi
+
+# No forbidden cloud imports in secret_version_policy.py (fixed-string grep to avoid . matching _)
+for forbidden_import in "google.cloud" "google.ads" "requests" "urllib" "httpx"; do
+    if grep -Fq "$forbidden_import" "$OPENCLAW_DIR/secret_version_policy.py" 2>/dev/null; then
+        fail "secret_version_policy.py: forbidden import '$forbidden_import' found"
+    else
+        pass "secret_version_policy.py: no '$forbidden_import' import"
+    fi
+done
+
+# GOOGLE_ADS_LIVE_ENABLED=true must not appear in policy module or demo
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" \
+    "$OPENCLAW_DIR/secret_version_policy.py" \
+    "$OPENCLAW_DIR/run_secret_version_policy_demo.py" 2>/dev/null; then
+    fail "GOOGLE_ADS_LIVE_ENABLED=true found in secret version policy files"
+else
+    pass "GOOGLE_ADS_LIVE_ENABLED=true absent from secret version policy files"
+fi
+
+pass "V5.20 Secret Manager version lifecycle policy validator checks complete"
+
+# ---------------------------------------------------------------------------
+echo "[31/31] V5.20 final readiness review docs..."
+
+READINESS_REVIEW="$REPO/docs/V5_20_FINAL_READINESS_REVIEW.md"
+
+if [ -f "$READINESS_REVIEW" ]; then
+    pass "V5_20_FINAL_READINESS_REVIEW.md exists"
+else
+    fail "V5_20_FINAL_READINESS_REVIEW.md missing"
+fi
+
+if grep -q "NOT APPROVED for real Google Ads credential onboarding" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: NOT APPROVED for real credential onboarding found"
+else
+    fail "readiness review: NOT APPROVED for real credential onboarding missing"
+fi
+
+if grep -q "NOT APPROVED for Google Ads API live calls" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: NOT APPROVED for Google Ads API live calls found"
+else
+    fail "readiness review: NOT APPROVED for Google Ads API live calls missing"
+fi
+
+if grep -q "NOT APPROVED for OAuth execution" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: NOT APPROVED for OAuth execution found"
+else
+    fail "readiness review: NOT APPROVED for OAuth execution missing"
+fi
+
+if grep -q "NOT APPROVED for GOOGLE_ADS_LIVE_ENABLED=true runtime activation" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: NOT APPROVED for GOOGLE_ADS_LIVE_ENABLED=true runtime activation found"
+else
+    fail "readiness review: NOT APPROVED for GOOGLE_ADS_LIVE_ENABLED=true runtime activation missing"
+fi
+
+if grep -q "run_secret_version_policy_demo.py" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: run_secret_version_policy_demo.py referenced"
+else
+    fail "readiness review: run_secret_version_policy_demo.py not referenced"
+fi
+
+if grep -q "smoke_test_v5_credentials.sh — 30/30 PASS" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: smoke_test_v5_credentials.sh — 30/30 PASS found"
+else
+    fail "readiness review: smoke_test_v5_credentials.sh — 30/30 PASS missing"
+fi
+
+if grep -q "Phase 9: branch closure docs and release notes" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: Phase 9 reference found"
+else
+    fail "readiness review: Phase 9 reference missing"
+fi
+
+if grep -q "Phase 10: merge/tag/release" "$READINESS_REVIEW" 2>/dev/null; then
+    pass "readiness review: Phase 10 reference found"
+else
+    fail "readiness review: Phase 10 reference missing"
+fi
+
+pass "V5.20 final readiness review docs checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""

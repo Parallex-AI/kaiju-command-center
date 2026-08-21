@@ -605,7 +605,50 @@ See `docs/V5_19_IMPLEMENTATION_PLAN.md` Section E for the full options analysis.
 
 ---
 
-## 19. Related Documents
+## 19. V5.20 Secret Manager Version Lifecycle Policy
+
+V5.20 Phase 7 implements a local-only validator (`openclaw/secret_version_policy.py`, `validate_secret_version_policy()`) for the Secret Manager version lifecycle policy decision. This section documents the V5.20 policy decision and the Phase 7 implementation.
+
+### V5.20 policy decision
+
+**Operative policy: Option A — disable prior version with grace period (`DISABLE_PREVIOUS_WITH_GRACE_PERIOD`).**
+
+| Policy | V5.20 decision |
+|---|---|
+| `DISABLE_PREVIOUS_WITH_GRACE_PERIOD` | **Authorized** — current V5.20 lifecycle mode |
+| `DESTROY_PREVIOUS_AFTER_GRACE_PERIOD` | **Deferred** — irreversible; requires separate explicit destructive-action authorization |
+| `KEEP_PREVIOUS_ENABLED` | **Not acceptable** — prior versions must not remain enabled after rotation |
+| `UNDECIDED` | **Not acceptable** — a policy decision is required before real credential rotation |
+
+### Grace period
+
+The grace period must be a positive integer not exceeding 168 hours (7 days). The exact grace period must be defined by the operator at execution time. The `validate_secret_version_policy()` validator enforces this constraint locally before any real rotation is authorized.
+
+### DESTROY mode — explicitly deferred
+
+Destruction of prior secret versions after rotation requires:
+- Separate explicit destructive-action authorization
+- A configurable grace period before destruction
+- An irreversibility acknowledgment from the operator
+
+`validate_secret_version_policy()` returns `destroy_requires_separate_approval_missing` if `DESTROY_PREVIOUS_AFTER_GRACE_PERIOD` is selected. No destroy authorization exists in V5.20.
+
+### Phase 7 constraints
+
+| Constraint | Status |
+|---|---|
+| `validate_secret_version_policy()` calls Secret Manager | **No** — pure local logic only |
+| Phase 7 disables real secret versions | **No** — validator only; no GCP operations |
+| Phase 7 destroys real secret versions | **No** — not authorized |
+| `GOOGLE_ADS_LIVE_ENABLED=true` set | **No** — remains false |
+| GCP commands run | **No** — operator-only, out-of-band |
+| Real credentials used | **No** |
+
+The `validate_secret_version_policy()` function validates the policy decision locally. Any future real rotation that includes version lifecycle management must pass this validator before the operator proceeds, and must also pass the V5.19/V5.20 gate infrastructure.
+
+---
+
+## 20. Related Documents
 
 | Document | Purpose |
 |---|---|

@@ -4,17 +4,31 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V5.19 — Real Credential Readiness Gates** (branch: `v5.19-real-credential-readiness-gates` · base: `v5.18.0-beta`)
+**V5.20 — Controlled Real Google Ads Onboarding Readiness** (branch: `v5.20-controlled-real-google-ads-onboarding-readiness` · base: `v5.19.0-beta`)
 
-V5.19 builds the safety controls, approval workflow, preflight infrastructure, runtime guardrails, audit requirements, and operator documentation needed before any real Google Ads credential onboarding or live API validation. No real credentials. `GOOGLE_ADS_LIVE_ENABLED=false` throughout. No deploy. No cloud changes.
+V5.20 defines and implements the final operator-controlled readiness process required before any real Google Ads credential onboarding or live API validation. No real credentials. `GOOGLE_ADS_LIVE_ENABLED=false` throughout. No deploy. No GCP commands. No IAM/API/billing changes.
 
-**Branch closure complete — Phases 1–8 PASS — ready for merge and tag (`v5.19.0-beta`).** V5.18.0-beta remains the latest shipped tag.
+**Phases 1–8 complete. Branch closure docs ready. v5.19.0-beta is the latest shipped beta.**
 
-See [V5.19 Branch Closure](docs/V5_19_BRANCH_CLOSURE.md) · [v5.19.0-beta Release Notes](docs/RELEASE_NOTES_V5_19_0_BETA.md) · [V5.19 Implementation Plan](docs/V5_19_IMPLEMENTATION_PLAN.md).
+See [V5.20 Implementation Plan](docs/V5_20_IMPLEMENTATION_PLAN.md) and the [Google Ads Real Onboarding Checklist](docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md) (operator checklist only — does not authorize real onboarding).
+
+**Phase 3 — Onboarding ceremony validator** (`openclaw/onboarding_ceremony.py`): local-only `validate_onboarding_ceremony()` function; checks all readiness, approval, boundary, and forbidden-field/value conditions; does not execute real onboarding, OAuth, or API calls.
+
+**Phase 4 — Credential intake dry-run validator** (`openclaw/credential_intake.py`): local-only `validate_credential_intake_dry_run()` function; enforces all 7 intake boundary rules, 4 plan requirements, 4 reference confirmations, and 6 hard-stop detection conditions; 25 failure codes; does not ingest real credentials, execute OAuth, call GCP, or make network calls.
+
+**Phase 5 — First live API validation plan** (`docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md`): design-only plan for the first controlled read-only Google Ads API validation; 19-item precondition checklist; 17 stop conditions; 11-step rollback sequence; evidence package; no execution, no real credentials, no API calls.
+
+**Phase 6 — Rollback and emergency revoke drill validator** (`openclaw/rollback_drill.py`): local-only `validate_rollback_drill()` function; validates the full rollback sequence including live flag confirmation, approval revocation, credential revocation, bundle deletion, audit chain verification, and live gate denial; 20 failure codes; does not revoke real credentials, call Secret Manager, or call Google Ads API.
+
+**Phase 7 — Secret Manager version lifecycle policy validator** (`openclaw/secret_version_policy.py`): local-only `validate_secret_version_policy()` function; enforces V5.20 version lifecycle policy (`DISABLE_PREVIOUS_WITH_GRACE_PERIOD`; grace period 1–168 hours); 19 failure codes; does not call Secret Manager, disable or destroy real secret versions, or make GCP commands.
+
+**Phase 8 — Final readiness review** (`docs/V5_20_FINAL_READINESS_REVIEW.md`): local-only readiness assessment; all V5.20 validators PASS; gap analysis complete; no open blockers; NOT approved for real credential onboarding, Google Ads API calls, OAuth execution, or `GOOGLE_ADS_LIVE_ENABLED=true` runtime activation.
+
+**Phase 9 — Branch closure docs and release notes** (`docs/V5_20_BRANCH_CLOSURE.md`, `docs/RELEASE_NOTES_V5_20_0_BETA.md`): closure documentation complete; smoke 31/31 PASS; safety grep CLEAN; ready for merge and tag; NOT approved for real Google Ads credential onboarding, OAuth execution, API calls, or `GOOGLE_ADS_LIVE_ENABLED=true` activation.
 
 ---
 
-*Previous milestone:* **V5.18.0-beta — Live GCP Fake-Secret Validation complete** — tag `v5.18.0-beta`. See [V5.18 Branch Closure](docs/V5_18_BRANCH_CLOSURE.md) and [v5.18.0-beta Release Notes](docs/RELEASE_NOTES_V5_18_0_BETA.md).
+*Previous milestone:* **V5.19.0-beta — Real Credential Readiness Gates complete** — tag `v5.19.0-beta`. See [V5.19 Branch Closure](docs/V5_19_BRANCH_CLOSURE.md) and [v5.19.0-beta Release Notes](docs/RELEASE_NOTES_V5_19_0_BETA.md).
 
 ## Architecture
 
@@ -85,6 +99,12 @@ cd ~/kaiju/projects/demo-client
 - [V5.19 Implementation Plan](docs/V5_19_IMPLEMENTATION_PLAN.md)
 - [V5.19 Branch Closure](docs/V5_19_BRANCH_CLOSURE.md)
 - [v5.19.0-beta Release Notes](docs/RELEASE_NOTES_V5_19_0_BETA.md)
+- [V5.20 Implementation Plan](docs/V5_20_IMPLEMENTATION_PLAN.md)
+- [Google Ads Real Onboarding Checklist](docs/GOOGLE_ADS_REAL_ONBOARDING_CHECKLIST.md) — operator checklist only; does not authorize real onboarding
+- [Google Ads First Live API Validation Plan](docs/GOOGLE_ADS_FIRST_LIVE_API_VALIDATION_PLAN.md) — design-only; does not authorize execution
+- [V5.20 Final Readiness Review](docs/V5_20_FINAL_READINESS_REVIEW.md) — local readiness PASS; NOT approved for real execution
+- [V5.20 Branch Closure](docs/V5_20_BRANCH_CLOSURE.md)
+- [v5.20.0-beta Release Notes](docs/RELEASE_NOTES_V5_20_0_BETA.md)
 
 ## Admin credential configuration (V5.16+)
 
@@ -130,4 +150,5 @@ A valid token with insufficient scope returns `403 scope_not_granted`. A missing
 | V5.16 | Admin RBAC · audit seq/digest · credential rotation endpoint | **Beta complete** — `v5.16.0-beta` |
 | V5.17 | Production readiness · tenant isolation · rate limiting · audit locking · operator runbook | **Beta complete** — `v5.17.0-beta` |
 | V5.18 | Live GCP fake-secret validation · write → validate → rotate → delete → audit | **Beta complete** — `v5.18.0-beta` |
-| V5.19 | Real credential readiness gates · live-mode gate · approval workflow · preflight · guardrails · audit | **Branch closure complete** — ready for `v5.19.0-beta` |
+| V5.19 | Real credential readiness gates · live-mode gate · approval workflow · preflight · guardrails · audit | **Beta complete** — `v5.19.0-beta` |
+| V5.20 | Controlled real Google Ads onboarding readiness · ceremony · checklist · intake boundary · first-call plan · rollback drill · version lifecycle policy · final readiness review | **Beta ready** — `v5.20-controlled-real-google-ads-onboarding-readiness` · pending merge/tag |
