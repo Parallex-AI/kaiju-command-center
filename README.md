@@ -10,6 +10,8 @@ V5.21 converts V5.20's readiness controls into an operator-safe OAuth ceremony d
 
 **Phase 1 — Planning and branch setup** (`docs/V5_21_IMPLEMENTATION_PLAN.md`): V5.21 implementation plan; 10-phase roadmap; ceremony control model; stop conditions; security model; non-authorization statement; does not authorize OAuth, real credentials, Google Ads API, Secret Manager, GCP, deployment, or `GOOGLE_ADS_LIVE_ENABLED=true` activation.
 
+**Phase 2 — OAuth ceremony checklist** (`docs/GOOGLE_ADS_OAUTH_CEREMONY_CHECKLIST.md`): documentation-only operator ceremony checklist; 15-section structure covering participants/roles, preconditions, authorization URL review gate, scope confirmation gate, browser execution gate, callback/auth-code handling gate, token exchange boundary gate, credential storage gate, Google Ads API boundary gate, evidence package, stop conditions (25), rollback sequence (13 steps), sign-off block; does not generate OAuth URL, does not execute OAuth, does not use real credentials.
+
 *Latest shipped:* **v5.20.0-beta — Controlled Real Google Ads Onboarding Readiness complete** — tag `v5.20.0-beta`. See [V5.20 Branch Closure](docs/V5_20_BRANCH_CLOSURE.md) and [v5.20.0-beta Release Notes](docs/RELEASE_NOTES_V5_20_0_BETA.md).
 
 ---
@@ -92,6 +94,7 @@ cd ~/kaiju/projects/demo-client
 - [V5.20 Branch Closure](docs/V5_20_BRANCH_CLOSURE.md)
 - [v5.20.0-beta Release Notes](docs/RELEASE_NOTES_V5_20_0_BETA.md)
 - [V5.21 Implementation Plan](docs/V5_21_IMPLEMENTATION_PLAN.md) — planning only; does not authorize OAuth, real credentials, or Google Ads API
+- [Google Ads OAuth Ceremony Checklist](docs/GOOGLE_ADS_OAUTH_CEREMONY_CHECKLIST.md) — documentation-only operator ceremony checklist; does not authorize OAuth or real onboarding
 
 ## Admin credential configuration (V5.16+)
 

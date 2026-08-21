@@ -2,7 +2,7 @@
 
 **Branch:** `v5.21-controlled-real-google-ads-oauth-onboarding`
 **Base:** `v5.20.0-beta` / master at `5a4c692`
-**Status:** Phase 1 — planning
+**Status:** Phase 2 — OAuth ceremony checklist document
 **Purpose:** Prepare a controlled real Google Ads OAuth onboarding ceremony design.
 
 ---
@@ -81,6 +81,8 @@ V5.21 builds on V5.20's completed readiness infrastructure. All of the following
 **Deliverables:** `docs/GOOGLE_ADS_OAUTH_CEREMONY_CHECKLIST.md`; operator ceremony template; stop conditions specific to OAuth; rollback sequence for OAuth-specific failure modes; sign-off block.
 **No-real-execution constraint:** Checklist is a prerequisite template only. It does not authorize execution. No real URL generation. No real scopes requested.
 **Validation:** Document review. Safety grep clean. Existing smoke suites pass.
+
+**Phase 2 Implementation Note:** `docs/GOOGLE_ADS_OAUTH_CEREMONY_CHECKLIST.md` created. Documentation-only. 15 sections (A–O) covering ceremony participants/roles, preconditions (24 items), authorization URL review gate, scope confirmation gate, browser execution gate, callback/auth-code handling gate, token exchange boundary gate, credential storage gate, Google Ads API boundary gate, evidence package, 25 stop conditions, 13-step rollback sequence, sign-off block, and Phase 2 conclusion. No OAuth URL generated. No OAuth executed. No real credentials. No Google Ads API. No GCP or Secret Manager. Phase 3 (authorization URL design validator) remains pending.
 
 ### Phase 3 — OAuth authorization URL design validator (local-only)
 **Purpose:** Implement a local-only validator that checks an `OAuthAuthorizationURLInput` against all ceremony boundary rules before any real authorization URL could be generated. The validator evaluates structure, scope list, redirect URI format, state parameter presence, and operator confirmation — it does not generate or open a real URL.
