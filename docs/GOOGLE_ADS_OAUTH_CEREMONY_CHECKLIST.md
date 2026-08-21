@@ -95,6 +95,8 @@ All preconditions must be confirmed before the ceremony window opens. All items 
 
 **Phase 2 status: Authorization URL generation is not performed in this phase.**
 
+**Phase 3 note:** `openclaw/oauth_auth_url.py` implements a local-only design validator (`validate_oauth_auth_url_design()`) that checks all preconditions for this gate — redirect URI approval, scope approval, state parameter safety, OAuth param design (prompt=consent, access_type=offline, include_granted_scopes=false), ceremony controls, and evidence/metadata cleanliness — without generating any real authorization URL. No real URL was generated. No browser was opened. No real credentials were used. Phase 3 validator passes all 34 demo test scenarios (82 assertions).
+
 The following items define the review gate that must be satisfied before any future authorization URL is generated or opened. This gate must be completed immediately before the OAuth browser step in any future authorized ceremony.
 
 | # | Item | Verified |

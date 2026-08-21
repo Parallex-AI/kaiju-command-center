@@ -2,7 +2,7 @@
 
 **Branch:** `v5.21-controlled-real-google-ads-oauth-onboarding`
 **Base:** `v5.20.0-beta` / master at `5a4c692`
-**Status:** Phase 2 — OAuth ceremony checklist document
+**Status:** Phase 3 — OAuth authorization URL design validator
 **Purpose:** Prepare a controlled real Google Ads OAuth onboarding ceremony design.
 
 ---
@@ -82,13 +82,15 @@ V5.21 builds on V5.20's completed readiness infrastructure. All of the following
 **No-real-execution constraint:** Checklist is a prerequisite template only. It does not authorize execution. No real URL generation. No real scopes requested.
 **Validation:** Document review. Safety grep clean. Existing smoke suites pass.
 
-**Phase 2 Implementation Note:** `docs/GOOGLE_ADS_OAUTH_CEREMONY_CHECKLIST.md` created. Documentation-only. 15 sections (A–O) covering ceremony participants/roles, preconditions (24 items), authorization URL review gate, scope confirmation gate, browser execution gate, callback/auth-code handling gate, token exchange boundary gate, credential storage gate, Google Ads API boundary gate, evidence package, 25 stop conditions, 13-step rollback sequence, sign-off block, and Phase 2 conclusion. No OAuth URL generated. No OAuth executed. No real credentials. No Google Ads API. No GCP or Secret Manager. Phase 3 (authorization URL design validator) remains pending.
+**Phase 2 Implementation Note:** `docs/GOOGLE_ADS_OAUTH_CEREMONY_CHECKLIST.md` created. Documentation-only. 15 sections (A–O) covering ceremony participants/roles, preconditions (24 items), authorization URL review gate, scope confirmation gate, browser execution gate, callback/auth-code handling gate, token exchange boundary gate, credential storage gate, Google Ads API boundary gate, evidence package, 25 stop conditions, 13-step rollback sequence, sign-off block, and Phase 2 conclusion. No OAuth URL generated. No OAuth executed. No real credentials. No Google Ads API. No GCP or Secret Manager. Phase 3 (authorization URL design validator) complete.
 
 ### Phase 3 — OAuth authorization URL design validator (local-only)
 **Purpose:** Implement a local-only validator that checks an `OAuthAuthorizationURLInput` against all ceremony boundary rules before any real authorization URL could be generated. The validator evaluates structure, scope list, redirect URI format, state parameter presence, and operator confirmation — it does not generate or open a real URL.
 **Deliverables:** `openclaw/oauth_auth_url.py`; `OAuthAuthorizationURLInput` dataclass; `validate_oauth_auth_url_design()`; failure codes; demo script; smoke section.
 **No-real-execution constraint:** Pure stdlib Python. No network. No browser. No Google OAuth client. No real client ID or secret values in inputs. Does not call `google.oauth2`, `requests`, or `httpx`.
 **Validation:** Demo script runs and passes. Smoke section added. Safety grep clean.
+
+**Phase 3 Implementation Note:** `openclaw/oauth_auth_url.py` created. Pure stdlib local-only validator. `OAuthAuthUrlDesignInput` (26 fields: 7 hard-stop boolean detections, 11 URL design/scope/state/OAuth-param booleans, 5 ceremony control booleans, evidence dict, metadata dict). `OAuthAuthUrlDesignDecision` (PASS/FAIL). 26 `OAuthAuthUrlDesignFailureCode` constants. `_FORBIDDEN_FIELD_NAMES` frozenset (26 names). 19 compiled regex forbidden value patterns. `_SANITIZED_SUMMARY_FIELDS` tuple (27 fields). `_REQUIRED_ACTIONS` dict with operator-facing action strings for every failure code. `validate_oauth_auth_url_design()` returns `OAuthAuthUrlDesignResult` (ok, decision, failure_codes, required_actions, sanitized_summary). `openclaw/run_oauth_auth_url_demo.py` created: 34 test scenarios, 82 assertions, all pass. Smoke section [32/32] added to `scripts/smoke_test_v5_credentials.sh`. No real authorization URL generated. No OAuth executed. No real credentials. No Google Ads API. No GCP or Secret Manager. No network calls. No browser interaction. `GOOGLE_ADS_LIVE_ENABLED` remains false. Phase 4 (OAuth callback and token-exchange boundary design) remains pending.
 
 ### Phase 4 — OAuth callback and token-exchange boundary design (local-only)
 **Purpose:** Implement a local-only validator that checks an `OAuthCallbackInput` against all boundary rules for the callback and token-exchange step: presence of authorization code, absence of error parameter, redirect URI match, state parameter match, operator-present confirmation, and forbidden-value detection. Does not perform a real token exchange.

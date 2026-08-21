@@ -12,6 +12,8 @@ V5.21 converts V5.20's readiness controls into an operator-safe OAuth ceremony d
 
 **Phase 2 — OAuth ceremony checklist** (`docs/GOOGLE_ADS_OAUTH_CEREMONY_CHECKLIST.md`): documentation-only operator ceremony checklist; 15-section structure covering participants/roles, preconditions, authorization URL review gate, scope confirmation gate, browser execution gate, callback/auth-code handling gate, token exchange boundary gate, credential storage gate, Google Ads API boundary gate, evidence package, stop conditions (25), rollback sequence (13 steps), sign-off block; does not generate OAuth URL, does not execute OAuth, does not use real credentials.
 
+**Phase 3 — OAuth authorization URL design validator** (`openclaw/oauth_auth_url.py` · `openclaw/run_oauth_auth_url_demo.py`): pure stdlib local-only validator; `OAuthAuthUrlDesignInput` (26 fields); 26 failure codes; hard-stop detection for OAuth execution, real URL generation, browser interaction, and credential presence; redirect URI, scope, state, OAuth parameter, ceremony control, and forbidden-value checks; `validate_oauth_auth_url_design()`; 34 demo test scenarios (82 assertions, all pass); smoke section [32/32]; does not generate real OAuth URL, does not execute OAuth, does not use real credentials.
+
 *Latest shipped:* **v5.20.0-beta — Controlled Real Google Ads Onboarding Readiness complete** — tag `v5.20.0-beta`. See [V5.20 Branch Closure](docs/V5_20_BRANCH_CLOSURE.md) and [v5.20.0-beta Release Notes](docs/RELEASE_NOTES_V5_20_0_BETA.md).
 
 ---
