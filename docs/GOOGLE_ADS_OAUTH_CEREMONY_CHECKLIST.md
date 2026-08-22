@@ -87,6 +87,8 @@ All preconditions must be confirmed before the ceremony window opens. All items 
 | C23 | Rollback owner confirmed and reachable | [ ] |
 | C24 | Evidence package storage path defined outside repository | [ ] |
 
+**Phase 6 note:** `openclaw/oauth_approval_packet.py` implements a local-only approval packet validator (`validate_oauth_approval_packet()`) that confirms all preconditions above are met before any future real OAuth ceremony window opens. The validator checks: approval record completeness (approval_present, approval_approved, approval_unexpired, approval_scope_valid); all participant confirmations (operator, reviewer, tenant ref, client ref, rollback owner, emergency revoke owner, evidence owner, stop authority); execution window and timebox; all validator gate PASS confirmations (oauth_auth_url_gate_present, oauth_callback_gate_present, credential_handoff_protocol_present, credential_intake_gate_present, secret_version_policy_gate_present, rollback_drill_gate_present, live_gate_requirement_present); audit, safety grep, smoke test, and final live-flag reset requirements; and hard-stop detections for real credentials, OAuth execution, Google Ads API calls, GCP commands, Secret Manager calls, and token exchange. Phase 6 does not create a real approval record. Phase 6 does not authorize execution. `validate_oauth_approval_packet()` PASS is a prerequisite before any future authorized ceremony proceeds.
+
 **Preconditions result:** [ ] ALL PASS — proceed to Section D  /  [ ] BLOCKED — do not proceed
 
 ---

@@ -30,6 +30,8 @@ V5.21 Phase 5 creates this protocol as a reference for a future authorized cerem
 
 **This document does not authorize execution.** An authorized future execution operator must receive a separate, explicit, non-expired approval record before using this protocol to perform any real handoff.
 
+**Phase 6 cross-reference:** `openclaw/oauth_approval_packet.py` (`validate_oauth_approval_packet()`) must return PASS before any credential handoff step can begin. The approval packet validator confirms that the credential handoff protocol (this document) has been reviewed (`credential_handoff_protocol_present=True`) as a prerequisite gate. Credential handoff cannot proceed without approval packet PASS. Phase 6 does not create a real approval record, does not perform a real handoff, and does not authorize execution.
+
 ---
 
 ## B. Credential Classes Covered by This Protocol
