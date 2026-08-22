@@ -20,6 +20,8 @@ V5.21 converts V5.20's readiness controls into an operator-safe OAuth ceremony d
 
 **Phase 6 — OAuth operator approval packet model** (`openclaw/oauth_approval_packet.py` · `openclaw/run_oauth_approval_packet_demo.py`): pure stdlib local-only validator; `OAuthApprovalPacketInput` (33 fields); 33 failure codes; approval record requirements (approval_present, approval_approved, approval_unexpired, approval_scope_valid); participant requirements (operator, reviewer, tenant ref, client ref, rollback owner, emergency revoke owner, evidence owner, stop authority); execution window requirements; validator gate requirements (oauth_auth_url_gate_present, oauth_callback_gate_present, credential_handoff_protocol_present, credential_intake_gate_present, secret_version_policy_gate_present, rollback_drill_gate_present, live_gate_requirement_present); audit/ceremony requirements (audit, safety grep, smoke test, final live-flag reset); hard-stop detections (real_credential_present, oauth_execution_detected, google_ads_api_called, gcp_commands_used, secret_manager_called, token_exchange_attempted); `validate_oauth_approval_packet()`; 41 demo test scenarios (110 assertions, all pass); smoke section [34/34]; does not create real approval; does not execute OAuth; does not use real credentials; does not call Google Ads API, GCP, or Secret Manager.
 
+**Phase 7 — Dry-run onboarding runbook and timed execution window model** (`docs/GOOGLE_ADS_OAUTH_DRY_RUN_RUNBOOK.md`): documentation-only operator rehearsal runbook; 11 sections (A–K); 9 dry-run objectives; dry-run scope (10 in-scope items, 12 out-of-scope items); 11 participant roles with redacted label placeholders; timed execution window model (8 window parameters, 8 rules D1–D8, 6 mandatory pause points P1–P6); 20-step dry-run sequence (E1–E20); 12-gate checklist (F1–F12); evidence rehearsal (allowed and forbidden evidence tables); 25 stop conditions (H1–H25); 12-step rollback and emergency revoke rehearsal (R1–R12); dry-run result template with sign-off block; Phase 7 conclusion / non-authorization statement; no Python module; no real approval; no credentials; no OAuth execution; no auth URL; no token exchange; no Secret Manager; no Google Ads API; no GCP.
+
 *Latest shipped:* **v5.20.0-beta — Controlled Real Google Ads Onboarding Readiness complete** — tag `v5.20.0-beta`. See [V5.20 Branch Closure](docs/V5_20_BRANCH_CLOSURE.md) and [v5.20.0-beta Release Notes](docs/RELEASE_NOTES_V5_20_0_BETA.md).
 
 ---
@@ -104,6 +106,7 @@ cd ~/kaiju/projects/demo-client
 - [V5.21 Implementation Plan](docs/V5_21_IMPLEMENTATION_PLAN.md) — planning only; does not authorize OAuth, real credentials, or Google Ads API
 - [Google Ads OAuth Ceremony Checklist](docs/GOOGLE_ADS_OAUTH_CEREMONY_CHECKLIST.md) — documentation-only operator ceremony checklist; does not authorize OAuth or real onboarding
 - [Google Ads Credential Handoff Protocol](docs/GOOGLE_ADS_CREDENTIAL_HANDOFF_PROTOCOL.md) — documentation-only secure handoff protocol; does not authorize real credential handoff or Secret Manager write
+- [Google Ads OAuth Dry-Run Runbook](docs/GOOGLE_ADS_OAUTH_DRY_RUN_RUNBOOK.md) — documentation-only operator rehearsal runbook; does not authorize OAuth, real credentials, or execution
 
 ## Admin credential configuration (V5.16+)
 

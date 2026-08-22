@@ -32,6 +32,8 @@ V5.21 Phase 5 creates this protocol as a reference for a future authorized cerem
 
 **Phase 6 cross-reference:** `openclaw/oauth_approval_packet.py` (`validate_oauth_approval_packet()`) must return PASS before any credential handoff step can begin. The approval packet validator confirms that the credential handoff protocol (this document) has been reviewed (`credential_handoff_protocol_present=True`) as a prerequisite gate. Credential handoff cannot proceed without approval packet PASS. Phase 6 does not create a real approval record, does not perform a real handoff, and does not authorize execution.
 
+**Phase 7 cross-reference:** `docs/GOOGLE_ADS_OAUTH_DRY_RUN_RUNBOOK.md` (V5.21 Phase 7) provides the dry-run runbook that rehearses the credential handoff sequence defined in Section E of this document. The runbook's Section E (dry-run sequence steps E10–E14) walks through handoff steps E1–E12 above as a timed rehearsal, including handoff channel selection (Section D of this document), forbidden channel confirmation (Section C), rollback readiness (Section J), and participant confirmation (Section K). Completing the Phase 7 dry-run for the handoff sequence is a gate for the execution window readiness confirmation (D rules D1–D8). Phase 7 does not perform a real handoff, does not write to Secret Manager, does not execute OAuth, and does not authorize execution.
+
 ---
 
 ## B. Credential Classes Covered by This Protocol
