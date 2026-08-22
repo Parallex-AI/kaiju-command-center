@@ -24,6 +24,8 @@ V5.21 converts V5.20's readiness controls into an operator-safe OAuth ceremony d
 
 **Phase 8 — Pre-execution final review and gap analysis** (`docs/V5_21_FINAL_READINESS_REVIEW.md`): documentation-only; PASS for local OAuth ceremony readiness controls; 534 assertions across 7 validator demos; smoke suites 34/34 and 8/8 PASS; gap analysis complete; mandatory pre-execution checklist (G1–G21); stop conditions confirmed; NOT APPROVED for real OAuth execution; NOT APPROVED for real credential handoff; NOT APPROVED for token exchange; NOT APPROVED for Secret Manager writes; NOT APPROVED for Google Ads API calls; NOT APPROVED for GCP operations; NOT APPROVED for deployment; NOT APPROVED for GOOGLE_ADS_LIVE_ENABLED=true activation; no real credentials; no OAuth executed; no auth URL; no token exchange; no Secret Manager; no Google Ads API; no GCP.
 
+**Phase 9 — Branch closure docs and release notes** (`docs/V5_21_BRANCH_CLOSURE.md` · `docs/RELEASE_NOTES_V5_21_0_BETA.md`): documentation-only; branch closure doc (10 sections A–J): phase completion matrix, 13 files added, 8 files modified, validator evidence table (534 assertions PASS), 22-item security confirmations, READY release verdict, 15 deferred items, Phase 10 authorization requirements; release notes (9 sections A–I): per-phase change summary, validation table, security posture, explicit non-approvals, compatibility, deferred work, Phase 10 merge/tag commands; ROADMAP Phase 9 marked complete; Phase 10 (merge/tag/release) pending explicit authorization; no real credentials; no OAuth executed; no auth URL; no token exchange; no Secret Manager; no Google Ads API; no GCP.
+
 *Latest shipped:* **v5.20.0-beta — Controlled Real Google Ads Onboarding Readiness complete** — tag `v5.20.0-beta`. See [V5.20 Branch Closure](docs/V5_20_BRANCH_CLOSURE.md) and [v5.20.0-beta Release Notes](docs/RELEASE_NOTES_V5_20_0_BETA.md).
 
 ---
@@ -110,6 +112,8 @@ cd ~/kaiju/projects/demo-client
 - [Google Ads Credential Handoff Protocol](docs/GOOGLE_ADS_CREDENTIAL_HANDOFF_PROTOCOL.md) — documentation-only secure handoff protocol; does not authorize real credential handoff or Secret Manager write
 - [Google Ads OAuth Dry-Run Runbook](docs/GOOGLE_ADS_OAUTH_DRY_RUN_RUNBOOK.md) — documentation-only operator rehearsal runbook; does not authorize OAuth, real credentials, or execution
 - [V5.21 Final Readiness Review](docs/V5_21_FINAL_READINESS_REVIEW.md) — local OAuth ceremony readiness PASS; NOT approved for real OAuth/credentials/token exchange/API/GCP/Secret Manager/live flag
+- [V5.21 Branch Closure](docs/V5_21_BRANCH_CLOSURE.md) — READY for merge/tag/release; Phase 10 pending explicit authorization
+- [v5.21.0-beta Release Notes](docs/RELEASE_NOTES_V5_21_0_BETA.md) — Phase 10 (merge/tag/GitHub Release) pending explicit authorization
 
 ## Admin credential configuration (V5.16+)
 
