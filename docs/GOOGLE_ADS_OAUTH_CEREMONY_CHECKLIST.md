@@ -91,6 +91,8 @@ All preconditions must be confirmed before the ceremony window opens. All items 
 
 **Phase 7 note:** `docs/GOOGLE_ADS_OAUTH_DRY_RUN_RUNBOOK.md` (V5.21 Phase 7) provides the dry-run rehearsal runbook that an operator uses to walk through this ceremony checklist end-to-end before any real ceremony window opens. The runbook defines: 11 participant roles, timed execution window model (8 parameters, 8 rules, 6 mandatory pause points P1–P6), 20-step dry-run sequence (E1–E20), 12-gate checklist, evidence rehearsal requirements, 25 stop conditions, and a 12-step rollback/revoke rehearsal sequence. Completing a dry-run using that runbook is a precondition for the execution window readiness gate (C21) above. Phase 7 does not execute the ceremony. Phase 7 does not authorize execution.
 
+**Phase 8 note:** `docs/V5_21_FINAL_READINESS_REVIEW.md` (V5.21 Phase 8) is the pre-execution final readiness review and gap analysis for V5.21. The review confirms: local OAuth ceremony readiness controls PASS; all V5.21 validators PASS (534 total assertions); smoke suites 34/34 and 8/8 PASS; no open blockers for V5.21 beta release. The review states NOT APPROVED for real OAuth execution. Completing the final readiness review is a confirmation that all ceremony controls are in place — it does not authorize execution. Any future real ceremony requires a separate, explicitly scoped operator approval.
+
 **Preconditions result:** [ ] ALL PASS — proceed to Section D  /  [ ] BLOCKED — do not proceed
 
 ---

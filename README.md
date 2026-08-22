@@ -22,6 +22,8 @@ V5.21 converts V5.20's readiness controls into an operator-safe OAuth ceremony d
 
 **Phase 7 — Dry-run onboarding runbook and timed execution window model** (`docs/GOOGLE_ADS_OAUTH_DRY_RUN_RUNBOOK.md`): documentation-only operator rehearsal runbook; 11 sections (A–K); 9 dry-run objectives; dry-run scope (10 in-scope items, 12 out-of-scope items); 11 participant roles with redacted label placeholders; timed execution window model (8 window parameters, 8 rules D1–D8, 6 mandatory pause points P1–P6); 20-step dry-run sequence (E1–E20); 12-gate checklist (F1–F12); evidence rehearsal (allowed and forbidden evidence tables); 25 stop conditions (H1–H25); 12-step rollback and emergency revoke rehearsal (R1–R12); dry-run result template with sign-off block; Phase 7 conclusion / non-authorization statement; no Python module; no real approval; no credentials; no OAuth execution; no auth URL; no token exchange; no Secret Manager; no Google Ads API; no GCP.
 
+**Phase 8 — Pre-execution final review and gap analysis** (`docs/V5_21_FINAL_READINESS_REVIEW.md`): documentation-only; PASS for local OAuth ceremony readiness controls; 534 assertions across 7 validator demos; smoke suites 34/34 and 8/8 PASS; gap analysis complete; mandatory pre-execution checklist (G1–G21); stop conditions confirmed; NOT APPROVED for real OAuth execution; NOT APPROVED for real credential handoff; NOT APPROVED for token exchange; NOT APPROVED for Secret Manager writes; NOT APPROVED for Google Ads API calls; NOT APPROVED for GCP operations; NOT APPROVED for deployment; NOT APPROVED for GOOGLE_ADS_LIVE_ENABLED=true activation; no real credentials; no OAuth executed; no auth URL; no token exchange; no Secret Manager; no Google Ads API; no GCP.
+
 *Latest shipped:* **v5.20.0-beta — Controlled Real Google Ads Onboarding Readiness complete** — tag `v5.20.0-beta`. See [V5.20 Branch Closure](docs/V5_20_BRANCH_CLOSURE.md) and [v5.20.0-beta Release Notes](docs/RELEASE_NOTES_V5_20_0_BETA.md).
 
 ---
@@ -107,6 +109,7 @@ cd ~/kaiju/projects/demo-client
 - [Google Ads OAuth Ceremony Checklist](docs/GOOGLE_ADS_OAUTH_CEREMONY_CHECKLIST.md) — documentation-only operator ceremony checklist; does not authorize OAuth or real onboarding
 - [Google Ads Credential Handoff Protocol](docs/GOOGLE_ADS_CREDENTIAL_HANDOFF_PROTOCOL.md) — documentation-only secure handoff protocol; does not authorize real credential handoff or Secret Manager write
 - [Google Ads OAuth Dry-Run Runbook](docs/GOOGLE_ADS_OAUTH_DRY_RUN_RUNBOOK.md) — documentation-only operator rehearsal runbook; does not authorize OAuth, real credentials, or execution
+- [V5.21 Final Readiness Review](docs/V5_21_FINAL_READINESS_REVIEW.md) — local OAuth ceremony readiness PASS; NOT approved for real OAuth/credentials/token exchange/API/GCP/Secret Manager/live flag
 
 ## Admin credential configuration (V5.16+)
 

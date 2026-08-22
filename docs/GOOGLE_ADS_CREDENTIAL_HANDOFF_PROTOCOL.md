@@ -34,6 +34,8 @@ V5.21 Phase 5 creates this protocol as a reference for a future authorized cerem
 
 **Phase 7 cross-reference:** `docs/GOOGLE_ADS_OAUTH_DRY_RUN_RUNBOOK.md` (V5.21 Phase 7) provides the dry-run runbook that rehearses the credential handoff sequence defined in Section E of this document. The runbook's Section E (dry-run sequence steps E10–E14) walks through handoff steps E1–E12 above as a timed rehearsal, including handoff channel selection (Section D of this document), forbidden channel confirmation (Section C), rollback readiness (Section J), and participant confirmation (Section K). Completing the Phase 7 dry-run for the handoff sequence is a gate for the execution window readiness confirmation (D rules D1–D8). Phase 7 does not perform a real handoff, does not write to Secret Manager, does not execute OAuth, and does not authorize execution.
 
+**Phase 8 cross-reference:** `docs/V5_21_FINAL_READINESS_REVIEW.md` (V5.21 Phase 8) is the pre-execution final readiness review. It confirms that the credential handoff protocol (this document) has been reviewed as part of the V5.21 scope reviewed (Section A) and that no real credential handoff is approved. The review states NOT APPROVED for real credential handoff. The handoff protocol remains a prerequisite document only — real credential handoff cannot proceed without a separate, explicitly scoped operator approval and all pre-write validators PASS.
+
 ---
 
 ## B. Credential Classes Covered by This Protocol
