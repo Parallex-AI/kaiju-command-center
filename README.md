@@ -16,6 +16,8 @@ V5.21 converts V5.20's readiness controls into an operator-safe OAuth ceremony d
 
 **Phase 4 — OAuth callback and token-exchange boundary validator** (`openclaw/oauth_callback.py` · `openclaw/run_oauth_callback_demo.py`): pure stdlib local-only validator; `OAuthCallbackDesignInput` (32 fields); 32 failure codes; hard-stop detection for callback URL receipt, auth code receipt/logging/commit/paste-to-chat, token exchange attempt, token response receipt/logging/commit, and credential presence; boundary requirement checks for state verification, secure channel, token exchange approval/window, redacted status verification, storage/rollback boundaries, audit/evidence requirements, and operator confirmation; `validate_oauth_callback_design()`; 40 demo test scenarios (98 assertions, all pass); smoke section [33/33]; does not receive real callback URL, does not receive real auth code, does not exchange tokens, does not call OAuth/Google Ads/GCP/Secret Manager.
 
+**Phase 5 — Secure credential handoff protocol design** (`docs/GOOGLE_ADS_CREDENTIAL_HANDOFF_PROTOCOL.md`): documentation-only handoff protocol; 14 sections (A–N); credential classes covered (7: refresh token, access token, client ID, client secret, developer token, customer ID, login customer ID); forbidden transmission channels (9); acceptable transmission channels (4 with conditions); 12-step handoff sequence (E1–E12); Secret Manager write path reference (V5.15–V5.17 infrastructure, pre-write validators); audit requirements (7); forbidden content classes (12); boundary rules between OAuth ceremony and Secret Manager write (6); rollback and revocation integration (pre-write readiness confirmation + 7-step post-write revocation path R1–R7); participant confirmation requirements (7 roles); 15 stop conditions (L1–L15); revocation path summary; protocol compliance statement; no Python module; no real credentials; no Secret Manager write; no OAuth executed; no GCP; no network calls.
+
 *Latest shipped:* **v5.20.0-beta — Controlled Real Google Ads Onboarding Readiness complete** — tag `v5.20.0-beta`. See [V5.20 Branch Closure](docs/V5_20_BRANCH_CLOSURE.md) and [v5.20.0-beta Release Notes](docs/RELEASE_NOTES_V5_20_0_BETA.md).
 
 ---
@@ -99,6 +101,7 @@ cd ~/kaiju/projects/demo-client
 - [v5.20.0-beta Release Notes](docs/RELEASE_NOTES_V5_20_0_BETA.md)
 - [V5.21 Implementation Plan](docs/V5_21_IMPLEMENTATION_PLAN.md) — planning only; does not authorize OAuth, real credentials, or Google Ads API
 - [Google Ads OAuth Ceremony Checklist](docs/GOOGLE_ADS_OAUTH_CEREMONY_CHECKLIST.md) — documentation-only operator ceremony checklist; does not authorize OAuth or real onboarding
+- [Google Ads Credential Handoff Protocol](docs/GOOGLE_ADS_CREDENTIAL_HANDOFF_PROTOCOL.md) — documentation-only secure handoff protocol; does not authorize real credential handoff or Secret Manager write
 
 ## Admin credential configuration (V5.16+)
 

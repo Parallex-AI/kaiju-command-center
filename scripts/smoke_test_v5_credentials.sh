@@ -502,7 +502,7 @@ echo "[8/19] Secret-safety and git hygiene..."
 GREP_TARGETS="$REPO/scripts $REPO/docs $REPO/agents $REPO/openclaw $REPO/README.md $REPO/.env.example"
 
 # ya29. — OAuth access token prefix
-if grep -R "ya29\." -n $GREP_TARGETS 2>/dev/null | grep -v "_PYEOF\|# ya29\|ya29.*marker\|ya29.*forbidden\|starting with.*ya29\|ya29.*prohibition\|must never be used\|no.*ya29"; then
+if grep -R "ya29\." -n $GREP_TARGETS 2>/dev/null | grep -v "_PYEOF\|# ya29\|ya29.*marker\|ya29.*forbidden\|starting with.*ya29\|ya29.*prohibition\|must never be used\|no.*ya29\|ya29.*pattern\|matching.*ya29"; then
     fail "ya29 OAuth token prefix found in source files"
 else
     pass "no ya29 OAuth token prefix in source files"

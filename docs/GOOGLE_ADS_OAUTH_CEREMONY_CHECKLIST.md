@@ -216,6 +216,8 @@ The following items define token exchange boundary requirements for any future a
 
 **Phase 2 status: Real Secret Manager write is not performed in this phase.**
 
+**Phase 5 note:** `docs/GOOGLE_ADS_CREDENTIAL_HANDOFF_PROTOCOL.md` defines the secure credential handoff protocol for this gate. The protocol covers: credential classes covered (7 classes), forbidden transmission channels (9), acceptable transmission channels (4 with conditions), handoff sequence (12-step E1–E12 gate), Secret Manager write path reference (V5.15–V5.17), audit requirements (7), stop conditions (15), and revocation path (7-step). All items below must be confirmed using the handoff protocol before any real Secret Manager write is permitted.
+
 The following items define credential storage requirements for any future authorized ceremony.
 
 | # | Item | Verified |
