@@ -372,4 +372,18 @@ This dry-run execution packet template is complete.
 - No deployment was performed.
 - `GOOGLE_ADS_LIVE_ENABLED` remains false.
 
-Phase 3 (dry-run execution validator — `openclaw/oauth_dry_run_execution.py`) remains pending.
+Phase 3 (dry-run execution validator) is complete.
+
+## O. Phase 3 Note
+
+The local dry-run execution validator (`openclaw/oauth_dry_run_execution.py`) now exists.
+
+- Validator PASS is required before Phase 4 dry-run result recording.
+- The validator checks packet completeness, all pre-flight and gate PASS confirmations, dry-run sequence completeness, no-execution confirmations, evidence package redaction, stop-condition review, rollback rehearsal presence, and final decision presence.
+- The validator enforces that all 15 hard-stop detection fields are False.
+- The validator detects forbidden field names and value patterns in evidence and metadata.
+- Phase 3 does not execute the dry-run and does not authorize real execution.
+- No real credentials, approval, OAuth, auth URL, browser, callback URL, auth code, token exchange, Secret Manager, Google Ads API, GCP, deployment, or live flag activation occurred in Phase 3.
+- `GOOGLE_ADS_LIVE_ENABLED` remains false.
+
+Phase 4 (dry-run packet execution results — `docs/V5_22_DRY_RUN_EXECUTION_RESULTS.md`) remains pending.

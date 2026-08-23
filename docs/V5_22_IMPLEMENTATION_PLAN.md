@@ -2,7 +2,7 @@
 
 **Branch:** `v5.22-controlled-real-oauth-ceremony-dry-run`
 **Base:** `v5.21.0-beta` / master at `dd67c4f`
-**Status:** Phase 2 — Dry-run execution packet template
+**Status:** Phase 3 — Dry-run execution validator
 **Purpose:** Execute a full dry-run rehearsal of the controlled Google Ads OAuth onboarding ceremony using V5.21 controls, validators, runbooks, and redacted placeholders only.
 
 ---
@@ -114,6 +114,8 @@ V5.22 Phase 1 is not authorization to execute any of the following:
 **Demo:** Scenarios covering PASS path, each failure code, hard-stop triggers.
 **No-real-execution constraint:** Local-only. No real credentials. No OAuth. No GCP. `GOOGLE_ADS_LIVE_ENABLED` remains false.
 **Validation:** All demo assertions PASS. Smoke section added to `smoke_test_v5_credentials.sh`.
+
+**Phase 3 Implementation Note:** `openclaw/oauth_dry_run_execution.py` and `openclaw/run_oauth_dry_run_execution_demo.py` created. Local-only dry-run execution packet validator. `OAuthDryRunExecutionInput` (45 boolean fields: 12 packet completeness, 11 pre-flight/gate, 7 dry-run sequence/evidence, 15 hard-stop detections; plus evidence and metadata dicts). 47 failure codes. `validate_oauth_dry_run_execution()` validates packet completeness, gate PASS confirmation, no-execution confirmations, evidence package redaction, stop-condition and rollback rehearsal presence, and final decision presence; enforces all 15 hard-stop fields are False; detects forbidden field names and value patterns in evidence/metadata. Pure stdlib. No GCP. No network. No subprocess. No socket. No real credentials. No real approval. No OAuth. No auth URL. No browser. No callback URL. No auth code. No token exchange. No Secret Manager. No Google Ads API. No GCP. No deploy. `GOOGLE_ADS_LIVE_ENABLED` remains false. Demo: 55 scenarios, 112 assertions, all PASS. Smoke suite updated to [35/35] PASS. Phase 4 remains pending.
 
 ### Phase 4 — Execute dry-run packet locally
 **Deliverables:** `docs/V5_22_DRY_RUN_EXECUTION_RESULTS.md`
