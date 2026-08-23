@@ -14,6 +14,8 @@ V5.22 executes a full dry-run rehearsal of the controlled Google Ads OAuth onboa
 
 **Phase 3 — Dry-run execution validator** (`openclaw/oauth_dry_run_execution.py` · `openclaw/run_oauth_dry_run_execution_demo.py`): local-only dry-run execution packet validator; `OAuthDryRunExecutionInput` (45 boolean fields); 47 failure codes; validates packet completeness, gate PASS confirmation, no-execution confirmations, evidence package redaction, stop-condition and rollback rehearsal presence, final decision presence; enforces all 15 hard-stop fields are False; detects forbidden field names and value patterns; pure stdlib; no credentials; no OAuth; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP; no deploy; `GOOGLE_ADS_LIVE_ENABLED` remains false; 55 demo scenarios, 112 assertions, all PASS; smoke suite updated to 35/35.
 
+**Phase 4 — Local dry-run execution results** (`docs/V5_22_DRY_RUN_EXECUTION_RESULTS.md`): local-only dry-run execution result; PASS; 14 sections (A–N); 610 assertions from explicit-count demos; smoke suites 35/35 and 8/8 PASS; evidence redacted; no real OAuth; no credentials; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP; no deploy; `GOOGLE_ADS_LIVE_ENABLED` remains false.
+
 *Latest shipped:* **v5.21.0-beta — Controlled Real Google Ads OAuth Onboarding Ceremony complete** — tag `v5.21.0-beta`. See [V5.21 Branch Closure](docs/V5_21_BRANCH_CLOSURE.md) and [v5.21.0-beta Release Notes](docs/RELEASE_NOTES_V5_21_0_BETA.md).
 
 ---
@@ -105,6 +107,7 @@ cd ~/kaiju/projects/demo-client
 - [V5.22 Implementation Plan](docs/V5_22_IMPLEMENTATION_PLAN.md) — planning only; does not authorize OAuth, real credentials, Google Ads API, Secret Manager, GCP, deployment, or live flag activation
 - [Google Ads OAuth Dry-Run Execution Packet](docs/GOOGLE_ADS_OAUTH_DRY_RUN_EXECUTION_PACKET.md) — documentation-only redacted packet template; does not authorize real OAuth execution, credentials, token exchange, GCP, or live flag activation
 - [V5.22 Dry-Run Execution Validator](openclaw/oauth_dry_run_execution.py) — local-only; validates dry-run packet completeness and no-execution confirmations; pure stdlib; does not execute dry-run or authorize real OAuth
+- [V5.22 Dry-Run Execution Results](docs/V5_22_DRY_RUN_EXECUTION_RESULTS.md) — local dry-run result PASS; redacted evidence only; does not authorize real OAuth execution, credentials, token exchange, GCP, or live flag activation
 
 ## Admin credential configuration (V5.16+)
 
