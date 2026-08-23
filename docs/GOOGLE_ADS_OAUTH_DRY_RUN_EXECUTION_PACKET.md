@@ -409,4 +409,16 @@ The stop-condition and rollback rehearsal results are now recorded in `docs/V5_2
 - No real revoke or cleanup was performed. Rollback and emergency revoke rehearsals completed as no-real-state walkthroughs.
 - No real approval was created. No credentials. No OAuth. No auth URL. No browser. No callback URL. No auth code. No token exchange. No Secret Manager. No Google Ads API. No GCP. No deploy. `GOOGLE_ADS_LIVE_ENABLED` remains false.
 
-Phase 6 (final dry-run review — `docs/V5_22_FINAL_DRY_RUN_REVIEW.md`) remains pending.
+Phase 6 (final dry-run review) is complete.
+
+## R. Phase 6 Note
+
+The final dry-run review is now recorded in `docs/V5_22_FINAL_DRY_RUN_REVIEW.md`.
+
+- Final dry-run verdict: PASS (dry-run only).
+- This packet template remains the canonical ceremony structure for future real or dry-run executions.
+- Phase 6 did not perform real execution. The review consolidated Phases 1–5 evidence and documented 16 remaining gaps before any real ceremony can be authorized.
+- Real execution remains NOT APPROVED.
+- No real approval was created. No credentials. No OAuth. No auth URL. No browser. No callback URL. No auth code. No token exchange. No Secret Manager. No Google Ads API. No GCP. No deploy. `GOOGLE_ADS_LIVE_ENABLED` remains false.
+
+Phase 7 (branch closure docs and release notes — `docs/V5_22_BRANCH_CLOSURE.md` · `docs/RELEASE_NOTES_V5_22_0_BETA.md`) remains pending.

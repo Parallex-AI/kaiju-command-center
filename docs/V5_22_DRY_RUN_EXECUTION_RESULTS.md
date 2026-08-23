@@ -365,4 +365,6 @@ V5.22 local dry-run execution result: **PASS**.
 - No IAM, API, or billing changes were made.
 - `GOOGLE_ADS_LIVE_ENABLED` remains false.
 
-Phase 5 (stop-condition and rollback rehearsal results) is complete — results recorded in `docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md`. Rehearsal result PASS. No real rollback or revoke was performed. Phase 6 remains pending.
+Phase 5 (stop-condition and rollback rehearsal results) is complete — results recorded in `docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md`. Rehearsal result PASS. No real rollback or revoke was performed.
+
+Phase 6 (final dry-run review and gap analysis) is complete — review recorded in `docs/V5_22_FINAL_DRY_RUN_REVIEW.md`. Final dry-run verdict PASS. Real ceremony remains NOT APPROVED. Phase 7 remains pending.
