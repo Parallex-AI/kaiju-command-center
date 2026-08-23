@@ -10,6 +10,8 @@ V5.22 executes a full dry-run rehearsal of the controlled Google Ads OAuth onboa
 
 **Phase 1 — Branch setup and dry-run execution plan** (`docs/V5_22_IMPLEMENTATION_PLAN.md`): V5.22 implementation plan; 8-phase roadmap; dry-run execution scope; baseline controls from V5.21; non-authorization statement; stop conditions; deferred items; does not authorize OAuth, real credentials, Google Ads API, Secret Manager, GCP, deployment, or `GOOGLE_ADS_LIVE_ENABLED=true` activation.
 
+**Phase 2 — Dry-run execution packet template** (`docs/GOOGLE_ADS_OAUTH_DRY_RUN_EXECUTION_PACKET.md`): documentation-only redacted packet template; 14 sections (A–N); 11-role participant placeholder table; 7 redacted target context fields; 12-field timed execution window with 8 window rules; 15 pre-flight gates; 24-step dry-run sequence checklist; 10-validator evidence field table; 16 no-execution confirmations (all pre-filled `NO`); allowed/forbidden evidence tables; 21 stop conditions; rollback and emergency revoke rehearsal fields; final dry-run decision block; documentation-only; no dry-run executed; no real credentials; no OAuth; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP.
+
 *Latest shipped:* **v5.21.0-beta — Controlled Real Google Ads OAuth Onboarding Ceremony complete** — tag `v5.21.0-beta`. See [V5.21 Branch Closure](docs/V5_21_BRANCH_CLOSURE.md) and [v5.21.0-beta Release Notes](docs/RELEASE_NOTES_V5_21_0_BETA.md).
 
 ---
@@ -99,6 +101,7 @@ cd ~/kaiju/projects/demo-client
 - [V5.21 Branch Closure](docs/V5_21_BRANCH_CLOSURE.md) — merged, tagged v5.21.0-beta, GitHub Release published 2026-08-22
 - [v5.21.0-beta Release Notes](docs/RELEASE_NOTES_V5_21_0_BETA.md)
 - [V5.22 Implementation Plan](docs/V5_22_IMPLEMENTATION_PLAN.md) — planning only; does not authorize OAuth, real credentials, Google Ads API, Secret Manager, GCP, deployment, or live flag activation
+- [Google Ads OAuth Dry-Run Execution Packet](docs/GOOGLE_ADS_OAUTH_DRY_RUN_EXECUTION_PACKET.md) — documentation-only redacted packet template; does not authorize real OAuth execution, credentials, token exchange, GCP, or live flag activation
 
 ## Admin credential configuration (V5.16+)
 
