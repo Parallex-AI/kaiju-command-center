@@ -397,4 +397,16 @@ The dry-run execution results are now recorded in `docs/V5_22_DRY_RUN_EXECUTION_
 - Phase 4 did not perform real execution. Evidence is redacted — placeholder labels only.
 - No real approval was created. No credentials. No OAuth. No auth URL. No browser. No callback URL. No auth code. No token exchange. No Secret Manager. No Google Ads API. No GCP. No deploy. `GOOGLE_ADS_LIVE_ENABLED` remains false.
 
-Phase 5 (stop-condition and rollback rehearsal results — `docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md`) remains pending.
+Phase 5 (stop-condition and rollback rehearsal results) is complete.
+
+## Q. Phase 5 Note
+
+The stop-condition and rollback rehearsal results are now recorded in `docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md`.
+
+- Rehearsal result: PASS.
+- This packet template remains the canonical ceremony structure for future real or dry-run executions.
+- Phase 5 did not perform real execution. All 26 stop conditions were walked through using placeholder state. No condition was triggered.
+- No real revoke or cleanup was performed. Rollback and emergency revoke rehearsals completed as no-real-state walkthroughs.
+- No real approval was created. No credentials. No OAuth. No auth URL. No browser. No callback URL. No auth code. No token exchange. No Secret Manager. No Google Ads API. No GCP. No deploy. `GOOGLE_ADS_LIVE_ENABLED` remains false.
+
+Phase 6 (final dry-run review — `docs/V5_22_FINAL_DRY_RUN_REVIEW.md`) remains pending.

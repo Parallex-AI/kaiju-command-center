@@ -16,6 +16,8 @@ V5.22 executes a full dry-run rehearsal of the controlled Google Ads OAuth onboa
 
 **Phase 4 — Local dry-run execution results** (`docs/V5_22_DRY_RUN_EXECUTION_RESULTS.md`): local-only dry-run execution result; PASS; 14 sections (A–N); 610 assertions from explicit-count demos; smoke suites 35/35 and 8/8 PASS; evidence redacted; no real OAuth; no credentials; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP; no deploy; `GOOGLE_ADS_LIVE_ENABLED` remains false.
 
+**Phase 5 — Stop-condition and rollback rehearsal results** (`docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md`): documentation-only local rehearsal; result PASS; 10 sections (A–J); 26 stop conditions (H-01–H-26) walked through — all PASS, none triggered; 12-step stop procedure PASS; rollback rehearsal (16 fields R-01–R-16, all confirmed PASS/YES); emergency revoke rehearsal (10 checklist items, all PASS, no-real-state walkthrough); post-stop safety validation PASS; 15 no-real-state confirmations all NO; no real stop triggered; no real rollback/revoke; no real approval; no credentials; no OAuth; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP; no deploy; `GOOGLE_ADS_LIVE_ENABLED` remains false.
+
 *Latest shipped:* **v5.21.0-beta — Controlled Real Google Ads OAuth Onboarding Ceremony complete** — tag `v5.21.0-beta`. See [V5.21 Branch Closure](docs/V5_21_BRANCH_CLOSURE.md) and [v5.21.0-beta Release Notes](docs/RELEASE_NOTES_V5_21_0_BETA.md).
 
 ---
@@ -108,6 +110,7 @@ cd ~/kaiju/projects/demo-client
 - [Google Ads OAuth Dry-Run Execution Packet](docs/GOOGLE_ADS_OAUTH_DRY_RUN_EXECUTION_PACKET.md) — documentation-only redacted packet template; does not authorize real OAuth execution, credentials, token exchange, GCP, or live flag activation
 - [V5.22 Dry-Run Execution Validator](openclaw/oauth_dry_run_execution.py) — local-only; validates dry-run packet completeness and no-execution confirmations; pure stdlib; does not execute dry-run or authorize real OAuth
 - [V5.22 Dry-Run Execution Results](docs/V5_22_DRY_RUN_EXECUTION_RESULTS.md) — local dry-run result PASS; redacted evidence only; does not authorize real OAuth execution, credentials, token exchange, GCP, or live flag activation
+- [V5.22 Stop-Condition and Rollback Rehearsal Results](docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md) — documentation-only rehearsal result PASS; 26 stop conditions walked through; rollback and emergency revoke rehearsed as no-real-state walkthrough; no real rollback/revoke, credentials, OAuth, token exchange, GCP, Secret Manager, Google Ads API, or live flag activation
 
 ## Admin credential configuration (V5.16+)
 

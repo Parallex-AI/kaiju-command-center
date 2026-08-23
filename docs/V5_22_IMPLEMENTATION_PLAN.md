@@ -2,7 +2,7 @@
 
 **Branch:** `v5.22-controlled-real-oauth-ceremony-dry-run`
 **Base:** `v5.21.0-beta` / master at `dd67c4f`
-**Status:** Phase 4 — Execute dry-run packet locally
+**Status:** Phase 5 — Stop-condition and rollback rehearsal results
 **Purpose:** Execute a full dry-run rehearsal of the controlled Google Ads OAuth onboarding ceremony using V5.21 controls, validators, runbooks, and redacted placeholders only.
 
 ---
@@ -146,6 +146,8 @@ V5.22 Phase 1 is not authorization to execute any of the following:
 - Explicit confirmations: no real revoke, no real Secret Manager, no real credentials, no real approval revocation.
 **No-real-execution constraint:** Documentation-only rehearsal results. No real revoke. No real Secret Manager. No real credentials.
 **Validation:** Document review. Safety grep clean.
+
+**Phase 5 Implementation Note:** `docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md` created. Documentation-only local rehearsal. 10 sections (A–J): rehearsal scope; source artifacts reviewed (9 artifacts, all PASS); stop-condition walkthrough (26 conditions H-01–H-26, all rehearsal result PASS, no condition triggered, no real action performed); stop procedure rehearsal (12 steps D-01–D-12, all PASS); rollback rehearsal results (16 fields R-01–R-16, all confirmed PASS or YES); emergency revoke rehearsal (10 checklist items, all PASS, no-real-state walkthrough only); post-stop safety validation (safety grep CLEAN, smoke 35/35 and 8/8 PASS, dry-run execution demo 112 PASS, rollback drill demo 67 PASS, secret version policy demo 71 PASS); no-real-state confirmation (15 items, all NO); rehearsal decision (PASS, `<reviewer_label>` / `<verifier_label>` sign-off, not approved for real OAuth); Phase 5 conclusion. Rehearsal result PASS. No real stop triggered. No real rollback/revoke performed. No real approval, credentials, OAuth, auth URL, browser, callback URL, auth code, token exchange, Secret Manager, Google Ads API, GCP, deploy, or live flag activation. Phase 6 remains pending.
 
 ### Phase 6 — Final dry-run review and gap analysis
 **Deliverables:** `docs/V5_22_FINAL_DRY_RUN_REVIEW.md`
