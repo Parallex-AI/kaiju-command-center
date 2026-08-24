@@ -2,7 +2,7 @@
 
 **Branch:** `v5.23-controlled-real-oauth-execution-planning`
 **Base:** `v5.22.0-beta` / master merge commit `4217652`
-**Status:** Phase 3 — Secure real credential intake protocol finalization
+**Status:** Phase 4 — OAuth execution runbook final go/no-go checklist
 **Purpose:** Design the authorization architecture, per-step gating model, and safety envelope required before any first controlled real OAuth execution can be proposed.
 
 ---
@@ -160,7 +160,10 @@ Only Phase 1 is executed now. Phases 2–5 are documentation-only design work th
 **Validation:** Document review. Safety grep clean.
 
 ### Phase 4 — OAuth execution runbook final go/no-go checklist
-**Status:** Pending.
+**Status:** In progress (this phase).
+
+**Phase 4 Implementation Note:** `docs/GOOGLE_ADS_REAL_OAUTH_EXECUTION_RUNBOOK.md` created. Documentation-only. 15 sections (A–O): runbook purpose; non-authorization statement (17 items); ceremony identity (12 fields; 4 status enum values `DRAFT|REVIEWED|READY_TO_PROPOSE|REJECTED`; default committed status `DRAFT`; `READY_TO_PROPOSE`/`REJECTED` prohibited in Phase 4 commits); operator roles (10 role placeholders — operator, reviewer, credential owner, secure channel owner, secret writer, OAuth operator, stop authority, rollback owner, emergency revoke owner, evidence owner — each with 6 attributes and cross-cutting rules); time-boxed execution window (6 fields + 8 window rules E-R1–E-R8: expiry, extension, abort, restart, freeze, attention, no-overlap, cool-down); pre-execution gate checklist (38 items F-01–F-38; verification at execution time only, no carry-forward); execution sequence overview (38 steps G1–G38 with approval-confirmation and pause-point structure + 6 sequence rules G-R1–G-R6 including no-implication, no-carry-forward, no-continuation-past-expiry, no-skip-without-authorization, non-sequential-pause-requirement, silent-continuation-prohibited); per-step execution cards A1–A10 (each with step ID, purpose, required phrase reference, required preconditions, allowed action, forbidden actions, evidence allowed, evidence forbidden, stop-if triggers, pause-after=YES, next-step-separate-authorization=YES); stop conditions (50 conditions I-01–I-50); rollback/revoke readiness (10-item checklist J-01–J-10; 4 boundary rules; new-ceremony-after-rollback rule); post-execution verification template (9 fields; real-values-permitted flags; out-of-repo storage rule); final go/no-go checklist (33 items L-01–L-33; NO_GO on any unchecked item); evidence package template (11 allowed categories + 17 forbidden categories); relationship to previous controls (V5.22 runbook basis, V5.23 Phase 2/3, V5.19/V5.20/V5.15/V5.16/V5.12 layered controls; Phase 5 review required); Phase 4 conclusion. All fields placeholder-only. No real approval created. No real credentials. No real values recorded anywhere. No OAuth executed. No auth URL generated. No browser opened. No callback URL. No auth code. No token exchange. No Secret Manager. No Google Ads API. No GCP. No deploy. `GOOGLE_ADS_LIVE_ENABLED` remains false. Phase 5 (pre-execution final authorization review) remains pending.
+
 **Deliverables:** `docs/GOOGLE_ADS_REAL_OAUTH_EXECUTION_RUNBOOK.md`.
 **Purpose:** Convert V5.21's `GOOGLE_ADS_OAUTH_DRY_RUN_RUNBOOK.md` from rehearsal form into real-execution operator runbook. Adds time-boxed operator steps, per-step stop conditions, rollback owner assignments, per-step approvals, and final go/no-go checklist. Every gate remains placeholder-labeled in the committed doc.
 **Contents:**
