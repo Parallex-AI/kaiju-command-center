@@ -2,7 +2,7 @@
 
 **Branch:** `v5.23-controlled-real-oauth-execution-planning`
 **Base:** `v5.22.0-beta` / master merge commit `4217652`
-**Status:** Phase 5 — Pre-execution final authorization review
+**Status:** Phase 9 — Branch closure docs and release notes
 **Purpose:** Design the authorization architecture, per-step gating model, and safety envelope required before any first controlled real OAuth execution can be proposed.
 
 ---
@@ -238,9 +238,11 @@ Only Phase 1 is executed now. Phases 2–5 are documentation-only design work th
 **After Phase 8:** `GOOGLE_ADS_LIVE_ENABLED` must be returned to `false` unless a separate longer-term authorization is granted.
 
 ### Phase 9 — Branch closure docs and release notes
-**Status:** Documentation phase; occurs only after prior phases complete (in whatever mix has been authorized).
+**Status:** In progress (this phase).
 **Deliverables:** `docs/V5_23_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_23_0_BETA.md`; README/ROADMAP updates.
 **No-real-execution constraint:** Documentation-only. No merge/tag/release in this phase.
+
+**Phase 9 Implementation Note:** `docs/V5_23_BRANCH_CLOSURE.md` and `docs/RELEASE_NOTES_V5_23_0_BETA.md` created. Branch closure document: 13 sections (A–M); closure status READY FOR PHASE 10 AUTHORIZATION; phase completion matrix (Phases 1–5 PASS with commits `d08a232`, `b7324c4`, `6128f98`, `94a0e81`, `49d3888`; Phases 6–8 NOT EXECUTED / pending separate explicit authorization; Phase 9 pending commit; Phase 10 pending explicit authorization); 7 files added; 3 files modified; artifact summary for Phases 1–5; validation evidence (610 aggregate assertions, smoke 35/35 and 8/8 PASS, safety grep CLEAN); readiness verdict (`READY_TO_PROPOSE` — heavy caveats, signpost not green light); 17 remaining gaps H-01–H-17 (all blocking execution, all human/out-of-repo); 24 security confirmations; 14 NOT APPROVED boundaries; Phase 10 requirements (explicit authorization must name merge/tag/push/publish); closure decision (READY FOR MERGE/TAG/RELEASE AUTHORIZATION ONLY). Release notes: 10 sections (A–J); tag `v5.23.0-beta`; date 2026-08-24; status READY FOR RELEASE (Phase 10 authorization required); Phase 5 verdict `READY_TO_PROPOSE`; release publication pending Phase 10 explicit authorization; describes what changed across Phases 1–5 and Phase 9 with commit hashes; 7 new files table; 3 modified files table; validation table (610 total explicit assertions); readiness verdict (`READY_TO_PROPOSE` does not authorize any A-step); 14-item NOT APPROVED list; compatibility (additive to V5.22, no breaking changes, no new dependencies); 14-item deferred list; Phase 10 publication requirements. README and ROADMAP updated. No merge performed. No tag created. No push. No GitHub Release. No real credentials. No OAuth. No GCP. No deploy. `GOOGLE_ADS_LIVE_ENABLED` remains false. Phase 10 remains pending explicit user authorization.
 
 ### Phase 10 — Merge, tag, release
 **Status:** PENDING SEPARATE EXPLICIT AUTHORIZATION.
