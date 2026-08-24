@@ -57,7 +57,7 @@ It does not authorize or perform live execution. All evidence is local and redac
 | Phase 3 | OAuth dry-run execution validator | `openclaw/oauth_dry_run_execution.py` · `openclaw/run_oauth_dry_run_execution_demo.py` | 55 demo scenarios; 112 assertions PASS; smoke [35/35]; safety grep CLEAN | NOT PERFORMED | `5ef402a` |
 | Phase 4 | Local dry-run execution results | `docs/V5_22_DRY_RUN_EXECUTION_RESULTS.md` | 14 sections (A–N); 610 explicit assertions; smoke 35/35 and 8/8 PASS; safety grep CLEAN; validator PASS | NOT PERFORMED | `d34afa3` |
 | Phase 5 | Stop-condition and rollback rehearsal results | `docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md` | 10 sections (A–J); 26 stop conditions PASS; 12-step stop procedure PASS; 16-field rollback PASS; 10-item emergency revoke PASS; safety grep CLEAN | NOT PERFORMED | `487ce01` |
-| Phase 6 | Final dry-run review and gap analysis | `docs/V5_22_FINAL_DRY_RUN_REVIEW.md` | Document review; safety grep CLEAN; smoke suites PASS | NOT PERFORMED | Pending commit |
+| Phase 6 | Final dry-run review and gap analysis | `docs/V5_22_FINAL_DRY_RUN_REVIEW.md` | Document review; safety grep CLEAN; smoke suites PASS | NOT PERFORMED | `d42d6e2` |
 
 All 5 completed phases: PASS. No real execution at any phase.
 
@@ -73,7 +73,7 @@ All 5 completed phases: PASS. No real execution at any phase.
 | `openclaw/run_oauth_dry_run_execution_demo.py` | Demo for dry-run execution validator; 55 scenarios; 112 assertions | Complete — all PASS |
 | `docs/V5_22_DRY_RUN_EXECUTION_RESULTS.md` | Local dry-run execution result record; 14 sections; PASS verdict | Complete — Phase 5 note added |
 | `docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md` | Stop-condition walkthrough; rollback/emergency revoke rehearsal; 10 sections | Complete — PASS |
-| `docs/V5_22_FINAL_DRY_RUN_REVIEW.md` | This document — consolidated review; gap analysis; NOT APPROVED statements | In progress (Phase 6) |
+| `docs/V5_22_FINAL_DRY_RUN_REVIEW.md` | This document — consolidated review; gap analysis; NOT APPROVED statements | Complete — Phase 6; Phase 7 note added |
 | `README.md` | Current milestone description; doc links for all V5.22 artifacts | Updated through Phase 6 |
 | `docs/ROADMAP.md` | V5.22 phase breakdown; scope constraints; deferred items | Updated through Phase 6 |
 | `scripts/smoke_test_v5_credentials.sh` | Credential chain smoke suite; 35 sections including V5.22 validator | [35/35] PASS |
@@ -296,4 +296,4 @@ V5.22 final dry-run review result: **PASS (dry-run only)**.
 - No rollback or revocation was performed.
 - `GOOGLE_ADS_LIVE_ENABLED` remains false.
 
-Phase 7 (branch closure docs and release notes — `docs/V5_22_BRANCH_CLOSURE.md` · `docs/RELEASE_NOTES_V5_22_0_BETA.md`) remains pending.
+Phase 7 (branch closure docs and release notes) complete — `docs/V5_22_BRANCH_CLOSURE.md` and `docs/RELEASE_NOTES_V5_22_0_BETA.md` created; README and ROADMAP updated; pending Phase 7 commit. Phase 8 (merge, tag, release) requires separate explicit authorization.

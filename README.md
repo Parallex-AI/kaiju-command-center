@@ -20,6 +20,8 @@ V5.22 executes a full dry-run rehearsal of the controlled Google Ads OAuth onboa
 
 **Phase 6 — Final dry-run review and gap analysis** (`docs/V5_22_FINAL_DRY_RUN_REVIEW.md`): documentation-only final review; final dry-run verdict PASS (dry-run only); 12 sections (A–L); phase-by-phase review of Phases 1–5 all PASS; 610 explicit assertions plus smoke suites 35/35 and 8/8 PASS; 16 gaps documented; 16 NOT APPROVED actions stated; real ceremony remains NOT APPROVED; no credentials; no OAuth; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP; no deploy; `GOOGLE_ADS_LIVE_ENABLED` remains false.
 
+**Phase 7 — Branch closure docs and release notes** (`docs/V5_22_BRANCH_CLOSURE.md` · `docs/RELEASE_NOTES_V5_22_0_BETA.md`): branch closure document READY FOR PHASE 8 AUTHORIZATION; release candidate `v5.22.0-beta`; 12 sections (A–L); phase completion matrix Phases 1–6 all PASS; 610 aggregate assertions; 21 security confirmations; 16 remaining gaps (G-01–G-16); 16 NOT APPROVED boundaries; closure decision READY FOR MERGE/TAG/RELEASE AUTHORIZATION ONLY; no merge/tag/push/release performed; no real credentials; no OAuth; no GCP; `GOOGLE_ADS_LIVE_ENABLED` remains false.
+
 *Latest shipped:* **v5.21.0-beta — Controlled Real Google Ads OAuth Onboarding Ceremony complete** — tag `v5.21.0-beta`. See [V5.21 Branch Closure](docs/V5_21_BRANCH_CLOSURE.md) and [v5.21.0-beta Release Notes](docs/RELEASE_NOTES_V5_21_0_BETA.md).
 
 ---
@@ -114,6 +116,8 @@ cd ~/kaiju/projects/demo-client
 - [V5.22 Dry-Run Execution Results](docs/V5_22_DRY_RUN_EXECUTION_RESULTS.md) — local dry-run result PASS; redacted evidence only; does not authorize real OAuth execution, credentials, token exchange, GCP, or live flag activation
 - [V5.22 Stop-Condition and Rollback Rehearsal Results](docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md) — documentation-only rehearsal result PASS; 26 stop conditions walked through; rollback and emergency revoke rehearsed as no-real-state walkthrough; no real rollback/revoke, credentials, OAuth, token exchange, GCP, Secret Manager, Google Ads API, or live flag activation
 - [V5.22 Final Dry-Run Review](docs/V5_22_FINAL_DRY_RUN_REVIEW.md) — final dry-run verdict PASS (dry-run only); 610 explicit assertions; 16 gaps documented; 16 NOT APPROVED actions; real ceremony NOT APPROVED; does not authorize real OAuth, credentials, token exchange, GCP, Secret Manager, Google Ads API, or live flag activation
+- [V5.22 Branch Closure](docs/V5_22_BRANCH_CLOSURE.md) — READY FOR PHASE 8 AUTHORIZATION; 12 sections; phase completion matrix Phases 1–6 PASS; 21 security confirmations; 16 gaps; 16 NOT APPROVED boundaries; closure decision READY FOR MERGE/TAG/RELEASE AUTHORIZATION ONLY
+- [v5.22.0-beta Release Notes](docs/RELEASE_NOTES_V5_22_0_BETA.md)
 
 ## Admin credential configuration (V5.16+)
 
