@@ -2,7 +2,7 @@
 
 **Branch:** `v5.23-controlled-real-oauth-execution-planning`
 **Base:** `v5.22.0-beta` / master merge commit `4217652`
-**Status:** Phase 1 — Branch setup and real OAuth execution planning
+**Status:** Phase 2 — Real ceremony authorization packet template
 **Purpose:** Design the authorization architecture, per-step gating model, and safety envelope required before any first controlled real OAuth execution can be proposed.
 
 ---
@@ -122,7 +122,10 @@ Only Phase 1 is executed now. Phases 2–5 are documentation-only design work th
 **Validation:** Document review. Safety grep clean. Smoke tests pass (no regressions from base).
 
 ### Phase 2 — Real ceremony authorization packet template
-**Status:** Pending.
+**Status:** In progress (this phase).
+
+**Phase 2 Implementation Note:** `docs/GOOGLE_ADS_REAL_OAUTH_AUTHORIZATION_PACKET.md` created. Documentation-only. 11 sections (A–K): packet purpose; packet identity (13 fields, all placeholders; default status `DRAFT`); scope boundary (9 fields + 8 scope rules C-R1–C-R8, prohibiting real values and cross-scope inference); live step authorization table (10 rows A1–A10; default status `NOT_REQUESTED`; 5 status enum values `NOT_REQUESTED | REQUESTED | APPROVED | REJECTED | STOPPED`; explicit rule that `APPROVED` may never be committed); exact authorization phrase templates (10 verbatim phrases E.1–E.10, one per step, plus 7 phrase rules E-R1–E-R7 including "only" and trailing "does not authorize" clauses invariant); approval validity rules (20 rules F-R1–F-R20 including per-step, per-tenant, per-window uniqueness and non-inference from V5.22 PASS); pre-authorization checklist (23 items G-C1–G-C23 including 30-day dry-run refresh); evidence rules (10 allowed categories + 15 forbidden categories + 5-step redaction procedure); stop conditions (29 conditions I-L1–I-L29); relationship to V5.22 (V5.22 PASS ≠ V5.23 approval; requires fresh step-specific authorization); Phase 2 conclusion. All fields placeholder-only. No real approval created. No real credentials. No real values recorded anywhere. No OAuth executed. No auth URL generated. No browser opened. No callback URL. No auth code. No token exchange. No Secret Manager. No Google Ads API. No GCP. No deploy. `GOOGLE_ADS_LIVE_ENABLED` remains false. Phase 3 (secure real credential intake protocol finalization) remains pending.
+
 **Deliverables:** `docs/GOOGLE_ADS_REAL_OAUTH_AUTHORIZATION_PACKET.md`.
 **Purpose:** Formal operator authorization template for the first real OAuth execution. Extends V5.21's `oauth_approval_packet.py` schema with real-ceremony fields (named execution window, named participants, named tenant scope) — all as **placeholder labels** in the committed template, with the note that real values live only in an out-of-repository approval record.
 **Contents:**
