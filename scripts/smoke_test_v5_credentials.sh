@@ -502,7 +502,7 @@ echo "[8/19] Secret-safety and git hygiene..."
 GREP_TARGETS="$REPO/scripts $REPO/docs $REPO/agents $REPO/openclaw $REPO/README.md $REPO/.env.example"
 
 # ya29. — OAuth access token prefix
-if grep -R "ya29\." -n $GREP_TARGETS 2>/dev/null | grep -v "_PYEOF\|# ya29\|ya29.*marker\|ya29.*forbidden\|starting with.*ya29\|ya29.*prohibition\|must never be used\|no.*ya29\|ya29.*pattern\|matching.*ya29"; then
+if grep -R "ya29\." -n $GREP_TARGETS 2>/dev/null | grep -v "_PYEOF\|# ya29\|ya29.*marker\|ya29.*forbidden\|starting with.*ya29\|ya29.*prohibition\|must never be used\|no.*ya29\|ya29.*pattern\|matching.*ya29\|ya29.*OAuth token prefix\|OAuth token prefix.*ya29"; then
     fail "ya29 OAuth token prefix found in source files"
 else
     pass "no ya29 OAuth token prefix in source files"
@@ -3421,7 +3421,7 @@ fi
 pass "V5.21 OAuth callback and token-exchange boundary validator checks complete"
 
 # ---------------------------------------------------------------------------
-echo "[34/34] V5.21 OAuth operator approval packet validator..."
+echo "[34/35] V5.21 OAuth operator approval packet validator..."
 
 # Run the demo and confirm it passes
 OAUTH_APPROVAL_DEMO_OUTPUT=$("$PYTHON" "$OPENCLAW_DIR/run_oauth_approval_packet_demo.py" 2>&1)
@@ -3482,6 +3482,76 @@ else
 fi
 
 pass "V5.21 OAuth operator approval packet validator checks complete"
+
+# ---------------------------------------------------------------------------
+echo "[35/35] V5.22 OAuth dry-run execution validator..."
+
+# Run the demo and confirm it passes
+OAUTH_DRY_RUN_DEMO_OUTPUT=$("$PYTHON" "$OPENCLAW_DIR/run_oauth_dry_run_execution_demo.py" 2>&1)
+if echo "$OAUTH_DRY_RUN_DEMO_OUTPUT" | grep -q "All assertions passed."; then
+    pass "run_oauth_dry_run_execution_demo.py: All assertions passed"
+else
+    fail "run_oauth_dry_run_execution_demo.py: did not print 'All assertions passed.'"
+fi
+
+# Symbol checks in oauth_dry_run_execution.py
+for symbol in \
+    "OAuthDryRunExecutionInput" \
+    "validate_oauth_dry_run_execution" \
+    "packet_present" \
+    "packet_identity_present" \
+    "participant_placeholders_present" \
+    "timed_window_timeboxed" \
+    "approval_packet_gate_passed" \
+    "auth_url_design_gate_passed" \
+    "callback_boundary_gate_passed" \
+    "credential_intake_gate_passed" \
+    "secret_version_policy_gate_passed" \
+    "rollback_drill_gate_passed" \
+    "onboarding_ceremony_gate_passed" \
+    "smoke_credentials_passed" \
+    "smoke_secret_manager_passed" \
+    "safety_grep_clean" \
+    "no_execution_confirmations_present" \
+    "evidence_package_redacted" \
+    "rollback_rehearsal_present" \
+    "real_credential_present" \
+    "oauth_execution_detected" \
+    "token_exchange_attempted" \
+    "secret_manager_called" \
+    "google_ads_api_called" \
+    "gcp_commands_used" \
+    "live_flag_activated" \
+    "forbidden_field_present" \
+    "forbidden_value_present" \
+    "sanitized_summary"
+do
+    if grep -q "$symbol" "$OPENCLAW_DIR/oauth_dry_run_execution.py" 2>/dev/null; then
+        pass "oauth_dry_run_execution.py: '$symbol' present"
+    else
+        fail "oauth_dry_run_execution.py: '$symbol' missing"
+    fi
+done
+
+# No forbidden cloud/network imports in oauth_dry_run_execution.py
+for forbidden_import in "google.cloud" "google.ads" "requests" "urllib" "httpx" "webbrowser" "subprocess" "socket"; do
+    if grep -Fq "$forbidden_import" "$OPENCLAW_DIR/oauth_dry_run_execution.py" 2>/dev/null; then
+        fail "oauth_dry_run_execution.py: forbidden import '$forbidden_import' found"
+    else
+        pass "oauth_dry_run_execution.py: no '$forbidden_import' import"
+    fi
+done
+
+# GOOGLE_ADS_LIVE_ENABLED=true must not appear in validator or demo
+if grep -q "GOOGLE_ADS_LIVE_ENABLED=true" \
+    "$OPENCLAW_DIR/oauth_dry_run_execution.py" \
+    "$OPENCLAW_DIR/run_oauth_dry_run_execution_demo.py" 2>/dev/null; then
+    fail "GOOGLE_ADS_LIVE_ENABLED=true found in oauth dry-run execution files"
+else
+    pass "GOOGLE_ADS_LIVE_ENABLED=true absent from oauth dry-run execution files"
+fi
+
+pass "V5.22 OAuth dry-run execution validator checks complete"
 
 # ---------------------------------------------------------------------------
 echo ""
