@@ -4,29 +4,28 @@ AI agent lab for Kaiju Digital.
 
 ## Current milestone
 
-**V5.22 — Controlled Real OAuth Ceremony Dry Run Execution** (branch: `v5.22-controlled-real-oauth-ceremony-dry-run` · base: `v5.21.0-beta`)
+**V5.23 — Controlled Real OAuth Execution Planning** (branch: `v5.23-controlled-real-oauth-execution-planning` · base: `v5.22.0-beta` / master `4217652`)
 
-V5.22 executes a full dry-run rehearsal of the controlled Google Ads OAuth onboarding ceremony using V5.21 controls, validators, runbooks, and redacted placeholders only. Phase 1 is planning only. No real credentials. No OAuth execution. `GOOGLE_ADS_LIVE_ENABLED=false` throughout. No deploy. No GCP commands. No IAM/API/billing changes.
+V5.23 designs the authorization architecture, per-step approval model, secret and credential handling boundary, stop conditions, and safety-check envelope required before any first controlled real OAuth execution can be proposed. **Phase 1 is planning only. Real OAuth remains NOT APPROVED.** No real credentials. No OAuth execution. No auth URL. No browser. No callback URL. No auth code. No token exchange. No Secret Manager. No Google Ads API. No GCP. No deploy. No IAM/API/billing changes. `GOOGLE_ADS_LIVE_ENABLED=false` throughout.
 
-**Phase 1 — Branch setup and dry-run execution plan** (`docs/V5_22_IMPLEMENTATION_PLAN.md`): V5.22 implementation plan; 8-phase roadmap; dry-run execution scope; baseline controls from V5.21; non-authorization statement; stop conditions; deferred items; does not authorize OAuth, real credentials, Google Ads API, Secret Manager, GCP, deployment, or `GOOGLE_ADS_LIVE_ENABLED=true` activation.
+**Phase 1 — Branch setup and real OAuth execution planning** (`docs/V5_23_IMPLEMENTATION_PLAN.md`): V5.23 implementation plan; 10-phase roadmap; authorization architecture (10 live steps A1–A10 requiring separate explicit approval each); secret and credential handling boundary (10 absolute rules G1–G10); 25 stop conditions (H-01–H-25); safety-check envelope (26 checks I-01–I-26); Phases 2–5 documentation-only pending; Phases 6–8 real execution pending separate explicit authorization at every live step; Phase 9 closure documentation; Phase 10 merge/tag/release pending separate authorization. High-risk milestone; uses Opus/high analysis for planning. Does not authorize OAuth, real credentials, Google Ads API, Secret Manager, GCP, deployment, or `GOOGLE_ADS_LIVE_ENABLED=true` activation.
 
-**Phase 2 — Dry-run execution packet template** (`docs/GOOGLE_ADS_OAUTH_DRY_RUN_EXECUTION_PACKET.md`): documentation-only redacted packet template; 14 sections (A–N); 11-role participant placeholder table; 7 redacted target context fields; 12-field timed execution window with 8 window rules; 15 pre-flight gates; 24-step dry-run sequence checklist; 10-validator evidence field table; 16 no-execution confirmations (all pre-filled `NO`); allowed/forbidden evidence tables; 21 stop conditions; rollback and emergency revoke rehearsal fields; final dry-run decision block; documentation-only; no dry-run executed; no real credentials; no OAuth; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP.
+*Prior milestone (V5.22 — dry-run only) inline notes moved to previous-milestone section below.*
 
-**Phase 3 — Dry-run execution validator** (`openclaw/oauth_dry_run_execution.py` · `openclaw/run_oauth_dry_run_execution_demo.py`): local-only dry-run execution packet validator; `OAuthDryRunExecutionInput` (45 boolean fields); 47 failure codes; validates packet completeness, gate PASS confirmation, no-execution confirmations, evidence package redaction, stop-condition and rollback rehearsal presence, final decision presence; enforces all 15 hard-stop fields are False; detects forbidden field names and value patterns; pure stdlib; no credentials; no OAuth; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP; no deploy; `GOOGLE_ADS_LIVE_ENABLED` remains false; 55 demo scenarios, 112 assertions, all PASS; smoke suite updated to 35/35.
+<details>
+<summary>V5.22 — Controlled Real OAuth Ceremony Dry Run Execution (shipped as v5.22.0-beta)</summary>
 
-**Phase 4 — Local dry-run execution results** (`docs/V5_22_DRY_RUN_EXECUTION_RESULTS.md`): local-only dry-run execution result; PASS; 14 sections (A–N); 610 assertions from explicit-count demos; smoke suites 35/35 and 8/8 PASS; evidence redacted; no real OAuth; no credentials; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP; no deploy; `GOOGLE_ADS_LIVE_ENABLED` remains false.
+V5.22 executed a full dry-run rehearsal of the controlled Google Ads OAuth onboarding ceremony using V5.21 controls, validators, runbooks, and redacted placeholders only. Result PASS (dry-run only). Real ceremony authorization NOT GRANTED. 610 aggregate explicit assertions. 16 gaps documented. 16 NOT APPROVED boundaries. Merged to master `4217652`; tagged `v5.22.0-beta`; GitHub Release published 2026-08-24. See [V5.22 Branch Closure](docs/V5_22_BRANCH_CLOSURE.md) and [v5.22.0-beta Release Notes](docs/RELEASE_NOTES_V5_22_0_BETA.md).
 
-**Phase 5 — Stop-condition and rollback rehearsal results** (`docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md`): documentation-only local rehearsal; result PASS; 10 sections (A–J); 26 stop conditions (H-01–H-26) walked through — all PASS, none triggered; 12-step stop procedure PASS; rollback rehearsal (16 fields R-01–R-16, all confirmed PASS/YES); emergency revoke rehearsal (10 checklist items, all PASS, no-real-state walkthrough); post-stop safety validation PASS; 15 no-real-state confirmations all NO; no real stop triggered; no real rollback/revoke; no real approval; no credentials; no OAuth; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP; no deploy; `GOOGLE_ADS_LIVE_ENABLED` remains false.
+*V5.22 phase-by-phase notes (Phases 1–7) preserved in commit history and in [V5.22 Implementation Plan](docs/V5_22_IMPLEMENTATION_PLAN.md).*
 
-**Phase 6 — Final dry-run review and gap analysis** (`docs/V5_22_FINAL_DRY_RUN_REVIEW.md`): documentation-only final review; final dry-run verdict PASS (dry-run only); 12 sections (A–L); phase-by-phase review of Phases 1–5 all PASS; 610 explicit assertions plus smoke suites 35/35 and 8/8 PASS; 16 gaps documented; 16 NOT APPROVED actions stated; real ceremony remains NOT APPROVED; no credentials; no OAuth; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP; no deploy; `GOOGLE_ADS_LIVE_ENABLED` remains false.
+</details>
 
-**Phase 7 — Branch closure docs and release notes** (`docs/V5_22_BRANCH_CLOSURE.md` · `docs/RELEASE_NOTES_V5_22_0_BETA.md`): branch closure document READY FOR PHASE 8 AUTHORIZATION; release candidate `v5.22.0-beta`; 12 sections (A–L); phase completion matrix Phases 1–6 all PASS; 610 aggregate assertions; 21 security confirmations; 16 remaining gaps (G-01–G-16); 16 NOT APPROVED boundaries; closure decision READY FOR MERGE/TAG/RELEASE AUTHORIZATION ONLY; no merge/tag/push/release performed; no real credentials; no OAuth; no GCP; `GOOGLE_ADS_LIVE_ENABLED` remains false.
-
-*Latest shipped:* **v5.21.0-beta — Controlled Real Google Ads OAuth Onboarding Ceremony complete** — tag `v5.21.0-beta`. See [V5.21 Branch Closure](docs/V5_21_BRANCH_CLOSURE.md) and [v5.21.0-beta Release Notes](docs/RELEASE_NOTES_V5_21_0_BETA.md).
+*Latest shipped:* **v5.22.0-beta — Controlled Real OAuth Ceremony Dry Run Execution complete** — tag `v5.22.0-beta` · merge commit `4217652`. See [V5.22 Branch Closure](docs/V5_22_BRANCH_CLOSURE.md) and [v5.22.0-beta Release Notes](docs/RELEASE_NOTES_V5_22_0_BETA.md).
 
 ---
 
-*Previous milestone:* **V5.21.0-beta — Controlled Real Google Ads OAuth Onboarding Ceremony complete** — tag `v5.21.0-beta`. See [V5.21 Branch Closure](docs/V5_21_BRANCH_CLOSURE.md) and [v5.21.0-beta Release Notes](docs/RELEASE_NOTES_V5_21_0_BETA.md).
+*Previous milestone:* **V5.22.0-beta — Controlled Real OAuth Ceremony Dry Run Execution complete** — tag `v5.22.0-beta` · merge commit `4217652`. See [V5.22 Branch Closure](docs/V5_22_BRANCH_CLOSURE.md) and [v5.22.0-beta Release Notes](docs/RELEASE_NOTES_V5_22_0_BETA.md).
 
 ## Architecture
 
@@ -118,6 +117,7 @@ cd ~/kaiju/projects/demo-client
 - [V5.22 Final Dry-Run Review](docs/V5_22_FINAL_DRY_RUN_REVIEW.md) — final dry-run verdict PASS (dry-run only); 610 explicit assertions; 16 gaps documented; 16 NOT APPROVED actions; real ceremony NOT APPROVED; does not authorize real OAuth, credentials, token exchange, GCP, Secret Manager, Google Ads API, or live flag activation
 - [V5.22 Branch Closure](docs/V5_22_BRANCH_CLOSURE.md) — READY FOR PHASE 8 AUTHORIZATION; 12 sections; phase completion matrix Phases 1–6 PASS; 21 security confirmations; 16 gaps; 16 NOT APPROVED boundaries; closure decision READY FOR MERGE/TAG/RELEASE AUTHORIZATION ONLY
 - [v5.22.0-beta Release Notes](docs/RELEASE_NOTES_V5_22_0_BETA.md)
+- [V5.23 Implementation Plan](docs/V5_23_IMPLEMENTATION_PLAN.md) — planning only; 10-phase roadmap; authorization architecture (10 live steps A1–A10); secret and credential handling boundary (10 rules G1–G10); 25 stop conditions (H-01–H-25); safety-check envelope (26 checks I-01–I-26); does not authorize OAuth, real credentials, Google Ads API, Secret Manager, GCP, deployment, or live flag activation
 
 ## Admin credential configuration (V5.16+)
 
@@ -166,4 +166,5 @@ A valid token with insufficient scope returns `403 scope_not_granted`. A missing
 | V5.19 | Real credential readiness gates · live-mode gate · approval workflow · preflight · guardrails · audit | **Beta complete** — `v5.19.0-beta` |
 | V5.20 | Controlled real Google Ads onboarding readiness · ceremony · checklist · intake boundary · first-call plan · rollback drill · version lifecycle policy · final readiness review | **Beta complete** — `v5.20.0-beta` |
 | V5.21 | Controlled real Google Ads OAuth onboarding ceremony · authorization URL design · callback boundary · credential handoff protocol · approval packet · dry-run runbook | **Beta complete** — `v5.21.0-beta` |
-| V5.22 | Controlled real OAuth ceremony dry run execution · dry-run packet · execution validator · stop/rollback rehearsal · final dry-run review | **In progress** — `v5.22-controlled-real-oauth-ceremony-dry-run` |
+| V5.22 | Controlled real OAuth ceremony dry run execution · dry-run packet · execution validator · stop/rollback rehearsal · final dry-run review | **Beta complete** — `v5.22.0-beta` |
+| V5.23 | Controlled real OAuth execution planning · authorization architecture · per-step approval model · secret/credential boundary · stop conditions · safety envelope | **In progress** — `v5.23-controlled-real-oauth-execution-planning` |

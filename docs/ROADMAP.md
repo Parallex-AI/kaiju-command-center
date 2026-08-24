@@ -709,7 +709,67 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - [x] **Phase 5 — Stop-condition and rollback rehearsal results** — `docs/V5_22_STOP_AND_ROLLBACK_REHEARSAL_RESULTS.md`; result PASS; 10 sections (A–J); 26 stop conditions (H-01–H-26) walked through — all PASS, none triggered; 12-step stop procedure PASS; rollback rehearsal (16 fields R-01–R-16, all confirmed PASS/YES); emergency revoke rehearsal (10 checklist items, all PASS, no-real-state walkthrough); post-stop safety validation PASS (safety grep CLEAN, smoke 35/35 and 8/8 PASS, dry-run execution 112 PASS, rollback drill 67 PASS, secret version policy 71 PASS); 15 no-real-state confirmations all NO; rehearsal decision PASS; no real stop triggered; no real rollback/revoke; no credentials; no OAuth; no GCP
 - [x] **Phase 6 — Final dry-run review and gap analysis** — `docs/V5_22_FINAL_DRY_RUN_REVIEW.md`; final dry-run verdict PASS (dry-run only); 12 sections (A–L); phase-by-phase review Phases 1–5 all PASS all NOT PERFORMED; 10-artifact inventory; validation evidence 610 explicit assertions (112+110+98+82+71+70+67) plus onboarding ceremony PASS and smoke suites 35/35 and 8/8 PASS; 14 completeness elements all PASS; 17 no-execution confirmations all NO; 14 sensitive categories absent; 16 gaps documented (G-01–G-16); 13 required conditions before real ceremony; 16 NOT APPROVED actions stated; final decision PASS dry-run only; real ceremony authorization NOT GRANTED; no credentials; no OAuth; no GCP
 - [x] **Phase 7 — Branch closure docs and release notes** — `docs/V5_22_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_22_0_BETA.md`; ROADMAP/README updates; branch closure 12 sections (A–L); closure status READY FOR PHASE 8 AUTHORIZATION; release candidate `v5.22.0-beta`; 610 aggregate assertions; 16 gaps (G-01–G-16); 16 NOT APPROVED boundaries; real ceremony NOT GRANTED; safety grep CLEAN; smoke 35/35 and 8/8 PASS; no merge/tag/push/release; no real credentials; no OAuth; no GCP; `GOOGLE_ADS_LIVE_ENABLED` remains false; Phase 8 requires explicit authorization
-- [ ] **Phase 8 — Merge, tag, release** — merge to master; `v5.22.0-beta` tag; GitHub Release (requires explicit authorization)
+- [x] **Phase 8 — Merge, tag, release** — merged to master `4217652`; tag `v5.22.0-beta`; GitHub Release published 2026-08-24 (https://github.com/Parallex-AI/kaiju-command-center/releases/tag/v5.22.0-beta)
+
+**V5.22 complete.** Tag: `v5.22.0-beta` · merge commit `4217652`.
+
+---
+
+## V5.23 — Controlled Real OAuth Execution Planning (branch: `v5.23-controlled-real-oauth-execution-planning`)
+
+**Goal:** Design the authorization architecture, per-step approval model, secret and credential handling boundary, stop conditions, and safety-check envelope required before any first controlled real OAuth execution can be proposed. Phase 1 is planning only. Real OAuth execution is not authorized by any part of V5.23 Phase 1 and remains pending separate explicit authorization at every live step.
+
+**Base release:** `v5.22.0-beta` / master merge commit `4217652`
+
+**Implementation plan:** `docs/V5_23_IMPLEMENTATION_PLAN.md`
+
+### Phase breakdown
+
+- [x] **Phase 1 — Branch setup and real OAuth execution planning** — `docs/V5_23_IMPLEMENTATION_PLAN.md`; README/ROADMAP updates; 10-phase roadmap; authorization architecture (10 live steps A1–A10, each requiring separate explicit approval); secret and credential handling boundary (10 rules G1–G10); 25 stop conditions (H-01–H-25); safety-check envelope (26 checks I-01–I-26); Phases 2–5 documentation-only pending; Phases 6–8 real execution pending; Phase 9 closure documentation pending; Phase 10 merge/tag/release pending; high-risk milestone; Opus/high analysis; no real credentials; no OAuth; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP; no deploy; `GOOGLE_ADS_LIVE_ENABLED` remains false
+- [ ] **Phase 2 — Real ceremony authorization packet template** — `docs/GOOGLE_ADS_REAL_OAUTH_AUTHORIZATION_PACKET.md`; formal operator authorization template (placeholders only); per-step approval sub-fields (A1–A10); pre-flight gate checklist; rehearsal-first requirement (dry-run PASS within last 30 days); explicit non-authorization statement; no real approval created
+- [ ] **Phase 3 — Secure real credential intake protocol finalization** — `docs/GOOGLE_ADS_REAL_CREDENTIAL_INTAKE_PROTOCOL.md`; extends V5.21 credential handoff protocol; approved secure channels; forbidden channels; credential class matrix (placeholders only); real handoff sequence with per-step gates; evidence redaction rules; rotation and revocation integration; stop conditions; no credentials requested
+- [ ] **Phase 4 — OAuth execution runbook final go/no-go checklist** — `docs/GOOGLE_ADS_REAL_OAUTH_EXECUTION_RUNBOOK.md`; time-boxed operator steps; per-step stop conditions; rollback owner assignments; post-execution verification; final go/no-go checklist; extends V5.22 24-step dry-run sequence into 30+ real-execution steps; explicit non-authorization statement; no OAuth executed
+- [ ] **Phase 5 — Pre-execution final authorization review** — `docs/V5_23_PRE_EXECUTION_AUTHORIZATION_REVIEW.md`; phase-by-phase review of Phases 1–4; gap analysis; validator inventory PASS; aggregate assertion count; smoke suite result; safety grep result; NOT APPROVED statements; READY-TO-PROPOSE-OR-NOT verdict (READY-TO-PROPOSE ≠ authorized to execute); no execution decision
+- [ ] **Phase 6 — Optional real OAuth execution ceremony** — PENDING SEPARATE EXPLICIT AUTHORIZATION; may not be executed by default; requires Phase 5 READY verdict + real approval packet + countersigned + dry-run PASS within 30 days + explicit authorization message naming every action; does not automatically include token exchange, Secret Manager write, Google Ads API call, or live flag activation
+- [ ] **Phase 7 — Optional token exchange and Secret Manager write** — PENDING SEPARATE EXPLICIT AUTHORIZATION; must be separately approved after Phase 6; auth-code receipt does not authorize token exchange; requires explicit authorization naming token exchange, Secret Manager write, and target secret path
+- [ ] **Phase 8 — Optional first Google Ads read-only API validation** — PENDING SEPARATE EXPLICIT AUTHORIZATION; must keep `GOOGLE_ADS_LIVE_ENABLED=false` unless explicitly authorized otherwise; API call must be read-only; separate approvals required for live flag activation and first API call
+- [ ] **Phase 9 — Branch closure docs and release notes** — `docs/V5_23_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_23_0_BETA.md`; ROADMAP/README updates
+- [ ] **Phase 10 — Merge, tag, release** — merge to master; `v5.23.0-beta` tag; GitHub Release (requires separate explicit authorization; orthogonal to Phase 6/7/8 authorization)
+
+### V5.23 scope constraints
+
+- No real Google Ads credentials
+- `GOOGLE_ADS_LIVE_ENABLED=false` throughout Phase 1
+- No real OAuth consent flow execution
+- No real OAuth browser interaction
+- No real authorization URL generation
+- No real callback URL receipt
+- No real auth code received
+- No token exchange
+- No Google Ads API calls
+- No GCP commands
+- No Secret Manager calls
+- No IAM changes
+- No API enablement
+- No billing changes
+- No production deployment
+- No cloud resource creation
+
+**V5.23 Phase 1 does not authorize real OAuth execution, real credential handoff, or Google Ads API usage. Real execution requires a separate explicit operator authorization at each live step (A1–A10).**
+
+**Explicitly deferred from V5.23 Phase 1 until separate authorization at each step:**
+- Real OAuth browser execution and Google OAuth consent
+- Real refresh token or access token acquisition
+- Real auth code receipt and handling
+- Real developer token usage
+- Real customer ID or login customer ID verification
+- Real Secret Manager write with OAuth output
+- Real Google Ads API call
+- `GOOGLE_ADS_LIVE_ENABLED=true` runtime activation
+- Production Cloud Run deployment
+- IAM or billing changes
+- Real rollback or revocation of real credentials
+- Release publication for V5.23
 
 ### V5.22 scope constraints
 
