@@ -2,7 +2,7 @@
 
 **Branch:** `v5.23-controlled-real-oauth-execution-planning`
 **Base:** `v5.22.0-beta` / master merge commit `4217652`
-**Status:** Phase 2 — Real ceremony authorization packet template
+**Status:** Phase 3 — Secure real credential intake protocol finalization
 **Purpose:** Design the authorization architecture, per-step gating model, and safety envelope required before any first controlled real OAuth execution can be proposed.
 
 ---
@@ -141,7 +141,10 @@ Only Phase 1 is executed now. Phases 2–5 are documentation-only design work th
 **Validation:** Document review. Safety grep clean.
 
 ### Phase 3 — Secure real credential intake protocol finalization
-**Status:** Pending.
+**Status:** In progress (this phase).
+
+**Phase 3 Implementation Note:** `docs/GOOGLE_ADS_REAL_CREDENTIAL_INTAKE_PROTOCOL.md` created. Documentation-only. 15 sections (A–O): protocol purpose; non-authorization statement (17 items); credential class matrix (16 credential classes × 10 handling attributes each — every class marked `Stop if exposed = YES`, all approved-channel-required, all forbidden in chat/git/docs/logs); approved channels (4 classes D.1–D.4 with 7 attributes each — password manager secure item; encrypted file transfer with out-of-band passphrase; operator-local terminal entry without echo; cloud secret write after A7 only; plus D.5 explicit not-approved list); forbidden channels (17 items E-F1–E-F17); intake roles and responsibilities (9 role placeholders with 5 attributes each — operator, reviewer, credential owner, secure channel owner, secret writer, stop authority, rollback owner, emergency revoke owner, evidence owner; no self-authorization; stop authority supreme); intake sequence (18 steps G1–G18 extending V5.21 handoff E1–E12 and V5.23 A1–A10; 6 non-implication rules; time-slot rules); Secret Manager handoff boundary (before-A7 hard prohibitions; after-A7 reportable-only fields; violation → stop condition); rotation and revocation boundary (references V5.15/V5.16/V5.20/V5.23 A10; emergency policy exception with mandatory redaction); redaction and evidence rules (13 allowed categories + 16 forbidden categories + 5-step pre-commit redaction procedure); stop conditions (35 conditions K-01–K-35); pre-intake checklist (31 items L-01–L-31); incident protocol (13 steps M1–M13 with post-incident new-ceremony rule); relationship to previous controls (V5.21 handoff, V5.22 dry-run PASS, V5.23 Phase 1/2, V5.19/V5.20/V5.15/V5.16/V5.12 layered controls); Phase 3 conclusion. All fields placeholder-only. No real credentials requested or received. No real approval created. No real values recorded anywhere. No OAuth executed. No auth URL generated. No browser opened. No callback URL. No auth code. No token exchange. No Secret Manager. No Google Ads API. No GCP. No deploy. `GOOGLE_ADS_LIVE_ENABLED` remains false. Phase 4 (OAuth execution runbook final go/no-go checklist) remains pending.
+
 **Deliverables:** `docs/GOOGLE_ADS_REAL_CREDENTIAL_INTAKE_PROTOCOL.md`.
 **Purpose:** Convert V5.21's `GOOGLE_ADS_CREDENTIAL_HANDOFF_PROTOCOL.md` into a real-credential-ready operating protocol. Defines exact secure-channel rules, forbidden channels, participant confirmation, and evidence-redaction rules — all reused from V5.21 with real-ceremony hardening.
 **Contents:**
