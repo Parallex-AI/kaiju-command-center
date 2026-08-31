@@ -733,8 +733,10 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - [ ] **Phase 6 — Optional real OAuth execution ceremony** — PENDING SEPARATE EXPLICIT AUTHORIZATION; may not be executed by default; requires Phase 5 READY verdict + real approval packet + countersigned + dry-run PASS within 30 days + explicit authorization message naming every action; does not automatically include token exchange, Secret Manager write, Google Ads API call, or live flag activation
 - [ ] **Phase 7 — Optional token exchange and Secret Manager write** — PENDING SEPARATE EXPLICIT AUTHORIZATION; must be separately approved after Phase 6; auth-code receipt does not authorize token exchange; requires explicit authorization naming token exchange, Secret Manager write, and target secret path
 - [ ] **Phase 8 — Optional first Google Ads read-only API validation** — PENDING SEPARATE EXPLICIT AUTHORIZATION; must keep `GOOGLE_ADS_LIVE_ENABLED=false` unless explicitly authorized otherwise; API call must be read-only; separate approvals required for live flag activation and first API call
-- [x] **Phase 9 — Branch closure docs and release notes** — `docs/V5_23_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_23_0_BETA.md`; ROADMAP/README updates; branch closure 13 sections (A–M); closure status READY FOR PHASE 10 AUTHORIZATION; release candidate `v5.23.0-beta`; release notes 10 sections (A–J); phase completion matrix Phases 1–5 all PASS with commits `d08a232`, `b7324c4`, `6128f98`, `94a0e81`, `49d3888`; Phases 6–8 NOT EXECUTED (all pending separate explicit authorization at every live step A1–A10); 610 aggregate assertions + smoke 35/35 and 8/8 PASS + safety grep CLEAN; readiness verdict `READY_TO_PROPOSE` remains not authorization; 24 security confirmations; 14 NOT APPROVED boundaries; 17 remaining gaps H-01–H-17; closure decision READY FOR MERGE/TAG/RELEASE AUTHORIZATION ONLY; no merge/tag/push/release; no real credentials; no real approval; no OAuth; no auth URL; no browser; no callback URL; no auth code; no token exchange; no Secret Manager; no Google Ads API; no GCP; no deploy; `GOOGLE_ADS_LIVE_ENABLED` remains false; Phase 10 requires explicit user authorization
-- [ ] **Phase 10 — Merge, tag, release** — merge to master; `v5.23.0-beta` tag; GitHub Release (requires separate explicit authorization; orthogonal to Phase 6/7/8 authorization)
+- [x] **Phase 9 — Branch closure docs and release notes** — `docs/V5_23_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_23_0_BETA.md`; ROADMAP/README updates; branch closure 13 sections (A–M); closure status READY FOR PHASE 10 AUTHORIZATION; 610 aggregate assertions; 24 security confirmations; 14 NOT APPROVED boundaries; 17 remaining gaps H-01–H-17; closure decision READY FOR MERGE/TAG/RELEASE AUTHORIZATION ONLY
+- [x] **Phase 10 — Merge, tag, release** — merged to master `3963f9d`; tag `v5.23.0-beta`; GitHub Release published 2026-08-24
+
+**V5.23 complete.** Tag: `v5.23.0-beta` · merge commit `3963f9d`.
 
 ### V5.23 scope constraints
 
@@ -771,7 +773,46 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - Real rollback or revocation of real credentials
 - Release publication for V5.23
 
-### V5.22 scope constraints
+### V5.23 scope constraints (met)
+
+- No real Google Ads credentials
+- `GOOGLE_ADS_LIVE_ENABLED=false` throughout
+- No real OAuth, auth URL, browser, callback, auth code, token exchange
+- No Google Ads API calls, GCP commands, Secret Manager calls
+- No IAM changes, API enablement, billing changes, deployment, cloud resources
+
+---
+
+## V5.24 — Documentation and Planning Hardening (branch: `v5.24-documentation-planning-hardening`)
+
+**Goal:** Harden the planning and control documentation produced in V5.18–V5.23 by addressing three identified gaps: (1) authorization phrase validation protocol — how Claude Code evaluates valid vs. invalid authorization attempts; (2) gap closure evidence requirements — what specific evidence closes each of the 17 V5.23 gaps; (3) ceremony window integrity protocol — standalone window planning and staleness management. Documentation-only. No real execution.
+
+**Base release:** `v5.23.0-beta` / master merge commit `3963f9d`
+
+**Implementation plan:** `docs/V5_24_IMPLEMENTATION_PLAN.md`
+
+### Phase breakdown
+
+- [x] **Phase 1 — Implementation plan** — `docs/V5_24_IMPLEMENTATION_PLAN.md`; 7-phase hardening plan; hardening targets; scope boundary; credential boundary (H-01–H-10); safety envelope (I-01–I-10); deferred items; Phase 7 authorization requirements
+- [x] **Phase 2 — Authorization phrase validation protocol** — `docs/GOOGLE_ADS_AUTHORIZATION_PHRASE_VALIDATION_PROTOCOL.md`; phrase anatomy (8 elements B-01–B-08); 15 validity criteria (C-01–C-15); 30 rejection patterns (D-01–D-30; phrase/scope/channel/timing defects); 6 response scenarios; channel validation (5 evidence items F-E1–F-E5); version/step binding (G.1–G.3); ambiguity resolution; escalation protocol; J-08 phrase non-logging rule; 10 stop conditions (K-01–K-10)
+- [x] **Phase 3 — Gap closure evidence requirements** — `docs/GOOGLE_ADS_GAP_CLOSURE_EVIDENCE_REQUIREMENTS.md`; 6 evidence types; 3 sensitivity tiers; per-gap evidence specifications for H-01–H-17; sufficiency matrix; partial closure states (OPEN/PARTIALLY_ADDRESSED/ADDRESSED); evidence expiry; assertion vs. verification distinction; 4 gap clusters; minimum gap set for A1 proposal (9 gaps + 4 pre-proposal requirements); 7 stop conditions
+- [x] **Phase 4 — Ceremony window integrity protocol** — `docs/GOOGLE_ADS_CEREMONY_WINDOW_INTEGRITY_PROTOCOL.md`; 10 window planning prerequisites (B-01–B-10); dry-run currency (30-day hard / 21-day warning + refresh); smoke suite and safety grep currency; window sizing guide (E-R1–E-R8 + per-step budgets); overlap detection (4 checks H-C1–H-C4); abort procedure (9 steps I-A1–I-A9); restart rules (5 rules I-R1–I-R5; no carry-forward); extension prohibition + emergency extension policy; window integrity verification (8+5+5 checks); 10 stop conditions (L-01–L-10)
+- [x] **Phase 5 — Hardening cross-reference review** — `docs/V5_24_HARDENING_REVIEW.md`; verdict `HARDENED`; zero contradictions with V5.18–V5.23; 22/22 V5.23 controls PASS (4 strengthened); 610 baseline demo assertions + 211 V5.24 clauses = 821 combined; 18 sensitive categories absent; all 17 gaps OPEN; V5.23 `READY_TO_PROPOSE` unchanged
+- [x] **Phase 6 — Branch closure and release notes** — `docs/V5_24_BRANCH_CLOSURE.md`; `docs/RELEASE_NOTES_V5_24_0_BETA.md`; ROADMAP/README updates; 25 security confirmations; 14 NOT APPROVED boundaries; closure status READY FOR PHASE 7 AUTHORIZATION
+- [ ] **Phase 7 — Merge, tag, release** — merge to master; `v5.24.0-beta` tag; GitHub Release (requires separate explicit authorization)
+
+### V5.24 scope constraints
+
+- No real Google Ads credentials
+- `GOOGLE_ADS_LIVE_ENABLED=false` throughout
+- No real OAuth, auth URL, browser, callback, auth code, token exchange
+- No Google Ads API calls, GCP commands, Secret Manager calls
+- No IAM changes, API enablement, billing changes, deployment, cloud resources
+- A1–A10 from V5.23 not executed
+
+**V5.24 does not authorize real OAuth execution or any live step. All 17 V5.23 gaps remain open.**
+
+### V5.22 scope constraints (met)
 
 - No real Google Ads credentials
 - `GOOGLE_ADS_LIVE_ENABLED=false` throughout
@@ -779,25 +820,5 @@ Production deployment, real Google Ads credentials, live API validation, per-ten
 - No real OAuth browser interaction
 - No real auth code received
 - No token exchange
-- No Google Ads API calls
-- No GCP commands
-- No Secret Manager calls
-- No IAM changes
-- No API enablement
-- No billing changes
-- No production deployment
-- No cloud resource creation
-
-**V5.22 does not authorize real OAuth execution or Google Ads API usage. All ceremony steps use redacted placeholder labels only.**
-
-**Explicitly deferred from V5.22 until separate authorization:**
-- Real OAuth browser execution and Google OAuth consent
-- Real refresh token or access token acquisition
-- Real auth code receipt and handling
-- Real developer token usage
-- Real customer ID or login customer ID verification
-- Real Secret Manager write with OAuth output
-- Real Google Ads API call
-- `GOOGLE_ADS_LIVE_ENABLED=true` runtime activation
-- Production Cloud Run deployment
-- IAM or billing changes
+- No Google Ads API calls, GCP commands, Secret Manager calls
+- No IAM changes, API enablement, billing changes, deployment, cloud resources
